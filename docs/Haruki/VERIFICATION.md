@@ -51,6 +51,12 @@ Correct speed, correct pitch at Tune 0, no level or length change. Nulling is no
 claimed: REAPER's item playback and the plug-in's load-time conversion are two
 independent resampling passes.
 
+*Addendum 2026-09-06.* This case does not reproduce to the digit. Re-run against
+v2.1 it gave dut 0.438894 (ratio 0.99957, correlation 0.999999), and against the
+**unchanged v2.0** dut 0.434454 (ratio 0.98946, correlation 0.999833) — so the
+spread is run to run on identical code, not a change in the plug-in. Two
+independent resampling passes, as above; the correlation is the stable figure.
+
 ## 3. Control laws and envelopes
 
 ```
@@ -187,3 +193,55 @@ the numbers are not misread: the 48 kHz test file turned out to be a 4.67 s loop
 whose tail bled into the two following cases (fixed by moving it last), and
 `seq_check.py` called `main()` at import time, so importing a constant from it
 aborted the patch step before any render happened.
+
+---
+
+## 9. Individual outputs 3-12 (version 2.1, 2026-09-06)
+
+Outputs 1-2 keep carrying the ten-channel mix; 3-12 carry the ten channels one by
+one, mono, before the pan control. Harness: `out_build.lua`, `out_check.py`,
+`runout.sh` — one project, three renders at 12 channels: v2.1 alone, v2.0 alone,
+and a single processed channel.
+
+The expected render is rebuilt from the source PCM at the positions the
+scheduler's own formula predicts. Every gain in the test is 1, ½ or 0 — a power of
+two or an exact zero — so the reconstruction carries no rounding of its own, and
+each channel fires alone on its own output, so the sum has no ordering freedom
+either. Both make an exact match the right thing to demand.
+
+```
+individual outputs                          max|render - reconstruction|
+  out 3 .. out 10   the eight audible ones   0.000e+00   EXACT
+  out 11            channel 9 at -60 dB      0.000e+00   silent
+  out 12            channel 10 muted         0.000e+00   silent
+channels 2 and 3 panned hard left / right    individual output unchanged   ok
+mix on 1-2, rebuilt from the same events     0.000e+00   EXACT
+mix on 1-2 vs v2.0, same material            0.000e+00   BIT-IDENTICAL
+one channel alone, gain -6, tune +5, attack 30, decay 60, cutoff 55, res 70:
+  individual output == mix L                 0.000e+00   EXACT
+```
+
+That last line is how the individual output is shown to be post-gain,
+post-envelope, post-filter and post-tune without modelling the ladder: for a mono
+sample at pan centre the mono fold `(L+R)·amp/2` and the mix's left channel
+`L·amp` are the same number, whatever ran before them.
+
+**Arming.** Neither "exact" nor "identical" is claimed without showing the checks
+can fail. Two planted positives, each rendered and checked in full:
+
+| planted defect | what fell | what stayed green |
+|---|---|---|
+| individual output taken *post*-pan (`V_GL` for `V_GM`) | all ten channel checks; the hard-right channel's output went silent | the mix and the v2.0 regression — so those are not passing by accident |
+| `spl0` scaled by 1.000001 and outputs 3/4 swapped | mix reconstruction and v2.0 regression, both at 9.5e-07; outputs 3 and 4 | output 5 onward — so a check localises its defect |
+
+**A finding, not a defect.** v2.0 declares two pins, so nothing writes track
+channels 3-12 and REAPER's own denormal guard is what survives there: a constant
+5e-17 .. 1.5e-16, about -320 dBFS, on every sample of every unused channel. v2.1
+writes those channels every frame and so replaces the guard with exact zero. The
+same fact states the contract: Haruki owns outputs 3-12 and overwrites whatever is
+upstream, so it belongs first in the FX chain.
+
+**Regression.** Sections 1 and 3-6 re-run unchanged against v2.1 — transparency
+still SAMPLE-IDENTICAL on all three cases, control laws, envelopes and ladder ok,
+sequencer and MIDI reconstructions still 0.000e+00. Section 2 is the exception and
+is answered in its own addendum.

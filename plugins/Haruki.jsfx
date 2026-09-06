@@ -1,12 +1,15 @@
 desc:Haruki - ten-lane drum instrument
 tags: instrument sampler drums sequencer
 author: Michele Ibba
-version: 2.0
+version: 2.1
 about:
   SPDX-License-Identifier: GPL-2.0-or-later
   Haruki is a ten-channel sample player with a host-synchronised step sequencer.
   Drag a WAV onto a channel to load it. Each step carries velocity, probability,
   substeps and microtiming.
+
+  Outputs 1-2 always carry the mix of all ten channels. Outputs 3-12 carry the
+  ten channels one by one, in order, mono and ahead of the pan control.
 
   LICENSE: GPL v2 or later.
   This plug-in embeds the ladder filter from REAPER's stock JSFX "Moog 4-Pole
@@ -21,6 +24,16 @@ about:
 in_pin:none
 out_pin:Left
 out_pin:Right
+out_pin:Ch1 Out
+out_pin:Ch2 Out
+out_pin:Ch3 Out
+out_pin:Ch4 Out
+out_pin:Ch5 Out
+out_pin:Ch6 Out
+out_pin:Ch7 Out
+out_pin:Ch8 Out
+out_pin:Ch9 Out
+out_pin:Ch10 Out
 
 options:maxmem=17000000 no_meter gfx_hz=30
 
@@ -150,7 +163,7 @@ ext_noinit = 1;              /* keep loaded samples across transport starts   */
 NSLOT       = 10;
 NSTEP       = 64;
 NVOICE      = 64;
-VSTR        = 40;            /* voice record stride                           */
+VSTR        = 41;            /* voice record stride                           */
 SLOT_VOICES = 4;
 EVMAX       = 256;
 EVSTR       = 4;
@@ -166,6 +179,7 @@ V_FLT=19; V_FP=20;  V_FK=21;  V_FR=22;
 V_L1=23; V_L2=24; V_L3=25; V_L4=26; V_LX=27; V_LO1=28; V_LO2=29; V_LO3=30;
 V_R1=31; V_R2=32; V_R3=33; V_R4=34; V_RX=35; V_RO1=36; V_RO2=37; V_RO3=38;
 V_DRAIN=39;                  /* samples spent flushing the filter tail        */
+V_GM=40;                     /* gain before pan, for the individual output     */
 
 /* channel states */
 ST_EMPTY=0; ST_LOADING=1; ST_OK=2; ST_TRUNC=3; ST_ERRFILE=4; ST_ERRFMT=5;
@@ -186,6 +200,7 @@ PAT_MIC = alloc(NSLOT*NSTEP);    /* microtiming, -0.5..+0.5 of one step       */
 VOICE   = alloc(NVOICE*VSTR);
 VLIST   = alloc(NVOICE);
 EVQ     = alloc(EVMAX*EVSTR);
+LACC    = alloc(NSLOT);      /* one @sample frame per channel, for outs 3-12  */
 
 SL_NOTE=alloc(NSLOT);  SL_REV=alloc(NSLOT);  SL_SOLO=alloc(NSLOT); SL_CHK=alloc(NSLOT);
 SL_DAT=alloc(NSLOT);   SL_FRM=alloc(NSLOT);  SL_NCH=alloc(NSLOT);  SL_SR=alloc(NSLOT);
@@ -205,6 +220,7 @@ loop(NSLOT,
   SL_FRM[i]   = 0;  SL_NCH[i] = 1;  SL_SR[i] = 0;
   SL_REV[i]   = 0;  SL_SOLO[i] = 0; SL_CHK[i] = 0;
   SL_FLASH[i] = 0;
+  LACC[i]     = 0;
   i += 1;
 );
 i = 0;
@@ -310,6 +326,7 @@ function trig(sl, amp) local(vp, v, i, n, oldest, oldv, sb, pv, s0, tsec, ff, fk
       pv         = slider(sb+1)*0.01;
       vp[V_GL]   = amp*(pv <= 0 ? 1 : 1-pv);
       vp[V_GR]   = amp*(pv >= 0 ? 1 : 1+pv);
+      vp[V_GM]   = amp*0.5;   /* individual out: no pan, 0.5 folds L+R to mono */
 
       /* attack: linear ramp, 0 = none (keeps the sample's own transient) */
       pv = slider(sb+4);
@@ -852,6 +869,7 @@ while (qvi < nact) (
     qsr = qnch > 1 ? qb[1] : qsl;
     qaccl += qsl*qvp[V_GL];
     qaccr += qsr*qvp[V_GR];
+    LACC[qvp[V_SLOT]] += (qsl+qsr)*qvp[V_GM];
     qpos += qvp[V_INC];
     qvp[V_POS] = qpos;
     qvp[V_INC] > 0 ? ( qpos > qvp[V_HI] ? ( qdone = 1; ); )
@@ -963,6 +981,7 @@ while (qvi < nact) (
 
     qaccl += qsl*qvp[V_GL]*qenv;
     qaccr += qsr*qvp[V_GR]*qenv;
+    LACC[qvp[V_SLOT]] += (qsl+qsr)*qvp[V_GM]*qenv;
     qpos += qvp[V_INC];
     qvp[V_POS] = qpos;
 
@@ -982,6 +1001,19 @@ while (qvi < nact) (
 
 spl0 = qaccl;
 spl1 = qaccr;
+
+/* Outputs 3-12, one channel each in order. Read and clear in the same pass, so
+   the accumulator is back at zero for the next frame; @init leaves it zeroed. */
+spl2 = LACC[0]; LACC[0] = 0;
+spl3 = LACC[1]; LACC[1] = 0;
+spl4 = LACC[2]; LACC[2] = 0;
+spl5 = LACC[3]; LACC[3] = 0;
+spl6 = LACC[4]; LACC[4] = 0;
+spl7 = LACC[5]; LACC[5] = 0;
+spl8 = LACC[6]; LACC[6] = 0;
+spl9 = LACC[7]; LACC[7] = 0;
+spl10 = LACC[8]; LACC[8] = 0;
+spl11 = LACC[9]; LACC[9] = 0;
 
 /* ============================================================= @serialize */
 

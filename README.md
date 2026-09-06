@@ -41,8 +41,9 @@ These plug-ins need no notarisation, do not phone home and do not expire.
 Ten sample channels with a host-synchronised step sequencer. Each step supports velocity,
 probability, substeps and microtiming, with up to 64 steps across pages. Drag a WAV onto a
 channel from the Media Explorer, a track or Finder. Drop several files at once to load a
-whole kit. Haruki includes no samples and creates no sample folder. At neutral settings,
-it reproduces the source PCM bit-exactly.
+whole kit. Outputs 1-2 always carry the mix of all ten channels; outputs 3-12 carry the ten
+channels one by one, so each can be processed on its own track. Haruki includes no samples
+and creates no sample folder. At neutral settings, it reproduces the source PCM bit-exactly.
 
 ### Satya — wavetable synth
 

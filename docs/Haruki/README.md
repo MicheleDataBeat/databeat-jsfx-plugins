@@ -18,10 +18,28 @@ Copy `Haruki.jsfx` into REAPER's effects folder:
 
 Then **FX → add → JS → Haruki**, on a track that receives MIDI.
 
-On this machine the installed effect is a symlink to this folder, so editing
-`Haruki.jsfx` here updates the installed plug-in.
-
 No sample folder is needed and none is created. Haruki ships with no samples.
+
+---
+
+## Outputs
+
+Twelve outputs. **1-2 always carry the mix of all ten channels.** **3-12 carry the
+ten channels one by one, in order** — channel 1 on output 3, channel 10 on output
+12 — each mono, after gain, mute, solo, attack, decay and the filter, and *before*
+the pan control. Panning a channel moves it in the mix and leaves its individual
+output where it was. A stereo sample is folded as `(L+R)/2`, so a mono sample
+leaves its individual output at exactly the level it has in the mix at pan centre.
+
+Nothing has to be enabled, and an output nobody routes costs nothing. To use them:
+
+1. **Route** button on the track → **Track channels: 12**.
+2. Give each channel somewhere to go: a child track whose **receive** takes
+   *Audio 3 → 1/2* for channel 1, *Audio 4 → 1/2* for channel 2, and so on, or a
+   mono send per channel.
+
+Haruki writes outputs 3-12 on every sample, so it replaces whatever else is on
+those track channels instead of mixing into them. Put it first in the FX chain.
 
 ---
 
