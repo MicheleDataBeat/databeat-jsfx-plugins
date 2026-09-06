@@ -1,0 +1,1314 @@
+desc:Haruki - ten-lane drum instrument
+tags: instrument sampler drums sequencer
+author: Michele Ibba
+version: 2.0
+about:
+  SPDX-License-Identifier: GPL-2.0-or-later
+  Haruki is a ten-channel sample player with a host-synchronised step sequencer.
+  Drag a WAV onto a channel to load it. Each step carries velocity, probability,
+  substeps and microtiming.
+
+  LICENSE: GPL v2 or later.
+  This plug-in embeds the ladder filter from REAPER's stock JSFX "Moog 4-Pole
+  Filter" (Effects/Liteon/moog24db), (C) 2008-2009 Lubomir I. Ivanov, released
+  under the GPL; that filter in turn implements the Moog approximation from the
+  Stilson/Smith CCRMA paper by way of the CSound source. Because that code is
+  included here, Haruki as a whole is distributed under the GPL.
+  Ivanov's notice is reproduced in full, unaltered, beside the filter itself;
+  it asks to be acknowledged, and this is that acknowledgement.
+  See <http://www.gnu.org/licenses/>.
+
+in_pin:none
+out_pin:Left
+out_pin:Right
+
+options:maxmem=17000000 no_meter gfx_hz=30
+
+// ---- per channel: 9 parameters each, sliders 1..90 (all hidden, the UI is @gfx)
+slider1:0<-60,12,0.1>-Ch1 Gain (dB)
+slider2:0<-100,100,1>-Ch1 Pan
+slider3:0<-24,24,0.01>-Ch1 Tune (semitones)
+slider4:0<0,100,0.01>-Ch1 Start
+slider5:0<0,100,0.1>-Ch1 Attack
+slider6:0<0,100,0.1>-Ch1 Decay
+slider7:100<0,100,0.1>-Ch1 Cutoff
+slider8:0<0,100,0.1>-Ch1 Resonance
+slider9:0<0,1,1{Off,On}>-Ch1 Mute
+slider10:0<-60,12,0.1>-Ch2 Gain (dB)
+slider11:0<-100,100,1>-Ch2 Pan
+slider12:0<-24,24,0.01>-Ch2 Tune (semitones)
+slider13:0<0,100,0.01>-Ch2 Start
+slider14:0<0,100,0.1>-Ch2 Attack
+slider15:0<0,100,0.1>-Ch2 Decay
+slider16:100<0,100,0.1>-Ch2 Cutoff
+slider17:0<0,100,0.1>-Ch2 Resonance
+slider18:0<0,1,1{Off,On}>-Ch2 Mute
+slider19:0<-60,12,0.1>-Ch3 Gain (dB)
+slider20:0<-100,100,1>-Ch3 Pan
+slider21:0<-24,24,0.01>-Ch3 Tune (semitones)
+slider22:0<0,100,0.01>-Ch3 Start
+slider23:0<0,100,0.1>-Ch3 Attack
+slider24:0<0,100,0.1>-Ch3 Decay
+slider25:100<0,100,0.1>-Ch3 Cutoff
+slider26:0<0,100,0.1>-Ch3 Resonance
+slider27:0<0,1,1{Off,On}>-Ch3 Mute
+slider28:0<-60,12,0.1>-Ch4 Gain (dB)
+slider29:0<-100,100,1>-Ch4 Pan
+slider30:0<-24,24,0.01>-Ch4 Tune (semitones)
+slider31:0<0,100,0.01>-Ch4 Start
+slider32:0<0,100,0.1>-Ch4 Attack
+slider33:0<0,100,0.1>-Ch4 Decay
+slider34:100<0,100,0.1>-Ch4 Cutoff
+slider35:0<0,100,0.1>-Ch4 Resonance
+slider36:0<0,1,1{Off,On}>-Ch4 Mute
+slider37:0<-60,12,0.1>-Ch5 Gain (dB)
+slider38:0<-100,100,1>-Ch5 Pan
+slider39:0<-24,24,0.01>-Ch5 Tune (semitones)
+slider40:0<0,100,0.01>-Ch5 Start
+slider41:0<0,100,0.1>-Ch5 Attack
+slider42:0<0,100,0.1>-Ch5 Decay
+slider43:100<0,100,0.1>-Ch5 Cutoff
+slider44:0<0,100,0.1>-Ch5 Resonance
+slider45:0<0,1,1{Off,On}>-Ch5 Mute
+slider46:0<-60,12,0.1>-Ch6 Gain (dB)
+slider47:0<-100,100,1>-Ch6 Pan
+slider48:0<-24,24,0.01>-Ch6 Tune (semitones)
+slider49:0<0,100,0.01>-Ch6 Start
+slider50:0<0,100,0.1>-Ch6 Attack
+slider51:0<0,100,0.1>-Ch6 Decay
+slider52:100<0,100,0.1>-Ch6 Cutoff
+slider53:0<0,100,0.1>-Ch6 Resonance
+slider54:0<0,1,1{Off,On}>-Ch6 Mute
+slider55:0<-60,12,0.1>-Ch7 Gain (dB)
+slider56:0<-100,100,1>-Ch7 Pan
+slider57:0<-24,24,0.01>-Ch7 Tune (semitones)
+slider58:0<0,100,0.01>-Ch7 Start
+slider59:0<0,100,0.1>-Ch7 Attack
+slider60:0<0,100,0.1>-Ch7 Decay
+slider61:100<0,100,0.1>-Ch7 Cutoff
+slider62:0<0,100,0.1>-Ch7 Resonance
+slider63:0<0,1,1{Off,On}>-Ch7 Mute
+slider64:0<-60,12,0.1>-Ch8 Gain (dB)
+slider65:0<-100,100,1>-Ch8 Pan
+slider66:0<-24,24,0.01>-Ch8 Tune (semitones)
+slider67:0<0,100,0.01>-Ch8 Start
+slider68:0<0,100,0.1>-Ch8 Attack
+slider69:0<0,100,0.1>-Ch8 Decay
+slider70:100<0,100,0.1>-Ch8 Cutoff
+slider71:0<0,100,0.1>-Ch8 Resonance
+slider72:0<0,1,1{Off,On}>-Ch8 Mute
+slider73:0<-60,12,0.1>-Ch9 Gain (dB)
+slider74:0<-100,100,1>-Ch9 Pan
+slider75:0<-24,24,0.01>-Ch9 Tune (semitones)
+slider76:0<0,100,0.01>-Ch9 Start
+slider77:0<0,100,0.1>-Ch9 Attack
+slider78:0<0,100,0.1>-Ch9 Decay
+slider79:100<0,100,0.1>-Ch9 Cutoff
+slider80:0<0,100,0.1>-Ch9 Resonance
+slider81:0<0,1,1{Off,On}>-Ch9 Mute
+slider82:0<-60,12,0.1>-Ch10 Gain (dB)
+slider83:0<-100,100,1>-Ch10 Pan
+slider84:0<-24,24,0.01>-Ch10 Tune (semitones)
+slider85:0<0,100,0.01>-Ch10 Start
+slider86:0<0,100,0.1>-Ch10 Attack
+slider87:0<0,100,0.1>-Ch10 Decay
+slider88:100<0,100,0.1>-Ch10 Cutoff
+slider89:0<0,100,0.1>-Ch10 Resonance
+slider90:0<0,1,1{Off,On}>-Ch10 Mute
+
+// ---- global sequencer parameters
+slider91:1<0,1,1{Off,On}>-Sequencer
+slider92:1<0,2,1{1/8,1/16,1/32}>-Step rate
+slider93:16<1,64,1>-Pattern length
+slider94:0<0,100,0.1>-Swing
+
+/* ==========================================================================
+   HARUKI - ten-lane drum instrument
+   --------------------------------------------------------------------------
+   Signal path (one voice):
+
+       PCM frame -> [pitch: direct read, or Catmull-Rom when tune != 0]
+                 -> [attack: linear ramp, skipped when attack = 0]
+                 -> [decay:  exponential, skipped when decay = FULL]
+                 -> [filter: 24 dB Moog ladder, skipped when cutoff = OPEN]
+                 -> [fade:   voice steal / choke / mute only, else 1.0]
+                 -> * (gain * pan * velocity)  -> stereo sum
+
+   At the neutral state (0.0 dB, centre, tune 0, start 0, attack 0, decay FULL,
+   cutoff OPEN, reverse off, velocity 1.0) every stage above is skipped by
+   branch and the channel gains are exactly 1.0, so the output is the source
+   PCM verbatim.
+
+   The ladder filter is taken from REAPER's stock JSFX Effects/Liteon/moog24db,
+   (C) 2008-2009 Lubomir I. Ivanov, GPL. Its original header is reproduced at
+   the filter code below. Haruki is therefore GPL v2 or later.
+   ========================================================================== */
+
+@init
+ext_noinit = 1;              /* keep loaded samples across transport starts   */
+
+NSLOT       = 10;
+NSTEP       = 64;
+NVOICE      = 64;
+VSTR        = 40;            /* voice record stride                           */
+SLOT_VOICES = 4;
+EVMAX       = 256;
+EVSTR       = 4;
+LOAD_CHUNK  = 131072;
+NPAR        = 9;             /* sliders per channel                           */
+
+/* voice record fields */
+V_ACT=0;  V_SLOT=1; V_POS=2;  V_INC=3;  V_GL=4;   V_GR=5;
+V_ENV=6;  V_ENVC=7; V_FAD=8;  V_FADD=9; V_AGE=10;
+V_LO=11;  V_HI=12;  V_DAT=13; V_NCH=14; V_FAST=15; V_UNI=16;
+V_ATK=17; V_AENV=18;
+V_FLT=19; V_FP=20;  V_FK=21;  V_FR=22;
+V_L1=23; V_L2=24; V_L3=25; V_L4=26; V_LX=27; V_LO1=28; V_LO2=29; V_LO3=30;
+V_R1=31; V_R2=32; V_R3=33; V_R4=34; V_RX=35; V_RO1=36; V_RO2=37; V_RO3=38;
+V_DRAIN=39;                  /* samples spent flushing the filter tail        */
+
+/* channel states */
+ST_EMPTY=0; ST_LOADING=1; ST_OK=2; ST_TRUNC=3; ST_ERRFILE=4; ST_ERRFMT=5;
+
+/* string slots */
+STR_PATH=200; STR_DISP=220; STR_MENU=250; STR_VAL=260; STR_G1=242; STR_G2=243;
+STR_BASE=280;
+
+/* ------------------------------------------------------------------ memory */
+mp = 0;
+function alloc(n) ( mp += n; mp - n; );
+
+PAT_ON  = alloc(NSLOT*NSTEP);
+PAT_VEL = alloc(NSLOT*NSTEP);
+PAT_PRB = alloc(NSLOT*NSTEP);
+PAT_SUB = alloc(NSLOT*NSTEP);
+PAT_MIC = alloc(NSLOT*NSTEP);    /* microtiming, -0.5..+0.5 of one step       */
+VOICE   = alloc(NVOICE*VSTR);
+VLIST   = alloc(NVOICE);
+EVQ     = alloc(EVMAX*EVSTR);
+
+SL_NOTE=alloc(NSLOT);  SL_REV=alloc(NSLOT);  SL_SOLO=alloc(NSLOT); SL_CHK=alloc(NSLOT);
+SL_DAT=alloc(NSLOT);   SL_FRM=alloc(NSLOT);  SL_NCH=alloc(NSLOT);  SL_SR=alloc(NSLOT);
+SL_STATE=alloc(NSLOT); SL_FLASH=alloc(NSLOT);
+
+SAMP_BASE = 100000;
+mp >= SAMP_BASE ? SAMP_BASE = mp + 1024;
+SLOT_CAP = min(1600000, floor((__memtop() - SAMP_BASE - 1024) / NSLOT));
+SLOT_CAP < 8192 ? SLOT_CAP = 8192;
+
+/* ---------------------------------------------------------------- defaults */
+i = 0;
+loop(NSLOT,
+  SL_NOTE[i]  = 36 + i;
+  SL_DAT[i]   = SAMP_BASE + i*SLOT_CAP;
+  SL_STATE[i] = ST_EMPTY;
+  SL_FRM[i]   = 0;  SL_NCH[i] = 1;  SL_SR[i] = 0;
+  SL_REV[i]   = 0;  SL_SOLO[i] = 0; SL_CHK[i] = 0;
+  SL_FLASH[i] = 0;
+  i += 1;
+);
+i = 0;
+loop(NSLOT*NSTEP,
+  PAT_ON[i] = 0; PAT_VEL[i] = 1; PAT_PRB[i] = 1; PAT_SUB[i] = 1; PAT_MIC[i] = 0;
+  i += 1;
+);
+
+cDenorm = 10^-30;            /* anti-denormal, from moog24db (Ivanov, GPL);    */
+                             /* see the full notice at the ladder in @sample   */
+nact = 0; age_ctr = 1;
+ld_slot = -1; ld_h = -1; req_load = 0; ui_trig = 0;
+name_dirty = 1;
+seq_end = -1000000000; seq_cur = -1; onmask = 1023; onmask_l = 1023; solo_any = 0;
+sel_slot = 0; sel_lane = 0; sel_step = 0; cur_page = 0;
+eng_sr = 0; blk_len = 1; blk_pos = 0; ev_n = 0; ev_i = 0;
+fade_fast = 0.01; fade_steal = 0.02;
+
+/* ================================================================ engine */
+
+function all_voices_off() local(i) (
+  i = 0;
+  loop(NVOICE, VOICE[i*VSTR+V_ACT] = 0; i += 1;);
+  nact = 0;
+);
+
+function kill_slot_voices(sl) local(i, v) (
+  i = 0;
+  while (i < nact) (
+    v = VLIST[i];
+    VOICE[v*VSTR+V_SLOT] == sl ? (
+      VOICE[v*VSTR+V_ACT] = 0; nact -= 1; VLIST[i] = VLIST[nact];
+    ) : ( i += 1; );
+  );
+);
+
+function voice_alloc() local(i, best, bestage) (
+  i = 0; best = -1;
+  while (i < NVOICE && best < 0) ( VOICE[i*VSTR+V_ACT] ? ( i += 1; ) : ( best = i; ); );
+  best < 0 ? (
+    bestage = 1000000000000; i = 0;
+    loop(NVOICE,
+      VOICE[i*VSTR+V_AGE] < bestage ? ( bestage = VOICE[i*VSTR+V_AGE]; best = i; );
+      i += 1;
+    );
+    i = 0;
+    while (i < nact) (
+      VLIST[i] == best ? ( nact -= 1; VLIST[i] = VLIST[nact]; ) : ( i += 1; );
+    );
+  );
+  best;
+);
+
+/* the single trigger entry point: MIDI, sequencer and pads all arrive here */
+function trig(sl, amp) local(vp, v, i, n, oldest, oldv, sb, pv, s0, tsec, ff, fk, fp) (
+  (SL_STATE[sl] == ST_OK || SL_STATE[sl] == ST_TRUNC) && SL_FRM[sl] > 0 && amp > 0 ? (
+    SL_FLASH[sl] = 1;
+    sb = 1 + sl*NPAR;
+    pv = slider(sb);
+    /* exactly 1.0 at 0.0 dB - no pow(), no rounding */
+    amp = amp * (pv == 0 ? 1 : (pv <= -60 ? 0 : pow(10, pv/20)));
+  );
+  amp > 0 && (SL_STATE[sl] == ST_OK || SL_STATE[sl] == ST_TRUNC) && SL_FRM[sl] > 0 ? (
+
+    SL_CHK[sl] > 0 ? (
+      i = 0;
+      while (i < nact) (
+        vp = VOICE + VLIST[i]*VSTR;
+        SL_CHK[vp[V_SLOT]] == SL_CHK[sl] && vp[V_FADD] <= 0 ? (
+          vp[V_FADD] = fade_fast; vp[V_FAST] = 0;
+        );
+        i += 1;
+      );
+    );
+
+    n = 0; oldest = 1000000000000; oldv = -1; i = 0;
+    while (i < nact) (
+      v = VLIST[i]; vp = VOICE + v*VSTR;
+      vp[V_SLOT] == sl && vp[V_FADD] <= 0 ? (
+        n += 1;
+        vp[V_AGE] < oldest ? ( oldest = vp[V_AGE]; oldv = v; );
+      );
+      i += 1;
+    );
+    n >= SLOT_VOICES && oldv >= 0 ? (
+      vp = VOICE + oldv*VSTR; vp[V_FADD] = fade_steal; vp[V_FAST] = 0;
+    );
+
+    v = voice_alloc();
+    v >= 0 ? (
+      vp = VOICE + v*VSTR;
+      vp[V_ACT]  = 1;
+      vp[V_SLOT] = sl;
+      vp[V_DAT]  = SL_DAT[sl];
+      vp[V_NCH]  = SL_NCH[sl];
+      s0         = slider(sb+3)*0.01;
+      vp[V_LO]   = floor(s0*s0*(SL_FRM[sl]-1));
+      vp[V_HI]   = SL_FRM[sl]-1;
+      pv         = slider(sb+2);
+      vp[V_INC]  = pv == 0 ? 1 : pow(2, pv/12);
+      SL_REV[sl] ? ( vp[V_INC] = -vp[V_INC]; vp[V_POS] = vp[V_HI]; )
+                 : ( vp[V_POS] = vp[V_LO]; );
+      pv         = slider(sb+1)*0.01;
+      vp[V_GL]   = amp*(pv <= 0 ? 1 : 1-pv);
+      vp[V_GR]   = amp*(pv >= 0 ? 1 : 1+pv);
+
+      /* attack: linear ramp, 0 = none (keeps the sample's own transient) */
+      pv = slider(sb+4);
+      pv > 0 ? (
+        tsec = 0.0002*pow(2500, pv*0.01);   /* 0.2 ms .. 500 ms, MPC-style */
+        vp[V_ATK] = 1/max(1, tsec*srate);
+        vp[V_AENV] = 0;
+      ) : ( vp[V_ATK] = 0; vp[V_AENV] = 1; );
+
+      /* decay: 0 = FULL natural length, turning up shortens */
+      vp[V_ENV] = 1; vp[V_ENVC] = 1;
+      pv = slider(sb+5);
+      pv > 0 ? (
+        tsec = 0.01*pow(400, 1 - pv*0.01);
+        vp[V_ENVC] = exp(-6.907755/(tsec*srate));
+      );
+
+      vp[V_FAD] = 1; vp[V_FADD] = 0;
+
+      /* Ladder filter: 100 = fully open = bypassed by branch. The three
+         coefficient lines below (fk, fp, V_FR) are Ivanov's, from moog24db;
+         his full notice is at the ladder itself, in @sample. */
+      pv = slider(sb+6);
+      pv < 100 ? (
+        ff = floor(exp((16 + pv*1.20103)*log(1.059))*8.17742);   /* Hz */
+        ff = 2*ff/srate;
+        fk = 3.6*ff - 1.6*ff*ff - 1;
+        fp = (fk + 1)*0.5;
+        vp[V_FK] = fk;
+        vp[V_FP] = fp;
+        vp[V_FR] = (slider(sb+7)*0.0085)*exp((1 - fp)*1.386249);
+        vp[V_FLT] = 1;
+        vp[V_DRAIN] = 0;
+        vp[V_L1]=0; vp[V_L2]=0; vp[V_L3]=0; vp[V_L4]=0;
+        vp[V_LX]=0; vp[V_LO1]=0; vp[V_LO2]=0; vp[V_LO3]=0;
+        vp[V_R1]=0; vp[V_R2]=0; vp[V_R3]=0; vp[V_R4]=0;
+        vp[V_RX]=0; vp[V_RO1]=0; vp[V_RO2]=0; vp[V_RO3]=0;
+      ) : ( vp[V_FLT] = 0; vp[V_DRAIN] = 0; );
+
+      vp[V_AGE]  = age_ctr; age_ctr += 1;
+      vp[V_UNI]  = vp[V_INC] == 1 || vp[V_INC] == -1;
+      vp[V_FAST] = vp[V_UNI] && vp[V_ENVC] == 1 && vp[V_ATK] == 0 && vp[V_FLT] == 0;
+      nact < NVOICE ? ( VLIST[nact] = v; nact += 1; ) : ( vp[V_ACT] = 0; );
+    );
+  );
+);
+
+function push_ev(offs, sl, amp) (
+  ev_n < EVMAX ? (
+    offs < 0 ? offs = 0;
+    offs > blk_len-1 ? offs = blk_len-1;
+    EVQ[ev_n*EVSTR]   = offs;
+    EVQ[ev_n*EVSTR+1] = sl;
+    EVQ[ev_n*EVSTR+2] = amp;
+    ev_n += 1;
+  );
+);
+
+/* deterministic per-(step,lane) probability roll: the same timeline position
+   always yields the same decision, so rendering matches playback            */
+function prb_hash(g, ln) local(h) (
+  h = sin(g*12.9898 + ln*78.233 + 3.1)*43758.5453;
+  h - floor(h);
+);
+
+/* ---------------------------------------------------------- sample loading
+   Paths are absolute (they come from a drag-and-drop), so one open attempt is
+   enough. Never touches the per-sample path: load_begin() parses the header in
+   one audio block, load_step() then decodes LOAD_CHUNK items per block so a
+   long file cannot stall the audio thread in a single callback.             */
+
+function load_close() (
+  ld_h >= 0 ? ( file_close(ld_h); ld_h = -1; );
+  ld_slot = -1;
+);
+
+function load_begin(sl) local(h) (
+  load_close();
+  kill_slot_voices(sl);
+  SL_STATE[sl] = ST_LOADING;
+  SL_FRM[sl]   = 0;
+  name_dirty   = 1;
+  strlen(STR_PATH+sl) < 1 ? ( SL_STATE[sl] = ST_EMPTY; ) : (
+    strcpy(#openpath, STR_PATH+sl);
+    h = file_open(#openpath);
+    h < 0 ? ( SL_STATE[sl] = ST_ERRFILE; ) : (
+      ld_nch = 0; ld_sr = 0;
+      file_riff(h, ld_nch, ld_sr);
+      ld_nch < 1 ? ( file_close(h); SL_STATE[sl] = ST_ERRFMT; ) : (
+        SL_SR[sl] = ld_sr;
+        /* only ask REAPER to resample when the file really is at another rate;
+           a project-rate file is decoded verbatim                            */
+        ld_sr != srate ? (
+          file_rewind(h);
+          ld_nch = 'rqsr'; ld_sr2 = srate;
+          file_riff(h, ld_nch, ld_sr2);
+        );
+        ld_nch < 1 ? ( file_close(h); SL_STATE[sl] = ST_ERRFMT; ) : (
+          SL_NCH[sl] = ld_nch;
+          ld_tot   = file_avail(h);
+          ld_cap   = floor(SLOT_CAP/ld_nch)*ld_nch;
+          ld_trunc = 0;
+          ld_tot > ld_cap ? ( ld_tot = ld_cap; ld_trunc = 1; );
+          ld_tot < ld_nch ? ( file_close(h); SL_STATE[sl] = ST_ERRFMT; ) : (
+            ld_rd = 0; ld_h = h; ld_slot = sl;
+          );
+        );
+      );
+    );
+  );
+);
+
+function load_step() local(n, got) (
+  ld_slot >= 0 ? (
+    n = min(LOAD_CHUNK, ld_tot - ld_rd);
+    n > 0 ? (
+      got = file_mem(ld_h, SL_DAT[ld_slot] + ld_rd, n);
+      ld_rd += got;
+      got < n ? ( ld_tot = ld_rd; );
+    );
+    ld_rd >= ld_tot ? (
+      SL_FRM[ld_slot]   = floor(ld_rd/SL_NCH[ld_slot]);
+      SL_STATE[ld_slot] = SL_FRM[ld_slot] < 1 ? ST_ERRFMT : (ld_trunc ? ST_TRUNC : ST_OK);
+      name_dirty = 1;
+      load_close();
+    );
+  );
+);
+
+function load_finish_current() local(guard) (
+  guard = 0;
+  while (ld_slot >= 0 && guard < 8192) ( load_step(); guard += 1; );
+);
+
+function load_force(sl) (
+  req_load & 2^sl ? (
+    load_finish_current();
+    req_load = req_load - 2^sl;
+    load_begin(sl);
+  );
+  ld_slot == sl ? ( load_finish_current(); );
+);
+
+function sort_events() local(i, j, b, a0, a1, a2) (
+  i = 1;
+  while (i < ev_n) (
+    j = i;
+    while (j > 0 && EVQ[(j-1)*EVSTR] > EVQ[j*EVSTR]) (
+      b = j*EVSTR;
+      a0 = EVQ[b]; a1 = EVQ[b+1]; a2 = EVQ[b+2];
+      EVQ[b]   = EVQ[b-EVSTR];   EVQ[b+1] = EVQ[b-EVSTR+1]; EVQ[b+2] = EVQ[b-EVSTR+2];
+      EVQ[b-EVSTR] = a0; EVQ[b-EVSTR+1] = a1; EVQ[b-EVSTR+2] = a2;
+      j -= 1;
+    );
+    i += 1;
+  );
+);
+
+/* ============================================================ UI constants */
+
+C_BG=$x14161A; C_PANEL=$x1B1E24; C_PANEL2=$x232833; C_BTN=$x272C36;
+C_BTNH=$x323947; C_LINE=$x2E3441; C_TXT=$xE8EBF0; C_TXT2=$x9BA3AF;
+C_TXT3=$x606A79; C_ACC=$x4FB8D8; C_ACC_H=$x74D2EE; C_STEP=$x232833;
+C_STEPH=$x2E3441; C_WARN=$xE0A64F; C_ERR=$xE0665C; C_PLAY=$xFFFFFF;
+C_DARK=$x0E1013; C_MICRO=$x8FD8A0;
+
+UI_W=1180;
+LX=16;
+GRID_X=330; CELL_W=46; CELL_H=34;
+ROW_Y=92; ROW_H=44; STRIP_W=304;
+PAN_Y=548; PAN_H=156;
+CH_X=16;  CH_W=784;
+ST_X=812; ST_W=352;
+KNOB_CY=612; KNOB_R=21; ROW2_Y=654; ROW2_H=26;
+
+drag_id=-1; drag_y=0; drag_v0=0; dc_id=-1; dc_t=0;
+mdn=0; mdn_p=0; mclk=0; mrdn_p=0; mrclk=0;
+paint_on=0; paint_val=0; mw=0; mh=0; drop_flash=0;
+
+/* =============================================================== UI helpers */
+
+function col(c, a) (
+  gfx_r = ((c/65536)|0)/255;
+  gfx_g = (((c/256)|0)&255)/255;
+  gfx_b = (c&255)/255;
+  gfx_a = a;
+);
+function frect(x, y, w, h, c, a) ( col(c, a); gfx_rect(x, y, w, h); );
+function orect(x, y, w, h, c, a) (
+  col(c, a);
+  gfx_rect(x, y, w, 1); gfx_rect(x, y+h-1, w, 1);
+  gfx_rect(x, y+1, 1, h-2); gfx_rect(x+w-1, y+1, 1, h-2);
+);
+function frrect(x, y, w, h, rr, c, a) (
+  col(c, a);
+  gfx_rect(x+rr, y, w-2*rr, h);
+  gfx_rect(x, y+rr, rr, h-2*rr);
+  gfx_rect(x+w-rr, y+rr, rr, h-2*rr);
+  gfx_circle(x+rr,     y+rr,     rr, 1, 1);
+  gfx_circle(x+w-rr-1, y+rr,     rr, 1, 1);
+  gfx_circle(x+rr,     y+h-rr-1, rr, 1, 1);
+  gfx_circle(x+w-rr-1, y+h-rr-1, rr, 1, 1);
+);
+function txtl(x, y, s)       ( gfx_x = x; gfx_y = y; gfx_drawstr(s); );
+function txtc(x, y, w, h, s) ( gfx_x = x; gfx_y = y; gfx_drawstr(s, 1|4, x+w, y+h); );
+function txtr(x, y, w, h, s) ( gfx_x = x; gfx_y = y; gfx_drawstr(s, 2|4, x+w, y+h); );
+function hit(x, y, w, h)     ( mouse_x >= x && mouse_x < x+w && mouse_y >= y && mouse_y < y+h; );
+
+function dclick(id) local(t, r) (
+  t = time_precise(); r = 0;
+  dc_id == id && (t - dc_t) < 0.4 ? ( r = 1; dc_t = 0; dc_id = -1; )
+                                  : ( dc_t = t; dc_id = id; );
+  r;
+);
+
+/* slider-backed control: click+vertical drag, shift = fine, double-click = default */
+function pctl(id, x, y, w, h, sidx, mn, mx, dflt, sens, qz) local(d, v) (
+  mclk && hit(x, y, w, h) ? (
+    dclick(id) ? (
+      slider(sidx) = dflt; sliderchange(slider(sidx)); slider_automate(slider(sidx));
+      drag_id = -1;
+    ) : ( drag_id = id; drag_y = mouse_y; drag_v0 = slider(sidx); );
+  );
+  drag_id == id ? (
+    mdn ? (
+      d = (drag_y - mouse_y)*sens*(mouse_cap & 8 ? 0.2 : 1);
+      v = max(mn, min(mx, drag_v0 + d));
+      qz != 0 ? (
+        qz < 0 ? ( qz = (mouse_cap & 8) ? -qz : 1; );
+        v = floor(v/qz + 0.5)*qz;
+      );
+      v != slider(sidx) ? (
+        slider(sidx) = v; sliderchange(slider(sidx)); slider_automate(slider(sidx));
+      );
+    ) : ( drag_id = -1; );
+  );
+);
+
+/* memory-backed control (per-step values, per-channel switches) */
+function mctl(id, x, y, w, h, addr, mn, mx, dflt, sens, qz) local(d, v) (
+  mclk && hit(x, y, w, h) ? (
+    dclick(id) ? ( addr[0] = dflt; drag_id = -1; )
+               : ( drag_id = id; drag_y = mouse_y; drag_v0 = addr[0]; );
+  );
+  drag_id == id ? (
+    mdn ? (
+      d = (drag_y - mouse_y)*sens*(mouse_cap & 8 ? 0.2 : 1);
+      v = max(mn, min(mx, drag_v0 + d));
+      qz != 0 ? (
+        qz < 0 ? ( qz = (mouse_cap & 8) ? -qz : 1; );
+        v = floor(v/qz + 0.5)*qz;
+      );
+      addr[0] = v;
+    ) : ( drag_id = -1; );
+  );
+);
+
+function knob(cx, cy, r, frac, bip, hot) local(a0, a1, av, ac, i) (
+  a0 = -2.3562; a1 = 2.3562;
+  frac = max(0, min(1, frac));
+  av = a0 + (a1-a0)*frac;
+  ac = bip ? 0 : a0;
+  col(C_LINE, 1);
+  i = 0; loop(3, gfx_arc(cx, cy, r-i, a0, a1, 1); i += 1;);
+  col(hot ? C_ACC_H : C_ACC, 1);
+  abs(av - ac) > 0.004 ? (
+    i = 0;
+    loop(3,
+      av > ac ? gfx_arc(cx, cy, r-i, ac, av, 1) : gfx_arc(cx, cy, r-i, av, ac, 1);
+      i += 1;
+    );
+  );
+  col(C_TXT, 1);
+  gfx_line(cx + sin(av)*r*0.30, cy - cos(av)*r*0.30,
+           cx + sin(av)*(r-1),  cy - cos(av)*(r-1), 1);
+);
+
+/* STR_VAL must hold the formatted value before the call */
+function knob_ui(id, cx, sidx, mn, mx, dflt, sens, qz, bip, lab) local(hot) (
+  hot = hit(cx-25, KNOB_CY-25, 50, 50);
+  pctl(id, cx-25, KNOB_CY-25, 50, 50, sidx, mn, mx, dflt, sens, qz);
+  knob(cx, KNOB_CY, KNOB_R, (slider(sidx)-mn)/(mx-mn), bip, hot || drag_id == id);
+  gfx_setfont(5); col(C_TXT,  1); txtc(cx-44, KNOB_CY-38, 88, 13, STR_VAL);
+  gfx_setfont(4); col(C_TXT3, 1); txtc(cx-44, KNOB_CY+26, 88, 12, lab);
+);
+function knob_mem(id, cx, addr, mn, mx, dflt, sens, qz, bip, lab) local(hot) (
+  hot = hit(cx-25, KNOB_CY-25, 50, 50);
+  mctl(id, cx-25, KNOB_CY-25, 50, 50, addr, mn, mx, dflt, sens, qz);
+  knob(cx, KNOB_CY, KNOB_R, (addr[0]-mn)/(mx-mn), bip, hot || drag_id == id);
+  gfx_setfont(5); col(C_TXT,  1); txtc(cx-44, KNOB_CY-38, 88, 13, STR_VAL);
+  gfx_setfont(4); col(C_TXT3, 1); txtc(cx-44, KNOB_CY+26, 88, 12, lab);
+);
+
+function btn(x, y, w, h, lab, on) local(hot) (
+  hot = hit(x, y, w, h);
+  frrect(x, y, w, h, 3, on ? C_ACC : (hot ? C_BTNH : C_BTN), 1);
+  gfx_setfont(5);
+  col(on ? C_DARK : (hot ? C_TXT : C_TXT2), 1);
+  txtc(x, y, w, h, lab);
+  mclk && hot;
+);
+function field(x, y, w, h, id) local(hot) (
+  hot = hit(x, y, w, h) || drag_id == id;
+  frrect(x, y, w, h, 3, hot ? C_BTNH : C_BTN, 1);
+);
+
+function fit_names() local(i, n, c) (
+  gfx_setfont(2);
+  i = 0;
+  loop(NSLOT,
+    /* absolute paths: show the basename only */
+    n = strlen(STR_PATH+i); c = 0;
+    while (n > 0) (
+      n -= 1;
+      c == 0 && (str_getchar(STR_PATH+i, n) == 47 || str_getchar(STR_PATH+i, n) == 92) ? ( c = n+1; );
+    );
+    strcpy_from(STR_BASE+i, STR_PATH+i, c);
+    strcpy(STR_DISP+i, STR_BASE+i);
+    gfx_measurestr(STR_DISP+i, mw, mh);
+    n = strlen(STR_DISP+i);
+    while (mw > 138 && n > 4) (
+      n -= 1;
+      strncpy(STR_DISP+i, STR_BASE+i, n);
+      strcat(STR_DISP+i, "..");
+      gfx_measurestr(STR_DISP+i, mw, mh);
+    );
+    i += 1;
+  );
+  name_dirty = 0;
+);
+
+/* right-click menu: the operations JSFX can perform itself. Samples arrive by
+   drag-and-drop - JSFX has no file dialog and cannot enumerate a file slider. */
+function channel_menu(sl) local(ch) (
+  strcpy(STR_MENU, strlen(STR_PATH+sl) > 0 ? "Clear channel|Reload sample"
+                                           : "#Clear channel|#Reload sample");
+  gfx_x = mouse_x; gfx_y = mouse_y;
+  ch = gfx_showmenu(STR_MENU);
+  ch == 1 ? (
+    strcpy(STR_PATH+sl, "");
+    SL_STATE[sl] = ST_EMPTY; SL_FRM[sl] = 0;
+    kill_slot_voices(sl); name_dirty = 1;
+  ) : ch == 2 ? (
+    req_load = req_load | 2^sl;
+  );
+  drag_id = -1; paint_on = 0; mclk = 0;
+);
+
+/* which channel is the pointer over? anywhere in a lane row counts, so a file
+   can be dropped on the strip or on that lane's steps                        */
+function drop_lane() local(l) (
+  mouse_y >= ROW_Y && mouse_y < ROW_Y + ROW_H*NSLOT ?
+    ( l = floor((mouse_y - ROW_Y)/ROW_H); ) : ( l = sel_slot; );
+  max(0, min(NSLOT-1, l));
+);
+
+/* Drag-and-drop, as used by REAPER's own stock super8: enumerate from index 0
+   until the call returns 0, then always clear the list or the same files
+   re-arrive on every frame. Dropping N files fills N consecutive channels.   */
+function take_drops() local(n, go, tgt) (
+  n = 0; go = 1;
+  while (go && n < NSLOT) (
+    gfx_getdropfile(n, #dropped) ? (
+      /* a drag from REAPER's FX browser delivers "@fx:<ident>", not a file */
+      strncmp(#dropped, "@fx:", 4) == 0 ? ( n += 1; ) : (
+        n == 0 ? ( tgt = drop_lane(); sel_slot = tgt; sel_lane = tgt; );
+        tgt + n < NSLOT ? (
+          strcpy(STR_PATH+tgt+n, #dropped);
+          req_load = req_load | 2^(tgt+n);
+          SL_STATE[tgt+n] = ST_LOADING;
+          name_dirty = 1;
+        );
+        n += 1;
+      );
+    ) : ( go = 0; );
+  );
+  n > 0 ? ( drop_flash = 1; );
+  gfx_getdropfile(-1);
+  n;
+);
+
+/* ================================================================= @block */
+
+@block
+seq_on    = slider91;
+seq_rate  = min(2, max(0, floor(slider92)));
+seq_len   = min(NSTEP, max(1, floor(slider93)));
+seq_swing = slider94*0.01;
+
+blk_len = max(1, samplesblock);
+blk_pos = 0; ev_i = 0; ev_n = 0;
+
+srate != eng_sr ? (
+  eng_sr      = srate;
+  fade_fast   = 1/max(1, 0.004*srate);
+  fade_steal  = 1/max(1, 0.002*srate);
+  all_voices_off();
+  bi = 0;
+  loop(NSLOT, strlen(STR_PATH+bi) > 0 ? ( req_load = req_load | 2^bi; ); bi += 1;);
+);
+
+ld_slot < 0 && req_load ? (
+  bi = 0; bfound = -1;
+  while (bi < NSLOT && bfound < 0) ( req_load & 2^bi ? ( bfound = bi; ) : ( bi += 1; ); );
+  bfound >= 0 ? ( req_load = req_load - 2^bfound; load_begin(bfound); );
+);
+ld_slot >= 0 ? load_step();
+
+solo_any = 0; bi = 0;
+loop(NSLOT, SL_SOLO[bi] ? ( solo_any = 1; ); bi += 1;);
+onmask = 0; bi = 0;
+loop(NSLOT,
+  !slider(1+bi*NPAR+8) && (!solo_any || SL_SOLO[bi]) ? ( onmask = onmask + 2^bi; );
+  bi += 1;
+);
+onmask != onmask_l ? (
+  bi = 0;
+  while (bi < nact) (
+    bvp = VOICE + VLIST[bi]*VSTR;
+    !(onmask & 2^bvp[V_SLOT]) && bvp[V_FADD] <= 0 ? (
+      bvp[V_FADD] = fade_fast; bvp[V_FAST] = 0;
+    );
+    bi += 1;
+  );
+  onmask_l = onmask;
+);
+
+ui_trig ? (
+  bi = 0;
+  loop(NSLOT, (ui_trig & 2^bi) && (onmask & 2^bi) ? ( push_ev(0, bi, 1); ); bi += 1;);
+  ui_trig = 0;
+);
+
+/* ------------------------------------------------------------------- MIDI */
+while (midirecv(mofs, m1, m2, m3)) (
+  mst = m1 & 240;
+  mused = 0;
+  mst == 144 || mst == 128 ? (
+    bi = 0;
+    loop(NSLOT,
+      SL_NOTE[bi] == m2 ? (
+        mused = 1;
+        mst == 144 && m3 > 0 && (onmask & 2^bi) ? ( push_ev(mofs, bi, m3/127); );
+      );
+      bi += 1;
+    );
+  );
+  mused ? 0 : midisend(mofs, m1, m2, m3);
+);
+
+/* -------------------------------------------------------------- sequencer */
+seq_on && (play_state == 1 || play_state == 5) ? (
+  spb = 60*srate/tempo;             /* samples per beat */
+  spb > 0 ? (
+    sq_b0   = beat_position;
+    sq_bend = sq_b0 + blk_len/spb;
+    abs(sq_b0 - seq_end) <= 8/spb ? ( sq_bs = seq_end; ) : ( sq_bs = sq_b0; );
+    sq_bs > sq_bend ? ( sq_bs = sq_bend; );
+
+    sq_sb  = 4/(8*2^seq_rate);
+    sq_swd = seq_swing*0.5*sq_sb;
+    /* microtiming displaces an onset by up to +-0.5 step and swing by up to
+       +0.5 step, so scan two steps either side of the block                  */
+    sq_g   = floor(sq_bs/sq_sb) - 2;
+    sq_g1  = floor(sq_bend/sq_sb) + 2;
+    sq_g1 - sq_g > 96 ? ( sq_g1 = sq_g + 96; );
+
+    while (sq_g <= sq_g1) (
+      sq_g >= 0 ? (
+        sq_si = sq_g - floor(sq_g/seq_len)*seq_len;
+        /* swing-only onsets: the substep span must not depend on microtiming,
+           or a late step followed by an early one would collapse or invert it */
+        sq_on0 = sq_g*sq_sb     + ((sq_g*0.5     - floor(sq_g*0.5))     > 0.25 ? sq_swd : 0);
+        sq_on1 = (sq_g+1)*sq_sb + (((sq_g+1)*0.5 - floor((sq_g+1)*0.5)) > 0.25 ? sq_swd : 0);
+        sq_span = sq_on1 - sq_on0;
+        sq_ln = 0;
+        loop(NSLOT,
+          sq_ci = sq_ln*NSTEP + sq_si;
+          PAT_ON[sq_ci] && (onmask & 2^sq_ln) ? (
+            sq_pr = PAT_PRB[sq_ci];
+            sq_pr >= 1 || (sq_pr > 0 && prb_hash(sq_g, sq_ln) < sq_pr) ? (
+              sq_ns = max(1, PAT_SUB[sq_ci]);
+              sq_mt = PAT_MIC[sq_ci]*sq_sb;      /* microtiming shifts the whole group */
+              sq_k = 0;
+              loop(sq_ns,
+                sq_t = sq_on0 + sq_mt + sq_k*sq_span/sq_ns;
+                sq_t >= sq_bs && sq_t < sq_bend ? (
+                  /* +epsilon: a grid position that is one ulp below an exact
+                     sample must not be floored down to the previous sample   */
+                  push_ev(floor((sq_t - sq_b0)*spb + 0.0001), sq_ln, PAT_VEL[sq_ci]);
+                );
+                sq_k += 1;
+              );
+            );
+          );
+          sq_ln += 1;
+        );
+      );
+      sq_g += 1;
+    );
+    seq_end = sq_bend;
+    sq_cg = floor(sq_b0/sq_sb);
+    seq_cur = sq_cg - floor(sq_cg/seq_len)*seq_len;
+  );
+) : (
+  seq_end = -1000000000;
+  seq_cur = -1;
+);
+
+ev_n > 1 ? sort_events();
+
+/* a channel that is triggered this block must be ready before @sample runs */
+ev_n > 0 && (req_load || ld_slot >= 0) ? (
+  bi = 0;
+  while (bi < ev_n) ( load_force(EVQ[bi*EVSTR+1]); bi += 1; );
+);
+
+/* ================================================================ @sample */
+
+@sample
+ev_i < ev_n ? (
+  while (ev_i < ev_n && EVQ[ev_i*EVSTR] <= blk_pos) (
+    trig(EVQ[ev_i*EVSTR+1], EVQ[ev_i*EVSTR+2]);
+    ev_i += 1;
+  );
+);
+blk_pos += 1;
+
+qaccl = 0; qaccr = 0;
+qvi = 0;
+while (qvi < nact) (
+  qvp = VOICE + VLIST[qvi]*VSTR;
+  qpos = qvp[V_POS]; qdat = qvp[V_DAT]; qnch = qvp[V_NCH];
+  qdone = 0;
+
+  qvp[V_FAST] ? (
+    /* transparent path: integer read, unity rate, no envelope, no filter */
+    qb  = qdat + (qpos|0)*qnch;
+    qsl = qb[0];
+    qsr = qnch > 1 ? qb[1] : qsl;
+    qaccl += qsl*qvp[V_GL];
+    qaccr += qsr*qvp[V_GR];
+    qpos += qvp[V_INC];
+    qvp[V_POS] = qpos;
+    qvp[V_INC] > 0 ? ( qpos > qvp[V_HI] ? ( qdone = 1; ); )
+                   : ( qpos < qvp[V_LO] ? ( qdone = 1; ); );
+  ) : (
+    qvp[V_DRAIN] > 0 ? (
+      /* source exhausted: keep clocking silence through the ladder */
+      qsl = 0; qsr = 0;
+    ) : qvp[V_UNI] ? (
+      qb  = qdat + (qpos|0)*qnch;
+      qsl = qb[0];
+      qsr = qnch > 1 ? qb[1] : qsl;
+    ) : (
+      /* pitched: 4-point Catmull-Rom, clamped to the voice's own frame range */
+      qip = qpos|0; qfr = qpos - qip;
+      qi1 = max(qip-1, qvp[V_LO])*qnch;
+      qi2 = min(qip+1, qvp[V_HI])*qnch;
+      qi3 = min(qip+2, qvp[V_HI])*qnch;
+      qip = qip*qnch;
+      qy0 = qdat[qi1]; qy1 = qdat[qip]; qy2 = qdat[qi2]; qy3 = qdat[qi3];
+      qc1 = 0.5*(qy2-qy0);
+      qc2 = qy0 - 2.5*qy1 + 2*qy2 - 0.5*qy3;
+      qc3 = 0.5*(qy3-qy0) + 1.5*(qy1-qy2);
+      qsl = ((qc3*qfr + qc2)*qfr + qc1)*qfr + qy1;
+      qnch > 1 ? (
+        qy0 = qdat[qi1+1]; qy1 = qdat[qip+1]; qy2 = qdat[qi2+1]; qy3 = qdat[qi3+1];
+        qc1 = 0.5*(qy2-qy0);
+        qc2 = qy0 - 2.5*qy1 + 2*qy2 - 0.5*qy3;
+        qc3 = 0.5*(qy3-qy0) + 1.5*(qy1-qy2);
+        qsr = ((qc3*qfr + qc2)*qfr + qc1)*qfr + qy1;
+      ) : ( qsr = qsl; );
+    );
+
+    /* ---------------------------------------------------------------------
+       24 dB/octave Moog ladder, from REAPER's stock JSFX Effects/Liteon/moog24db.
+
+       The upstream notice is reproduced here in full and unaltered, as the GPL
+       requires and as its own terms ask:
+
+         // (C) 2008-2009, Lubomir I. Ivanov
+
+         // NO WARRANTY IS GRANTED. THIS PLUG-IN IS PROVIDED ON AN "AS IS" BASIS, WITHOUT
+         // WARRANTY OF ANY KIND. NO LIABILITY IS GRANTED, INCLUDING, BUT NOT LIMITED TO,
+         // ANY DIRECT OR INDIRECT,  SPECIAL,  INCIDENTAL OR CONSEQUENTIAL DAMAGE ARISING
+         // OUT OF  THE  USE  OR INABILITY  TO  USE  THIS PLUG-IN,  COMPUTER FAILTURE  OF
+         // MALFUNCTION INCLUDED.  THE USE OF THE SOURCE CODE,  EITHER  PARTIALLY  OR  IN
+         // TOTAL, IS ONLY GRANTED,  IF USED IN THE SENSE OF THE AUTHOR'S INTENTION,  AND
+         // USED WITH ACKNOWLEDGEMENT OF THE AUTHOR. FURTHERMORE IS THIS PLUG-IN A  THIRD
+         // PARTY CONTRIBUTION,  EVEN IF INCLUDED IN REAPER(TM),  COCKOS INCORPORATED  OR
+         // ITS AFFILIATES HAVE NOTHING TO DO WITH IT.  LAST BUT NOT LEAST, BY USING THIS
+         // PLUG-IN YOU RELINQUISH YOUR CLAIM TO SUE IT'S AUTHOR, AS WELL AS THE CLAIM TO
+         // ENTRUST SOMEBODY ELSE WITH DOING SO.
+         //
+         // Released under GPL:
+         // <http://www.gnu.org/licenses/>.
+
+         //******************************************************************************
+         // References:
+         // Moog filter appromixation
+         // by CSound source code, Stilson/Smith CCRMA paper
+         // Distortion by Bram de Jong
+         //******************************************************************************
+
+       Ivanov's code appears in this file in three places, not one: the
+       anti-denormal constant in @init, the p/k/r coefficients in trig(), and
+       the four-stage ladder below. Removing the GPL dependency means removing
+       all three.
+
+       Coefficients (p, k, r) are computed once per voice in trig(); the
+       original interpolates them per block because its cutoff is live, which a
+       one-shot voice does not need. Only the filter is Ivanov's; the voice,
+       sequencer, loader and interface are not.
+       --------------------------------------------------------------------- */
+    qvp[V_FLT] ? (
+      qfp = qvp[V_FP]; qfk = qvp[V_FK]; qfr2 = qvp[V_FR];
+
+      qx = qsl - qfr2*qvp[V_L4];
+      qt1 = qx*qfp        + qvp[V_LX]*qfp  - qfk*qvp[V_L1]; qvp[V_L1] = qt1;
+      qt2 = qt1*qfp       + qvp[V_LO1]*qfp - qfk*qvp[V_L2]; qvp[V_L2] = qt2;
+      qt3 = qt2*qfp       + qvp[V_LO2]*qfp - qfk*qvp[V_L3]; qvp[V_L3] = qt3;
+      qt4 = qt3*qfp       + qvp[V_LO3]*qfp - qfk*qvp[V_L4]; qvp[V_L4] = qt4;
+      qvp[V_LX] = qx; qvp[V_LO1] = qt1; qvp[V_LO2] = qt2; qvp[V_LO3] = qt3;
+      qsl = qt4 + cDenorm;
+
+      qx = qsr - qfr2*qvp[V_R4];
+      qt1 = qx*qfp        + qvp[V_RX]*qfp  - qfk*qvp[V_R1]; qvp[V_R1] = qt1;
+      qt2 = qt1*qfp       + qvp[V_RO1]*qfp - qfk*qvp[V_R2]; qvp[V_R2] = qt2;
+      qt3 = qt2*qfp       + qvp[V_RO2]*qfp - qfk*qvp[V_R3]; qvp[V_R3] = qt3;
+      qt4 = qt3*qfp       + qvp[V_RO3]*qfp - qfk*qvp[V_R4]; qvp[V_R4] = qt4;
+      qvp[V_RX] = qx; qvp[V_RO1] = qt1; qvp[V_RO2] = qt2; qvp[V_RO3] = qt3;
+      qsr = qt4 + cDenorm;
+    );
+
+    /* ---- VCA: attack ramp, then decay, then any steal/choke/mute fade ---- */
+    qvp[V_ATK] > 0 ? (
+      qa = qvp[V_AENV] + qvp[V_ATK];
+      qa >= 1 ? ( qa = 1; qvp[V_ATK] = 0; );
+      qvp[V_AENV] = qa;
+    );
+    qenv = qvp[V_ENV];
+    qvp[V_ENVC] != 1 ? ( qenv *= qvp[V_ENVC]; qvp[V_ENV] = qenv; );
+    qenv *= qvp[V_AENV];
+    qvp[V_FADD] > 0 ? (
+      qfd = qvp[V_FAD] - qvp[V_FADD];
+      qfd < 0 ? ( qfd = 0; );
+      qvp[V_FAD] = qfd;
+      qenv *= qfd;
+    ) : ( qenv *= qvp[V_FAD]; );
+
+    qaccl += qsl*qvp[V_GL]*qenv;
+    qaccr += qsr*qvp[V_GR]*qenv;
+    qpos += qvp[V_INC];
+    qvp[V_POS] = qpos;
+
+    /* end of source: without a filter stop now, with one flush its tail */
+    qatend = qvp[V_INC] > 0 ? qpos > qvp[V_HI] : qpos < qvp[V_LO];
+    qatend ? (
+      qvp[V_FLT] ? (
+        qvp[V_DRAIN] += 1;
+        (qvp[V_DRAIN] > 4096 || abs(qsl) + abs(qsr) < 0.000001) ? ( qdone = 1; );
+      ) : ( qdone = 1; );
+    );
+    !qdone ? ( qvp[V_ENV]*qvp[V_FAD] < 0.00002 ? ( qdone = 1; ); );
+  );
+
+  qdone ? ( qvp[V_ACT] = 0; nact -= 1; VLIST[qvi] = VLIST[nact]; ) : ( qvi += 1; );
+);
+
+spl0 = qaccl;
+spl1 = qaccr;
+
+/* ============================================================= @serialize */
+
+@serialize
+zver = 2;
+file_var(0, zver);
+file_var(0, sel_slot);
+file_var(0, sel_lane);
+file_var(0, sel_step);
+file_var(0, cur_page);
+file_mem(0, SL_NOTE, NSLOT);
+file_mem(0, SL_REV,  NSLOT);
+file_mem(0, SL_SOLO, NSLOT);
+file_mem(0, SL_CHK,  NSLOT);
+file_mem(0, PAT_ON,  NSLOT*NSTEP);
+file_mem(0, PAT_VEL, NSLOT*NSTEP);
+file_mem(0, PAT_PRB, NSLOT*NSTEP);
+file_mem(0, PAT_SUB, NSLOT*NSTEP);
+file_mem(0, PAT_MIC, NSLOT*NSTEP);
+zi = 0;
+loop(NSLOT, file_string(0, STR_PATH+zi); zi += 1;);
+
+file_avail(0) >= 0 ? (
+  /* read mode: re-resolve every referenced sample; a missing file keeps its
+     channel settings and is reported in the interface                       */
+  sel_slot = max(0, min(NSLOT-1, sel_slot));
+  sel_lane = max(0, min(NSLOT-1, sel_lane));
+  sel_step = max(0, min(NSTEP-1, sel_step));
+  cur_page = max(0, min(3, cur_page));
+  zi = 0;
+  loop(NSLOT,
+    SL_FRM[zi] = 0;
+    strlen(STR_PATH+zi) > 0 ? ( req_load = req_load | 2^zi; SL_STATE[zi] = ST_LOADING; )
+                            : ( SL_STATE[zi] = ST_EMPTY; );
+    zi += 1;
+  );
+  name_dirty = 1;
+);
+
+/* =================================================================== @gfx
+   Fixed 1180 x 720 coordinate system. The layout never reflows: a larger
+   window simply shows more background, a smaller one crops.               */
+
+@gfx 1180 720
+
+gfx_setfont(1, "Arial", 11);
+gfx_setfont(2, "Arial", 13);
+gfx_setfont(3, "Arial", 23, 'b');
+gfx_setfont(4, "Arial", 10, 'b');
+gfx_setfont(5, "Arial", 12, 'b');
+gfx_setfont(6, "Arial", 17, 'b');
+gfx_setfont(7, "Arial", 10);
+
+mdn   = mouse_cap & 1;
+mclk  = mdn && !mdn_p;
+mrclk = (mouse_cap & 2) && !mrdn_p;
+!mdn && mdn_p ? ( paint_on = 0; );
+mdn_p  = mdn;
+mrdn_p = mouse_cap & 2;
+
+take_drops();
+drop_flash > 0 ? ( drop_flash = drop_flash*0.86; drop_flash < 0.02 ? drop_flash = 0; );
+
+gfx_clear = -1;
+frect(0, 0, gfx_w, gfx_h, C_BG, 1);
+name_dirty ? fit_names();
+
+glen  = min(NSTEP, max(1, floor(slider93)));
+gplay = play_state == 1 || play_state == 5;
+
+/* ---------------------------------------------------------------- header */
+frect(0, 0, UI_W, 68, C_PANEL, 1);
+frect(0, 68, UI_W, 1, C_LINE, 1);
+frect(16, 15, 3, 27, C_ACC, 1);
+gfx_setfont(3); col(C_TXT,  1); txtl(28, 12, "HARUKI");
+gfx_setfont(4); col(C_TXT3, 1); txtl(30, 45, "TEN-LANE DRUM INSTRUMENT");
+
+hy = 26; hh = 30;
+gfx_setfont(4); col(C_TXT3, 1);
+txtl(515,  12, "SEQUENCER"); txtl(599,  12, "RATE");   txtl(755, 12, "LENGTH");
+txtl(835,  12, "SWING");     txtl(915,  12, "PAGE");   txtl(1040, 12, "POSITION");
+
+gv = slider91;
+btn(515, hy, 72, hh, gv ? "RUN" : "OFF", gv) ? (
+  slider91 = gv ? 0 : 1; sliderchange(slider91); slider_automate(slider91);
+);
+gv = floor(slider92);
+btn(599, hy, 46, hh, "1/8",  gv == 0) ? ( slider92 = 0; sliderchange(slider92); slider_automate(slider92); );
+btn(648, hy, 46, hh, "1/16", gv == 1) ? ( slider92 = 1; sliderchange(slider92); slider_automate(slider92); );
+btn(697, hy, 46, hh, "1/32", gv == 2) ? ( slider92 = 2; sliderchange(slider92); slider_automate(slider92); );
+
+pctl(7, 755, hy, 68, hh, 93, 1, 64, 16, 0.25, 1);
+field(755, hy, 68, hh, 7);
+gfx_setfont(6); col(C_TXT, 1);
+sprintf(STR_G1, "%d", floor(slider93)); txtc(755, hy, 68, hh, STR_G1);
+
+pctl(8, 835, hy, 68, hh, 94, 0, 100, 0, 0.5, 0.1);
+field(835, hy, 68, hh, 8);
+gfx_setfont(6); col(slider94 > 0 ? C_ACC : C_TXT, 1);
+sprintf(STR_G1, "%.0f%%", slider94); txtc(835, hy, 68, hh, STR_G1);
+
+gi = 0;
+loop(4,
+  gx = 915 + gi*29;
+  sprintf(STR_G2, "%d", gi+1);
+  btn(gx, hy, 26, hh, STR_G2, cur_page == gi) ? ( gi*16 < glen ? ( cur_page = gi; ); );
+  gi*16 >= glen ? ( frect(gx, hy, 26, hh, C_BG, 0.6); );
+  gplay && seq_cur >= 0 && floor(seq_cur/16) == gi && cur_page != gi ? (
+    frect(gx+10, hy+hh-5, 6, 2, C_PLAY, 0.85);
+  );
+  gi += 1;
+);
+
+frrect(1040, hy, 124, hh, 3, C_BTN, 1);
+col(gplay ? C_ACC : C_TXT3, 1);
+gfx_circle(1055, hy+hh*0.5, 4, 1, 1);
+gfx_setfont(5); col(C_TXT2, 1);
+gplay && seq_cur >= 0 ? sprintf(STR_G1, "STEP %02d / %d", seq_cur+1, glen)
+                      : strcpy(STR_G1, "STOPPED");
+txtc(1064, hy, 92, hh, STR_G1);
+
+/* ------------------------------------------------------------------ ruler */
+gfx_setfont(4); col(C_TXT3, 1); txtl(20, 76, "CHANNELS");
+gi = 0;
+loop(16,
+  gx = GRID_X + gi*50 + (gi/4|0)*12;
+  gn = cur_page*16 + gi + 1;
+  col(gn <= glen ? (gi%4 == 0 ? C_TXT2 : C_TXT3) : C_LINE, 1);
+  sprintf(STR_G1, "%d", gn);
+  txtc(gx, 74, CELL_W, 14, STR_G1);
+  gi += 1;
+);
+
+/* ------------------------------------------------- channel strips + lanes */
+ln = 0;
+loop(NSLOT,
+  ry     = ROW_Y + ln*ROW_H;
+  selrow = ln == sel_slot;
+  SL_FLASH[ln] = SL_FLASH[ln] > 0.01 ? SL_FLASH[ln]*0.80 : 0;
+
+  frrect(LX, ry+2, STRIP_W, ROW_H-4, 4, selrow ? C_PANEL2 : C_PANEL, 1);
+  frect(LX+2, ry+7, 3, ROW_H-14, selrow ? C_ACC : C_LINE, 1);
+  mclk && hit(LX, ry+2, STRIP_W, ROW_H-4) ? ( sel_slot = ln; sel_lane = ln; );
+  mrclk && hit(LX, ry+2, STRIP_W, ROW_H-4) ? ( sel_slot = ln; sel_lane = ln; channel_menu(ln); );
+
+  gfx_setfont(5); col(selrow ? C_ACC : C_TXT3, 1);
+  sprintf(STR_G1, "%d", ln+1);
+  txtc(LX+8, ry+2, 22, ROW_H-4, STR_G1);
+
+  gx = 50; gy = ry+7;
+  frrect(gx, gy, 50, ROW_H-14, 3, hit(gx, gy, 50, ROW_H-14) ? C_BTNH : C_BTN, 1);
+  SL_FLASH[ln] > 0 ? ( frrect(gx, gy, 50, ROW_H-14, 3, C_ACC_H, SL_FLASH[ln]); );
+  gfx_setfont(4); col(SL_FLASH[ln] > 0.45 ? C_DARK : C_TXT2, 1);
+  sprintf(STR_G1, "%d", SL_NOTE[ln]);
+  txtc(gx, gy, 50, ROW_H-14, STR_G1);
+  mclk && hit(gx, gy, 50, ROW_H-14) ? ( ui_trig = ui_trig | 2^ln; );
+
+  gst = SL_STATE[ln];
+  gfx_setfont(2);
+  col(gst == ST_EMPTY ? C_TXT3 : (gst == ST_ERRFILE || gst == ST_ERRFMT ? C_ERR : C_TXT), 1);
+  txtl(108, ry+6, gst == ST_EMPTY ? "empty" : STR_DISP+ln);
+  gfx_setfont(7);
+  gst == ST_OK || gst == ST_TRUNC ? (
+    sprintf(STR_G1, "%d Hz  %s  %.2f s", SL_SR[ln], SL_NCH[ln] > 1 ? "stereo" : "mono",
+            SL_FRM[ln]/srate);
+    SL_SR[ln] != srate ? ( strcat(STR_G1, "  SRC"); );
+    gst == ST_TRUNC ? ( strcat(STR_G1, "  TRUNCATED"); );
+    col(gst == ST_TRUNC ? C_WARN : C_TXT3, 1);
+  ) : gst == ST_LOADING ? ( strcpy(STR_G1, "loading...");       col(C_TXT3, 1); )
+    : gst == ST_ERRFILE ? ( strcpy(STR_G1, "file not found");   col(C_ERR,  1); )
+    : gst == ST_ERRFMT  ? ( strcpy(STR_G1, "unsupported file"); col(C_ERR,  1); )
+    :                     ( strcpy(STR_G1, "drop a WAV here");  col(C_TXT3, 1); );
+  txtl(108, ry+24, STR_G1);
+
+  gv = slider(1+ln*NPAR+8);
+  frrect(256, ry+12, 26, 20, 3, gv ? C_WARN : (hit(256, ry+12, 26, 20) ? C_BTNH : C_BTN), 1);
+  gfx_setfont(4); col(gv ? C_DARK : C_TXT3, 1); txtc(256, ry+12, 26, 20, "M");
+  mclk && hit(256, ry+12, 26, 20) ? (
+    slider(1+ln*NPAR+8) = gv ? 0 : 1;
+    sliderchange(slider(1+ln*NPAR+8)); slider_automate(slider(1+ln*NPAR+8));
+  );
+  frrect(286, ry+12, 26, 20, 3, SL_SOLO[ln] ? C_ACC : (hit(286, ry+12, 26, 20) ? C_BTNH : C_BTN), 1);
+  gfx_setfont(4); col(SL_SOLO[ln] ? C_DARK : C_TXT3, 1); txtc(286, ry+12, 26, 20, "S");
+  mclk && hit(286, ry+12, 26, 20) ? ( SL_SOLO[ln] = SL_SOLO[ln] ? 0 : 1; );
+
+  gi = 0;
+  loop(16,
+    gx   = GRID_X + gi*50 + (gi/4|0)*12;
+    gy   = ry + 5;
+    gidx = cur_page*16 + gi;
+    gci  = ln*NSTEP + gidx;
+    gidx < glen ? (
+      ghot = hit(gx, gy, CELL_W, CELL_H);
+      PAT_ON[gci] ? (
+        frrect(gx, gy, CELL_W, CELL_H, 3, ghot ? C_ACC_H : C_ACC, 0.30 + 0.70*PAT_VEL[gci]);
+      ) : (
+        frrect(gx, gy, CELL_W, CELL_H, 3, ghot ? C_STEPH : C_STEP, 1);
+        gi%4 == 0 ? ( frect(gx+CELL_W*0.5-1, gy+CELL_H*0.5-1, 2, 2, C_LINE, 1); );
+      );
+      /* probability: amber square, top right */
+      PAT_PRB[gci] < 1 ? ( frect(gx+CELL_W-9, gy+5, 4, 4, C_WARN, 0.95); );
+      /* microtiming: a tick along the TOP edge, offset early(left)/late(right) */
+      PAT_MIC[gci] != 0 ? (
+        frect(gx + CELL_W*0.5 - 1 + PAT_MIC[gci]*2*(CELL_W*0.5 - 11), gy+3, 3, 3, C_MICRO, 0.95);
+      );
+      /* substeps: ticks along the BOTTOM edge */
+      PAT_SUB[gci] > 1 ? (
+        gk = 0;
+        loop(PAT_SUB[gci]-1,
+          frect(gx+6+gk*5, gy+CELL_H-7, 3, 2, PAT_ON[gci] ? C_DARK : C_TXT3, 0.9);
+          gk += 1;
+        );
+      );
+      sel_lane == ln && sel_step == gidx ? ( orect(gx-1, gy-1, CELL_W+2, CELL_H+2, C_TXT, 0.95); );
+
+      mclk && ghot ? (
+        sel_slot = ln; sel_lane = ln; sel_step = gidx;
+        PAT_ON[gci] = PAT_ON[gci] ? 0 : 1;
+        paint_on = 1; paint_val = PAT_ON[gci];
+      ) : ( mdn && paint_on && ghot && PAT_ON[gci] != paint_val ? ( PAT_ON[gci] = paint_val; ); );
+      mrclk && ghot ? ( sel_slot = ln; sel_lane = ln; sel_step = gidx; );
+    ) : (
+      frrect(gx, gy, CELL_W, CELL_H, 3, C_BG, 1);
+      orect(gx, gy, CELL_W, CELL_H, C_PANEL, 1);
+    );
+    gi += 1;
+  );
+  ln += 1;
+);
+
+/* playhead: a light column, visually distinct from the accent-coloured steps */
+gplay && seq_cur >= cur_page*16 && seq_cur < cur_page*16 + 16 ? (
+  gi = seq_cur - cur_page*16;
+  gx = GRID_X + gi*50 + (gi/4|0)*12;
+  frect(gx-2, ROW_Y, CELL_W+4, ROW_H*NSLOT, C_PLAY, 0.11);
+  frect(gx-2, 72,    CELL_W+4, 3,           C_PLAY, 0.9);
+);
+
+/* ------------------------------------------------- selected channel editor */
+frrect(CH_X, PAN_Y, CH_W, PAN_H, 6, C_PANEL, 1);
+kb = 1 + sel_slot*NPAR;
+gfx_setfont(4); col(C_ACC, 1);
+sprintf(STR_G1, "CHANNEL %d", sel_slot+1);
+txtl(32, PAN_Y+8, STR_G1);
+gfx_setfont(2); col(C_TXT2, 1);
+txtl(112, PAN_Y+5, SL_STATE[sel_slot] == ST_EMPTY ? "no sample - drop a WAV on a channel"
+                                                   : STR_DISP+sel_slot);
+
+kv = slider(kb);
+sprintf(STR_VAL, "%+.1f dB", kv);
+knob_ui(1, 62, kb, -60, 12, 0, 0.35, 0, 0, "GAIN");
+
+kv = slider(kb+1);
+kv == 0 ? ( strcpy(STR_VAL, "CENTRE"); ) : ( sprintf(STR_VAL, "%s %d", kv < 0 ? "L" : "R", abs(kv)); );
+knob_ui(2, 154, kb+1, -100, 100, 0, 0.8, 1, 1, "PAN");
+
+kv = slider(kb+2);
+kv == 0 ? ( strcpy(STR_VAL, "0"); ) : ( sprintf(STR_VAL, "%+.2f st", kv); );
+knob_ui(3, 246, kb+2, -24, 24, 0, 0.2, -0.01, 1, "TUNE");
+
+kv = slider(kb+3);
+kv == 0 ? ( strcpy(STR_VAL, "0.0 ms"); )
+        : ( sprintf(STR_VAL, "%.1f ms",
+              SL_FRM[sel_slot] > 1 ? floor(kv*kv*0.0001*(SL_FRM[sel_slot]-1))*1000/srate : 0); );
+knob_ui(4, 338, kb+3, 0, 100, 0, 0.35, 0, 0, "START");
+
+kv = slider(kb+4);
+kv == 0 ? ( strcpy(STR_VAL, "OFF"); ) : ( sprintf(STR_VAL, "%.1f ms", 0.2*pow(2500, kv*0.01)); );
+knob_ui(5, 430, kb+4, 0, 100, 0, 0.4, 0, 0, "ATTACK");
+
+kv = slider(kb+5);
+kv == 0 ? ( strcpy(STR_VAL, "FULL"); ) : ( sprintf(STR_VAL, "%.0f ms", 10*pow(400, 1 - kv*0.01)); );
+knob_ui(6, 522, kb+5, 0, 100, 0, 0.4, 0, 0, "DECAY");
+
+kv = slider(kb+6);
+kv >= 100 ? ( strcpy(STR_VAL, "OPEN"); )
+          : ( sprintf(STR_VAL, "%d Hz", floor(exp((16 + kv*1.20103)*log(1.059))*8.17742)); );
+knob_ui(9, 614, kb+6, 0, 100, 100, 0.4, 0, 0, "CUTOFF");
+
+kv = slider(kb+7);
+sprintf(STR_VAL, "%.0f %%", kv);
+knob_ui(11, 706, kb+7, 0, 100, 0, 0.4, 0, 0, "RESONANCE");
+
+btn(40, ROW2_Y, 112, ROW2_H, "REVERSE", SL_REV[sel_slot]) ? (
+  SL_REV[sel_slot] = SL_REV[sel_slot] ? 0 : 1;
+);
+gfx_setfont(4); col(C_TXT3, 1); txtr(180, ROW2_Y, 84, ROW2_H, "CHOKE");
+gi = 0;
+loop(4,
+  gi == 0 ? ( strcpy(STR_G2, "OFF"); ) : ( sprintf(STR_G2, "%d", gi); );
+  btn(276 + gi*40, ROW2_Y, 36, ROW2_H, STR_G2, SL_CHK[sel_slot] == gi) ? ( SL_CHK[sel_slot] = gi; );
+  gi += 1;
+);
+gfx_setfont(4); col(C_TXT3, 1); txtr(470, ROW2_Y, 100, ROW2_H, "MIDI NOTE");
+mctl(10, 584, ROW2_Y, 56, ROW2_H, SL_NOTE+sel_slot, 0, 127, 36+sel_slot, 0.2, 1);
+field(584, ROW2_Y, 56, ROW2_H, 10);
+gfx_setfont(6); col(C_TXT, 1);
+sprintf(STR_G1, "%d", SL_NOTE[sel_slot]); txtc(584, ROW2_Y, 56, ROW2_H, STR_G1);
+
+/* ------------------------------------------------------------ step editor */
+frrect(ST_X, PAN_Y, ST_W, PAN_H, 6, C_PANEL, 1);
+sci = sel_lane*NSTEP + sel_step;
+gfx_setfont(4); col(C_ACC, 1);
+sprintf(STR_G1, "STEP %d", sel_step+1);
+txtl(ST_X+16, PAN_Y+8, STR_G1);
+col(C_TXT3, 1);
+sprintf(STR_G1, "CHANNEL %d", sel_lane+1);
+txtl(ST_X+82, PAN_Y+8, STR_G1);
+col(PAT_ON[sci] ? C_ACC : C_TXT3, 1);
+txtr(ST_X+180, PAN_Y+8, ST_W-196, 11, PAT_ON[sci] ? "ACTIVE" : "OFF");
+
+sprintf(STR_VAL, "%.0f %%", PAT_VEL[sci]*100);
+knob_mem(12, 880, PAT_VEL+sci, 0, 1, 1, 0.008, 0.01, 0, "VELOCITY");
+sprintf(STR_VAL, "%.0f %%", PAT_PRB[sci]*100);
+knob_mem(13, 980, PAT_PRB+sci, 0, 1, 1, 0.008, 0.01, 0, "PROBABILITY");
+PAT_MIC[sci] == 0 ? ( strcpy(STR_VAL, "ON GRID"); )
+                  : ( sprintf(STR_VAL, "%+.0f %% step", PAT_MIC[sci]*100); );
+knob_mem(14, 1080, PAT_MIC+sci, -0.5, 0.5, 0, 0.004, 0.01, 1, "MICROTIMING");
+
+gfx_setfont(4); col(C_TXT3, 1); txtr(ST_X+20, ROW2_Y, 116, ROW2_H, "SUBSTEPS");
+gi = 1;
+loop(4,
+  sprintf(STR_G2, "%d", gi);
+  btn(ST_X+152 + (gi-1)*40, ROW2_Y, 36, ROW2_H, STR_G2, PAT_SUB[sci] == gi) ? ( PAT_SUB[sci] = gi; );
+  gi += 1;
+);
+
+/* ----------------------------------------------------------------- footer */
+gfx_setfont(7); col(drop_flash > 0 ? C_ACC : C_TXT3, drop_flash > 0 ? 1 : 1);
+txtl(20, 706, "drop a WAV on a channel from the Media Explorer, a track, or Finder (several files fill consecutive channels)   -   drag a control vertically, shift for fine, double-click to reset   -   right-click a step to select it, a channel to clear or reload");

@@ -1,0 +1,884 @@
+desc:Yoshi
+//tags: MIDI processing arpeggiator
+//author: Michele Ibba (with Claude)
+//version: 1.0
+//SPDX-License-Identifier: MIT
+options:no_meter gfx_hz=60
+
+// ============================================================================
+//  YOSHI -- a host-synchronised MIDI arpeggiator for REAPER (JSFX)
+//
+//  Hold a chord, pick a rate and an order. A 16-step expression pattern
+//  (accent, octave, gate, chance, ratchet) shapes the result.
+//
+//  Layout of this file
+//    header ....... 100 sliders: 11 globals, 80 pattern steps (hidden; the UI is @gfx)
+//    @init ........ memory map, held-note table, order engine, scheduler,
+//                   generated-note registry, output queue
+//    @block ....... clock, parameter transitions, MIDI in -> scheduler -> MIDI out
+//    @serialize ... versioned UI state
+//    @gfx ......... the interface
+//
+//  MIT licence. Copyright (c) 2026 Michele Ibba.
+//  Permission is hereby granted, free of charge, to any person obtaining a copy
+//  of this software and associated documentation files (the "Software"), to deal
+//  in the Software without restriction, including without limitation the rights
+//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//  copies of the Software, and to permit persons to whom the Software is
+//  furnished to do so, subject to the following conditions: the above copyright
+//  notice and this permission notice shall be included in all copies or
+//  substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS",
+//  WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+//  TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+//  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+//  FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+//  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+//  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//  No third-party code is incorporated.
+// ============================================================================
+
+in_pin:none
+out_pin:none
+
+slider1:p_enable=1<0,1,1{Off,On}>-Enable
+slider2:p_rate=11<0,15,1{1/1,1/2.,1/2,1/4.,1/2T,1/4,1/8.,1/4T,1/8,1/16.,1/8T,1/16,1/32.,1/16T,1/32,1/32T}>-Rate
+slider3:p_order=0<0,6,1{Up,Down,Up/Down,Down/Up,As Played,Random,Chord}>-Order
+slider4:p_octaves=1<1,4,1>-Octaves
+slider5:p_gate=75<5,200,1>-Gate (%)
+slider6:p_swing=0<0,100,1>-Swing (%)
+slider7:p_hold=0<0,1,1{Off,On}>-Hold
+slider8:p_sync=1<0,2,1{Free,Beat,Song}>-Sync
+slider9:p_dyn=100<0,100,1>-Dynamics (%)
+slider10:p_len=16<1,16,1>-Pattern Length
+slider11:p_seed=1<1,99,1>-Seed
+// sliders 12..20 are reserved for future global parameters
+slider21:100<0,200,1>-Step 1 Accent (%)
+slider22:100<0,200,1>-Step 2 Accent (%)
+slider23:100<0,200,1>-Step 3 Accent (%)
+slider24:100<0,200,1>-Step 4 Accent (%)
+slider25:100<0,200,1>-Step 5 Accent (%)
+slider26:100<0,200,1>-Step 6 Accent (%)
+slider27:100<0,200,1>-Step 7 Accent (%)
+slider28:100<0,200,1>-Step 8 Accent (%)
+slider29:100<0,200,1>-Step 9 Accent (%)
+slider30:100<0,200,1>-Step 10 Accent (%)
+slider31:100<0,200,1>-Step 11 Accent (%)
+slider32:100<0,200,1>-Step 12 Accent (%)
+slider33:100<0,200,1>-Step 13 Accent (%)
+slider34:100<0,200,1>-Step 14 Accent (%)
+slider35:100<0,200,1>-Step 15 Accent (%)
+slider36:100<0,200,1>-Step 16 Accent (%)
+slider37:0<-2,2,1>-Step 1 Octave
+slider38:0<-2,2,1>-Step 2 Octave
+slider39:0<-2,2,1>-Step 3 Octave
+slider40:0<-2,2,1>-Step 4 Octave
+slider41:0<-2,2,1>-Step 5 Octave
+slider42:0<-2,2,1>-Step 6 Octave
+slider43:0<-2,2,1>-Step 7 Octave
+slider44:0<-2,2,1>-Step 8 Octave
+slider45:0<-2,2,1>-Step 9 Octave
+slider46:0<-2,2,1>-Step 10 Octave
+slider47:0<-2,2,1>-Step 11 Octave
+slider48:0<-2,2,1>-Step 12 Octave
+slider49:0<-2,2,1>-Step 13 Octave
+slider50:0<-2,2,1>-Step 14 Octave
+slider51:0<-2,2,1>-Step 15 Octave
+slider52:0<-2,2,1>-Step 16 Octave
+slider53:100<10,200,1>-Step 1 Gate (%)
+slider54:100<10,200,1>-Step 2 Gate (%)
+slider55:100<10,200,1>-Step 3 Gate (%)
+slider56:100<10,200,1>-Step 4 Gate (%)
+slider57:100<10,200,1>-Step 5 Gate (%)
+slider58:100<10,200,1>-Step 6 Gate (%)
+slider59:100<10,200,1>-Step 7 Gate (%)
+slider60:100<10,200,1>-Step 8 Gate (%)
+slider61:100<10,200,1>-Step 9 Gate (%)
+slider62:100<10,200,1>-Step 10 Gate (%)
+slider63:100<10,200,1>-Step 11 Gate (%)
+slider64:100<10,200,1>-Step 12 Gate (%)
+slider65:100<10,200,1>-Step 13 Gate (%)
+slider66:100<10,200,1>-Step 14 Gate (%)
+slider67:100<10,200,1>-Step 15 Gate (%)
+slider68:100<10,200,1>-Step 16 Gate (%)
+slider69:100<0,100,1>-Step 1 Chance (%)
+slider70:100<0,100,1>-Step 2 Chance (%)
+slider71:100<0,100,1>-Step 3 Chance (%)
+slider72:100<0,100,1>-Step 4 Chance (%)
+slider73:100<0,100,1>-Step 5 Chance (%)
+slider74:100<0,100,1>-Step 6 Chance (%)
+slider75:100<0,100,1>-Step 7 Chance (%)
+slider76:100<0,100,1>-Step 8 Chance (%)
+slider77:100<0,100,1>-Step 9 Chance (%)
+slider78:100<0,100,1>-Step 10 Chance (%)
+slider79:100<0,100,1>-Step 11 Chance (%)
+slider80:100<0,100,1>-Step 12 Chance (%)
+slider81:100<0,100,1>-Step 13 Chance (%)
+slider82:100<0,100,1>-Step 14 Chance (%)
+slider83:100<0,100,1>-Step 15 Chance (%)
+slider84:100<0,100,1>-Step 16 Chance (%)
+slider85:1<1,4,1>-Step 1 Ratchet
+slider86:1<1,4,1>-Step 2 Ratchet
+slider87:1<1,4,1>-Step 3 Ratchet
+slider88:1<1,4,1>-Step 4 Ratchet
+slider89:1<1,4,1>-Step 5 Ratchet
+slider90:1<1,4,1>-Step 6 Ratchet
+slider91:1<1,4,1>-Step 7 Ratchet
+slider92:1<1,4,1>-Step 8 Ratchet
+slider93:1<1,4,1>-Step 9 Ratchet
+slider94:1<1,4,1>-Step 10 Ratchet
+slider95:1<1,4,1>-Step 11 Ratchet
+slider96:1<1,4,1>-Step 12 Ratchet
+slider97:1<1,4,1>-Step 13 Ratchet
+slider98:1<1,4,1>-Step 14 Ratchet
+slider99:1<1,4,1>-Step 15 Ratchet
+slider100:1<1,4,1>-Step 16 Ratchet
+
+@init
+ext_noinit = 1;        // the held chord and the generated-note registry must survive transport starts
+gfx_ext_retina = 1;
+
+// ---------------------------------------------------------------- constants
+NSTEP = 16; NLANE = 5; NRATE = 16;
+LANE_BASE = 21;        // slider of step 1 of lane 0; lane L step s -> LANE_BASE + L*NSTEP + s
+L_ACC = 0; L_OCT = 1; L_GATE = 2; L_CHANCE = 3; L_RATCH = 4;
+O_DOWN = 1; O_UPDOWN = 2; O_DOWNUP = 3; O_PLAYED = 4; O_RANDOM = 5; O_CHORD = 6;
+S_FREE = 0; S_SONG = 2;          // 1 = Beat
+HS_DOWN = 1; HS_PEDAL = 2; HS_HOLD = 3;
+
+// ------------------------------------------------------------- memory map
+// Fixed regions; the *_MAX bounds are enforced by every writer.
+HELD = 0;     HELD_MAX = 32;  HELD_STR = 5;   // pitch, vel, ch, state, arrival serial
+POOL = 256;   POOL_MAX = 256; POOL_STR = 3;   // pitch, vel, ch (the play sequence)
+ACT  = 1024;  ACT_MAX = 64;   ACT_STR = 4;    // pitch, ch, note-off beat, note-on sample
+EVQ  = 1536;  EVQ_MAX = 512;  EVQ_STR = 5;    // offset, priority (0 off / 1 on), m1, m2, m3
+TMP  = 4608;                                  // sort scratch (HELD_MAX entries)
+RATE_BEATS = 4700;                            // step length in quarter notes per Rate index
+SMIN = 4800; SMAX = 4928; SSTEP = 5056; SDEF = 5184;   // slider metadata for the UI (index 1..100)
+LMIN = 5400; LMAX = 5408; LDEF = 5416;                 // per-lane ranges
+
+RATE_BEATS[0] = 4;      RATE_BEATS[1] = 3;      RATE_BEATS[2] = 2;       RATE_BEATS[3] = 1.5;
+RATE_BEATS[4] = 4/3;    RATE_BEATS[5] = 1;      RATE_BEATS[6] = 0.75;    RATE_BEATS[7] = 2/3;
+RATE_BEATS[8] = 0.5;    RATE_BEATS[9] = 0.375;  RATE_BEATS[10] = 1/3;    RATE_BEATS[11] = 0.25;
+RATE_BEATS[12] = 0.1875; RATE_BEATS[13] = 1/6;  RATE_BEATS[14] = 0.125;  RATE_BEATS[15] = 1/12;
+
+function meta(i, lo, hi, st, d) ( SMIN[i] = lo; SMAX[i] = hi; SSTEP[i] = st; SDEF[i] = d; );
+meta(1, 0, 1, 1, 1); meta(2, 0, 15, 1, 11); meta(3, 0, 6, 1, 0); meta(4, 1, 4, 1, 1);
+meta(5, 5, 200, 1, 75); meta(6, 0, 100, 1, 0); meta(7, 0, 1, 1, 0); meta(8, 0, 2, 1, 1);
+meta(9, 0, 100, 1, 100); meta(10, 1, 16, 1, 16); meta(11, 1, 99, 1, 1);
+LMIN[L_ACC] = 0;    LMAX[L_ACC] = 200;    LDEF[L_ACC] = 100;
+LMIN[L_OCT] = -2;   LMAX[L_OCT] = 2;      LDEF[L_OCT] = 0;
+LMIN[L_GATE] = 10;  LMAX[L_GATE] = 200;   LDEF[L_GATE] = 100;
+LMIN[L_CHANCE] = 0; LMAX[L_CHANCE] = 100; LDEF[L_CHANCE] = 100;
+LMIN[L_RATCH] = 1;  LMAX[L_RATCH] = 4;    LDEF[L_RATCH] = 1;
+mi_l = 0;
+while (mi_l < NLANE) (
+  mi_s = 0;
+  while (mi_s < NSTEP) ( meta(LANE_BASE + mi_l*NSTEP + mi_s, LMIN[mi_l], LMAX[mi_l], 1, LDEF[mi_l]); mi_s += 1; );
+  mi_l += 1;
+);
+
+// state that must exist before the first @block
+enabled = -1; hold_last = -1; rate_last = -1; sync_last = -1; order_last = -1; oct_last = -1;
+clk_valid = 0; held_n = 0; pool_n = 0; act_n = 0; evq_n = 0; sch_active = 0; ui_lane = 0;
+
+// ---------------------------------------------------------------- helpers
+function clamp(v, lo, hi) ( v < lo ? lo : v > hi ? hi : v );
+function imod(a, n) ( n <= 0 ? 0 : a - floor(a / n) * n );      // floor-mod, right for negatives
+// Deterministic hash in [0,1): the same (counter, salt, Seed) always gives the same value, so a
+// project plays back identically. Integer arithmetic only, every product stays below 2^53.
+function hash01(a, b) local(h)
+(
+  h = imod(a * 1103515245 + 12345, 4294967296);
+  h = imod(h * 1664525 + b * 22695477 + (p_seed|0) * 1013904223 + 1013904223, 4294967296);
+  h = imod(h * 1664525 + 1013904223, 4294967296);
+  h / 4294967296
+);
+function lane_val(l, s) ( slider(LANE_BASE + l*NSTEP + s) );
+
+// ---------------------------------------------------------- output queue
+// Sorted by (offset, priority); note-offs (priority 0) precede note-ons at the same sample so a
+// retriggered pitch is always released before it sounds again. Insertion keeps arrival order
+// among equals, which preserves the order of pass-through messages.
+function evq_push(offset, pri, m1, m2, m3) local(i, p)
+(
+  evq_n >= EVQ_MAX ? midisend(offset, m1, m2, m3) : (
+    i = evq_n;
+    while (i > 0 && (EVQ[(i-1)*EVQ_STR] > offset || (EVQ[(i-1)*EVQ_STR] == offset && EVQ[(i-1)*EVQ_STR+1] > pri))) (
+      memcpy(EVQ + i*EVQ_STR, EVQ + (i-1)*EVQ_STR, EVQ_STR);
+      i -= 1;
+    );
+    p = EVQ + i*EVQ_STR; p[0] = offset; p[1] = pri; p[2] = m1; p[3] = m2; p[4] = m3;
+    evq_n += 1;
+  );
+);
+function evq_flush() local(i, p)
+(
+  i = 0;
+  while (i < evq_n) ( p = EVQ + i*EVQ_STR; midisend(p[0], p[2], p[3], p[4]); i += 1; );
+  evq_n = 0;
+);
+// beat time -> sample offset relative to the current block; +epsilon so a grid point that lands an
+// ulp below an exact sample is not floored down. Due-ness is decided on this offset (< the limit),
+// never on beats, so a block boundary can never move an event by a sample.
+function beat_to_off_raw(t) ( floor((t - blk_b0) * spb + 0.0001) );
+function clamp_off(o) ( o < 0 ? 0 : o > samplesblock - 1 ? samplesblock - 1 : o );   // late -> first sample
+
+// ------------------------------------------------ generated-note registry
+function act_find(pitch, ch) local(i, r)
+(
+  r = -1; i = 0;
+  while (i < act_n) ( ACT[i*ACT_STR] == pitch && ACT[i*ACT_STR+1] == ch ? r = i; i += 1; );
+  r
+);
+function act_off(i, offset) local(p)
+(
+  p = ACT + i*ACT_STR;
+  evq_push(offset, 0, 128 + p[1], p[0], 0);
+  act_n -= 1;
+  i < act_n ? memcpy(p, ACT + act_n*ACT_STR, ACT_STR);
+);
+// Release every note whose off falls before block offset `upto_off`. A note never ends on the
+// sample it began: if that would be needed, the off waits for the next block and fires first.
+function act_sweep(upto_off) local(i, p, o, omin)
+(
+  i = 0;
+  while (i < act_n) (
+    p = ACT + i*ACT_STR;
+    o = beat_to_off_raw(p[2]);
+    o < upto_off ? (
+      o < 0 ? o = 0;
+      omin = p[3] + 1 - blk_abs;
+      omin > samplesblock - 1 ? ( i += 1; ) : ( o < omin ? o = omin; act_off(i, o); );
+    ) : ( i += 1; );
+  );
+);
+function act_flush_all() ( while (act_n > 0) ( act_off(act_n - 1, 0); ); );
+function note_on_gen(t, pitch, vel, ch, dur) local(o, i, p, k, oldest)
+(
+  o = clamp_off(beat_to_off_raw(t));
+  i = act_find(pitch, ch);
+  i >= 0 ? (
+    p = ACT + i*ACT_STR;
+    p[3] + 1 - blk_abs > o ? ( p[2] = max(p[2], t + dur); i = -2; )   // same sample: extend, do not retrigger
+    : act_off(i, o);
+  );
+  i != -2 ? (
+    act_n >= ACT_MAX ? (
+      oldest = 0; k = 1;
+      while (k < act_n) ( ACT[k*ACT_STR+3] < ACT[oldest*ACT_STR+3] ? oldest = k; k += 1; );
+      act_off(oldest, o);
+    );
+    p = ACT + act_n*ACT_STR; p[0] = pitch; p[1] = ch; p[2] = t + dur; p[3] = blk_abs + o; act_n += 1;
+    evq_push(o, 1, 144 + ch, pitch, vel);
+  );
+);
+
+// ------------------------------------------------------- held-note table
+function held_find(pitch, ch) local(i, r)
+(
+  r = -1; i = 0;
+  while (i < held_n) ( HELD[i*HELD_STR] == pitch && HELD[i*HELD_STR+2] == ch ? r = i; i += 1; );
+  r
+);
+function held_remove(i)
+(
+  held_n -= 1;
+  i < held_n ? memcpy(HELD + i*HELD_STR, HELD + held_n*HELD_STR, HELD_STR);
+  pool_dirty = 1;
+);
+function held_add(pitch, vel, ch, state) local(p)
+(
+  held_n < HELD_MAX ? (
+    p = HELD + held_n*HELD_STR; p[0] = pitch; p[1] = vel; p[2] = ch; p[3] = state;
+    held_serial += 1; p[4] = held_serial; held_n += 1; pool_dirty = 1;
+  );
+);
+function held_count(state) local(i, n)
+(
+  n = 0; i = 0;
+  while (i < held_n) ( HELD[i*HELD_STR+3] == state ? n += 1; i += 1; );
+  n
+);
+// every entry in `state` becomes `newstate`, or is removed when newstate < 0
+function held_drop_state(state, newstate) local(i)
+(
+  i = 0;
+  while (i < held_n) (
+    HELD[i*HELD_STR+3] == state ? ( newstate < 0 ? held_remove(i) : ( HELD[i*HELD_STR+3] = newstate; i += 1; ); ) : ( i += 1; );
+  );
+);
+
+// ----------------------------------------------------------- order engine
+function pool_push(pitch, vel, ch) local(p)
+(
+  pitch >= 0 && pitch <= 127 && pool_n < POOL_MAX ? (
+    p = POOL + pool_n*POOL_STR; p[0] = pitch; p[1] = vel; p[2] = ch; pool_n += 1;
+  );
+);
+function held_key(i) ( order_m == O_PLAYED ? HELD[i*HELD_STR+4] : HELD[i*HELD_STR]*16 + HELD[i*HELD_STR+2] );
+function pool_push_held(i, oct) ( pool_push(HELD[i*HELD_STR] + 12*oct, HELD[i*HELD_STR+1], HELD[i*HELD_STR+2]); );
+// Build the play sequence from the held table: sorted by pitch (or arrival for As Played),
+// repeated per octave; Up/Down and Down/Up append the return trip without repeating the ends.
+// Chord holds the plain chord; its octave climb is applied per step.
+function pool_build() local(i, j, k, o, n, m, key)
+(
+  n = held_n;
+  i = 0;
+  while (i < n) (
+    key = held_key(i); j = i - 1;
+    while (j >= 0 && held_key(TMP[j]) > key) ( TMP[j+1] = TMP[j]; j -= 1; );
+    TMP[j+1] = i; i += 1;
+  );
+  pool_n = 0;
+  order_m == O_CHORD ? (
+    i = 0; while (i < n) ( pool_push_held(TMP[i], 0); i += 1; );
+  ) : order_m == O_DOWN || order_m == O_DOWNUP ? (
+    o = oct_n - 1;
+    while (o >= 0) ( i = n - 1; while (i >= 0) ( pool_push_held(TMP[i], o); i -= 1; ); o -= 1; );
+    m = pool_n;
+    order_m == O_DOWNUP && m > 2 ? ( k = m - 2; while (k >= 1) ( pool_push(POOL[k*POOL_STR], POOL[k*POOL_STR+1], POOL[k*POOL_STR+2]); k -= 1; ); );
+  ) : (
+    o = 0;
+    while (o < oct_n) ( i = 0; while (i < n) ( pool_push_held(TMP[i], o); i += 1; ); o += 1; );
+    m = pool_n;
+    order_m == O_UPDOWN && m > 2 ? ( k = m - 2; while (k >= 1) ( pool_push(POOL[k*POOL_STR], POOL[k*POOL_STR+1], POOL[k*POOL_STR+2]); k -= 1; ); );
+  );
+  seq_idx = pool_n > 0 ? imod(seq_idx, pool_n) : 0;
+  pool_dirty = 0;
+);
+
+// ---------------------------------------------------------------- scheduler
+// sch_base: nominal (unswung) beat time of the next step; sch_g: its absolute grid index (Beat/Song);
+// sch_k: steps since the chord began. st_*: the step in progress, whose ratchet hits may span blocks.
+function sw_of(par) ( imod(par, 2) >= 1 ? swing_beats : 0 );
+function sched_stop() ( sch_active = 0; st_j = st_n; );
+// grid time of the next step from integer indices, so nothing accumulates over a long session:
+// Free counts steps from the chord (or from the last rate change), Beat/Song use the host grid index
+function sched_base_update() ( sch_base = sync_m == S_FREE ? free_origin + (sch_k - free_k0) * step_beats : sch_g * step_beats; );
+function sched_shift(d) ( sch_base += d; free_origin += d; st_time += d; );   // Free keeps its phase across a jump
+function sched_start(t)
+(
+  sch_active = 1; sch_k = 0; seq_idx = 0; rnd_last = -1; pool_dirty = 1; st_j = 0; st_n = 0; chord_start = t;
+  sync_m == S_FREE ? ( sch_base = t; free_origin = t; free_k0 = 0; sch_g = 0; sch_first = 0; )
+  : (
+    // nearest grid point: a slightly late chord fires at once, an early one waits for the grid
+    sch_g = floor(t / step_beats + 0.5); sch_base = sch_g * step_beats;
+    sch_first = sch_base < t - 0.000001;
+  );
+);
+// continue from the host grid point at or after tnow (after a seek, a rate or a sync change)
+function sched_regrid(tnow)
+(
+  sync_m != S_FREE ? ( sch_g = ceil((tnow - 0.000001) / step_beats); sch_base = sch_g * step_beats; )
+  : ( free_origin = sch_base; free_k0 = sch_k; );
+  st_j = st_n; sch_first = 0;
+);
+function next_onset() local(t)
+(
+  t = sch_base + sw_of(sync_m == S_FREE ? sch_k : sch_g);
+  sch_first && chord_start > t ? chord_start : t
+);
+// Dynamics: 100 % follows the played velocity, 0 % plays everything at 100; then the step accent
+function vel_out(v, acc) local(x)
+(
+  x = floor((100 + dyn_amt * (v - 100)) * acc * 0.01 + 0.5);
+  x < 1 ? 1 : x > 127 ? 127 : x
+);
+function step_begin() local(par, on, nxt, span, ps, cnt, acc, octl, gl, chance, rat, idx)
+(
+  par = sync_m == S_FREE ? sch_k : sch_g;
+  on = next_onset();
+  nxt = sch_base + step_beats + sw_of(par + 1);
+  span = nxt - on; span < 1 / spb ? span = 1 / spb;
+  cnt = sync_m == S_SONG ? sch_g : sch_k;          // Song: the pattern follows the song position
+  ps = imod(cnt, pat_len);
+  acc = clamp(lane_val(L_ACC, ps), 0, 200);
+  octl = clamp(floor(lane_val(L_OCT, ps) + 0.5), -2, 2);
+  gl = clamp(lane_val(L_GATE, ps), 10, 200);
+  chance = clamp(lane_val(L_CHANCE, ps), 0, 100);
+  rat = clamp(floor(lane_val(L_RATCH, ps) + 0.5), 1, 4);
+  st_time = on; st_span = span; st_n = rat; st_j = 0; st_rest = 1; st_chord = 0;
+  acc > 0 ? (                                       // accent 0 is a rest: silent, keeps the sequence in place
+    pool_dirty ? pool_build();
+    pool_n > 0 ? (
+      chance >= 100 || hash01(cnt, 1) * 100 < chance ? (
+        st_rest = 0;
+        order_m == O_CHORD ? ( st_chord = 1; st_oct12 = 12 * (octl + imod(cnt, oct_n)); st_acc = acc; )
+        : (
+          order_m == O_RANDOM ? (
+            idx = floor(hash01(cnt, 2) * pool_n); idx >= pool_n ? idx = pool_n - 1;
+            pool_n > 1 && idx == rnd_last ? idx = imod(idx + 1, pool_n);   // no immediate repeats
+            rnd_last = idx;
+          ) : ( idx = seq_idx; seq_idx = imod(seq_idx + 1, pool_n); );
+          st_pitch = POOL[idx*POOL_STR] + 12*octl; st_vel = vel_out(POOL[idx*POOL_STR+1], acc); st_ch = POOL[idx*POOL_STR+2];
+        );
+      ) : ( order_m != O_RANDOM && order_m != O_CHORD ? seq_idx = imod(seq_idx + 1, pool_n); );   // a chance skip consumes its note
+    );
+  );
+  st_gate = gate_amt * gl * 0.01 * span / rat;
+  sch_g += 1; sch_k += 1; sch_first = 0; sched_base_update();
+  ui_step = ps;
+);
+function subhit_emit(t) local(i, p, pt)
+(
+  !st_rest ? (
+    st_chord ? (
+      i = 0;
+      while (i < pool_n) (
+        p = POOL + i*POOL_STR; pt = p[0] + st_oct12;
+        pt >= 0 && pt <= 127 ? note_on_gen(t, pt, vel_out(p[1], st_acc), p[2], st_gate);
+        i += 1;
+      );
+    ) : ( st_pitch >= 0 && st_pitch <= 127 ? note_on_gen(t, st_pitch, st_vel, st_ch, st_gate); );
+  );
+);
+// emit everything due before block offset `upto_off`, in time order: pending offs, then
+// steps and ratchet hits, then the offs those created
+// Note-offs are released only up to each new note-on, so a pitch that is still sounding when it
+// is played again is retriggered (off, then on) rather than cut by a stale off later in the block.
+function schedule_until(upto_off) local(guard, done, t, o)
+(
+  sch_active ? (
+    guard = 0; done = 0;
+    while (!done && guard < 1024) (
+      st_j < st_n ? (
+        t = st_time + st_j * st_span / st_n; o = beat_to_off_raw(t);
+        o < upto_off ? ( act_sweep(clamp_off(o) + 1); subhit_emit(t); st_j += 1; ) : ( done = 1; );
+      ) : ( beat_to_off_raw(next_onset()) < upto_off ? step_begin() : ( done = 1; ); );
+      guard += 1;
+    );
+  );
+  act_sweep(upto_off);
+);
+
+// --------------------------------------------------------------- input
+function note_in_on(t, pitch, vel, ch) local(i, fresh)
+(
+  i = held_find(pitch, ch);
+  i >= 0 ? ( HELD[i*HELD_STR+1] = vel; HELD[i*HELD_STR+3] = HS_DOWN; pool_dirty = 1; )
+  : (
+    fresh = held_n == 0;
+    hold_on && !fresh && held_count(HS_DOWN) == 0 ? ( held_n = 0; pool_dirty = 1; fresh = 1; );   // a held chord is replaced by the next one
+    held_add(pitch, vel, ch, HS_DOWN);
+    fresh && held_n > 0 ? sched_start(t);
+  );
+);
+function note_in_off(pitch, ch) local(i)
+(
+  i = held_find(pitch, ch);
+  i >= 0 ? (
+    hold_on ? HELD[i*HELD_STR+3] = HS_HOLD
+    : pedal_down ? HELD[i*HELD_STR+3] = HS_PEDAL
+    : ( held_remove(i); held_n == 0 ? sched_stop(); );
+  );
+);
+function pedal_in(down)
+(
+  pedal_down = down;
+  !down ? ( held_drop_state(HS_PEDAL, hold_on ? HS_HOLD : -1); held_n == 0 ? sched_stop(); );
+);
+// Bypass hands the keyboard to the synth: keys still down are re-sent, and taken back on enable.
+function set_enable(on) local(i, p)
+(
+  on ? (
+    i = 0; while (i < held_n) ( p = HELD + i*HELD_STR; p[3] == HS_DOWN ? evq_push(0, 0, 128 + p[2], p[0], 0); i += 1; );
+    held_drop_state(HS_PEDAL, -1); held_drop_state(HS_HOLD, -1);
+    held_n > 0 ? sched_start(blk_b0) : sched_stop();
+  ) : (
+    act_flush_all(); sched_stop();
+    held_drop_state(HS_PEDAL, -1); held_drop_state(HS_HOLD, -1);
+    i = 0; while (i < held_n) ( p = HELD + i*HELD_STR; evq_push(0, 1, 144 + p[2], p[0], p[1]); i += 1; );
+  );
+  enabled = on;
+);
+function panic() local(c)
+(
+  act_flush_all(); held_n = 0; pool_dirty = 1; sched_stop(); pedal_down = 0;
+  c = 0; while (c < 16) ( evq_push(0, 0, 176 + c, 123, 0); c += 1; );
+);
+
+@block
+step_beats = RATE_BEATS[clamp(p_rate|0, 0, NRATE - 1)];
+swing_beats = clamp(p_swing, 0, 100) * 0.01 * step_beats / 3;   // 100 % = triplet feel
+order_m = clamp(p_order|0, 0, 6); sync_m = clamp(p_sync|0, 0, 2); oct_n = clamp(p_octaves|0, 1, 4);
+pat_len = clamp(p_len|0, 1, NSTEP); gate_amt = clamp(p_gate, 5, 200) * 0.01;
+dyn_amt = clamp(p_dyn, 0, 100) * 0.01; hold_on = p_hold >= 0.5;
+
+// ---- clock: host beats while playing, a free clock that continues from the last block otherwise
+spb = srate * 60 / max(tempo, 1);
+blk_beats = samplesblock / spb;
+playing = (play_state & 1) != 0;
+blk_b0 = playing ? beat_position : clk_free;
+blk_we = blk_b0 + blk_beats;
+// A jump larger than a block (seek, loop, transport start) releases every sounding note and re-grids.
+// A tempo change inside a block moves beat_position by less than a block, which stays continuous.
+!(clk_valid && abs(blk_b0 - sch_end) <= blk_beats + 0.01) ? (
+  act_flush_all();
+  sch_active ? ( sync_m == S_FREE ? sched_shift(blk_b0 - sch_end) : sched_regrid(blk_b0); );
+);
+
+// ---- parameter transitions
+(p_enable >= 0.5) != enabled ? set_enable(p_enable >= 0.5);
+hold_on != hold_last ? ( !hold_on ? ( held_drop_state(HS_HOLD, pedal_down ? HS_PEDAL : -1); held_n == 0 ? sched_stop(); ); hold_last = hold_on; );
+step_beats != rate_last || sync_m != sync_last ? ( sch_active ? sched_regrid(blk_b0); rate_last = step_beats; sync_last = sync_m; );
+order_m != order_last || oct_n != oct_last ? ( pool_dirty = 1; order_last = order_m; oct_last = oct_n; );
+ui_panic ? ( panic(); ui_panic = 0; );
+
+// ---- MIDI in: notes and the sustain pedal feed the chord; everything else passes through
+while (midirecv(mo, m1, m2, m3)) (
+  mt = blk_b0 + mo / spb; ms = m1 & 240; mc = m1 & 15; mused = 0;
+  ms == 144 && m3 > 0 ? (
+    enabled ? ( schedule_until(mo); note_in_on(mt, m2, m3, mc); mused = 1; )
+    : ( mi = held_find(m2, mc); mi >= 0 ? ( HELD[mi*HELD_STR+1] = m3; ) : held_add(m2, m3, mc, HS_DOWN); );
+  ) : ms == 128 || ms == 144 ? (
+    enabled ? ( schedule_until(mo); note_in_off(m2, mc); mused = 1; )
+    : ( mi = held_find(m2, mc); mi >= 0 ? held_remove(mi); );
+  ) : ms == 176 && m2 == 64 && enabled ? ( schedule_until(mo); pedal_in(m3 >= 64); mused = 1; );
+  mused ? 0 : evq_push(mo, 1, m1, m2, m3);
+);
+schedule_until(samplesblock);
+evq_flush();
+sch_end = blk_we; clk_free = blk_we; clk_valid = 1;
+blk_abs += samplesblock;
+ui_playing = playing; ui_active = sch_active;
+
+@serialize
+ser_ver = 1;
+file_var(0, ser_ver);
+file_var(0, ui_lane);
+file_avail(0) >= 0 ? ( ser_ver != 1 ? ui_lane = 0; ui_lane = clamp(ui_lane|0, 0, NLANE - 1); );
+
+@gfx 864 422
+// ============================================================================
+//  Interface. Layout in design units (720 x 352) drawn at UI_ZOOM, retina-sharp.
+// ============================================================================
+UI_ZOOM = 1.2;
+ui_s = UI_ZOOM * (gfx_ext_retina > 1 ? gfx_ext_retina : 1);
+ui_mx = mouse_x / ui_s; ui_my = mouse_y / ui_s;
+
+function col(r, g, b) ( gfx_r = r; gfx_g = g; gfx_b = b; gfx_a = 1; );
+function col_bg() ( col(0.11, 0.113, 0.128); );
+function col_panel() ( col(0.152, 0.157, 0.176); );
+function col_panel2() ( col(0.185, 0.19, 0.212); );
+function col_line() ( col(0.31, 0.32, 0.36); );
+function col_text() ( col(0.93, 0.93, 0.95); );
+function col_dim() ( col(0.70, 0.71, 0.75); );
+function col_faint() ( col(0.45, 0.46, 0.50); );
+function col_accent() ( col(0.95, 0.63, 0.22); );
+function col_accent_dim() ( col(0.62, 0.44, 0.18); );
+function col_mod() ( col(0.30, 0.78, 0.72); );
+function col_knob() ( col(0.21, 0.215, 0.24); );
+function col_knob_hi() ( col(0.30, 0.31, 0.34); );
+function rect(x, y, w, h, f) ( gfx_rect(x * ui_s, y * ui_s, w * ui_s, h * ui_s, f); );
+function line(x0, y0, x1, y1) ( gfx_line(x0 * ui_s, y0 * ui_s, x1 * ui_s, y1 * ui_s, 1); );
+function circle(x, y, r, f) ( gfx_circle(x * ui_s, y * ui_s, r * ui_s, f, 1); );
+// a ring one design unit thick needs one arc per device pixel
+function arc(x, y, r, a0, a1) ( gfx_arc(x * ui_s, y * ui_s, r * ui_s, a0, a1, 1); ui_s >= 2 ? gfx_arc(x * ui_s, y * ui_s, r * ui_s - 1, a0, a1, 1); ui_s >= 3 ? gfx_arc(x * ui_s, y * ui_s, r * ui_s - 2, a0, a1, 1); );
+function fsize(pt) ( (pt * ui_s + 0.5) | 0 );
+function font_small() ( gfx_setfont(1, "Helvetica Neue", fsize(10)); );
+function font_label() ( gfx_setfont(2, "Helvetica Neue", fsize(11)); );
+function font_title() ( gfx_setfont(3, "Helvetica Neue", fsize(12), $'b'); );
+function font_logo() ( gfx_setfont(4, "Helvetica Neue", fsize(22), $'b'); );
+function font_value() ( gfx_setfont(5, "Helvetica Neue", fsize(13)); );
+function text_in(str, x, y, w, h, flags) ( gfx_x = x * ui_s; gfx_y = y * ui_s; gfx_drawstr(str, flags, (x + w) * ui_s, (y + h) * ui_s); );
+function text_c(str, x, y, w, h) ( text_in(str, x, y, w, h, 1 | 4); );
+function text_l(str, x, y, w, h) ( text_in(str, x, y, w, h, 4); );
+function text_r(str, x, y, w, h) ( text_in(str, x, y, w, h, 2 | 4); );
+function inside(x, y, w, h) ( ui_mx >= x && ui_mx < x + w && ui_my >= y && ui_my < y + h );
+
+// ---- parameter access: the UI only ever writes through the host-visible sliders
+function sset(i, v)
+(
+  v = clamp(v, SMIN[i], SMAX[i]);
+  SSTEP[i] >= 1 ? v = floor(v / SSTEP[i] + 0.5) * SSTEP[i];
+  v != slider(i) ? ( slider(i) = v; sliderchange(slider(i)); slider_automate(slider(i)); );
+);
+function opt_label(dst, opts, k) local(i, n, c, j)   // k-th field of a "a|b|c" string
+(
+  i = 0; n = 0; j = 0; strcpy(dst, "");
+  while (i < strlen(opts)) (
+    c = str_getchar(opts, i);
+    c == $'|' ? ( n += 1; ) : n == k ? ( str_setchar(dst, j, c); j += 1; str_setchar(dst, j, 0); );
+    i += 1;
+  );
+);
+function count_opts(opts) local(i, n) ( n = 1; i = 0; while (i < strlen(opts)) ( str_getchar(opts, i) == $'|' ? n += 1; i += 1; ); n );
+function note_name(dst, p) local(n)
+(
+  n = imod(p, 12);
+  strcpy(dst, n == 0 ? "C" : n == 1 ? "C#" : n == 2 ? "D" : n == 3 ? "D#" : n == 4 ? "E" : n == 5 ? "F" : n == 6 ? "F#" : n == 7 ? "G" : n == 8 ? "G#" : n == 9 ? "A" : n == 10 ? "A#" : "B");
+  sprintf(#nn, "%d", floor(p / 12) - 1); strcat(dst, #nn);
+);
+function fmt_value(dst, i) local(v)
+(
+  v = slider(i);
+  i == 2 ? opt_label(dst, "1/1|1/2.|1/2|1/4.|1/2T|1/4|1/8.|1/4T|1/8|1/16.|1/8T|1/16|1/32.|1/16T|1/32|1/32T", clamp(v|0, 0, 15))
+  : i == 3 ? opt_label(dst, "Up|Down|Up/Down|Down/Up|As Played|Random|Chord", clamp(v|0, 0, 6))
+  : i == 8 ? opt_label(dst, "Free|Beat|Song", clamp(v|0, 0, 2))
+  : i == 4 ? sprintf(dst, "%d oct", v)
+  : i == 5 || i == 6 || i == 9 ? sprintf(dst, "%d %%", v)
+  : sprintf(dst, "%d", v);
+);
+// value editing shared by knobs and cells: drag (shift = fine), scroll to nudge, double-click = default
+function edit_value(i, hit) local(v, rng, dv)
+(
+  v = slider(i); rng = SMAX[i] - SMIN[i];
+  hit && g_mdown ? (
+    g_now - g_click_t < 0.35 && g_click_id == i ? ( sset(i, SDEF[i]); g_drag = -1; g_click_t = 0; )
+    : ( g_drag = i; g_drag_y = ui_my; g_drag_v = v; g_click_t = g_now; g_click_id = i; );
+  );
+  g_drag == i ? ( dv = (g_drag_y - ui_my) / 160 * rng * ((mouse_cap & 8) ? 0.1 : 1); sset(i, g_drag_v + dv); );
+  hit && g_wheel != 0 ? ( sset(i, v + (g_wheel > 0 ? 1 : -1) * max(SSTEP[i], floor(rng / 100))); g_wheel = 0; );
+);
+
+// ---- widgets -----------------------------------------------------------------
+function knob(x, y, r, i, label, hint) local(v, hit, t, ang, px, py, hov)
+(
+  hit = inside(x - r - 8, y - r - 8, 2 * r + 16, 2 * r + 28) && !g_menu_open;
+  edit_value(i, hit);
+  v = slider(i); hov = hit || g_drag == i;
+  hov ? g_hint = hint;
+  t = (v - SMIN[i]) / (SMAX[i] - SMIN[i]);
+  col_knob_hi(); arc(x, y, r, -2.4, 2.4);
+  hov ? col_accent() : col_accent_dim(); t > 0.001 ? arc(x, y, r, -2.4, -2.4 + t * 4.8);
+  col_knob(); circle(x, y, r - 4, 1);
+  col_line(); circle(x, y, r - 4, 0);
+  ang = -2.4 + t * 4.8;
+  px = x + sin(ang) * (r - 6); py = y - cos(ang) * (r - 6);
+  col_text(); line(x + sin(ang) * 3, y - cos(ang) * 3, px, py);
+  font_label();
+  hov ? ( col_accent(); fmt_value(#tmp, i); text_c(#tmp, x - 44, y + r + 2, 88, 13); ) : ( col_dim(); text_c(label, x - 44, y + r + 2, 88, 13); );
+);
+// choice button with a caption above: click for the list, drag or scroll to step through it
+function menubtn(x, y, w, h, i, caption, opts, hint) local(v, hit, dv, n, k, r, hov)
+(
+  v = slider(i);
+  hit = inside(x, y, w, h) && !g_menu_open;
+  hit && g_mdown ? ( g_drag = i; g_drag_y = ui_my; g_drag_v = v; g_moved = 0; );
+  g_drag == i ? (
+    abs(ui_my - g_drag_y) > 3 ? g_moved = 1;
+    dv = (g_drag_y - ui_my) / 18; sset(i, g_drag_v + (dv >= 0 ? floor(dv) : ceil(dv)));
+  );
+  hit && g_wheel != 0 ? ( sset(i, v + (g_wheel > 0 ? 1 : -1)); g_wheel = 0; );
+  g_up_id == i && !g_moved && hit ? (
+    n = count_opts(opts); strcpy(#menu, ""); k = 0;
+    while (k < n) (
+      opt_label(#tmp, opts, k);
+      k == clamp(v|0, SMIN[i], SMAX[i]) - SMIN[i] ? strcat(#menu, "!");
+      strcat(#menu, #tmp); k < n - 1 ? strcat(#menu, "|"); k += 1;
+    );
+    gfx_x = x * ui_s; gfx_y = (y + h) * ui_s;
+    r = gfx_showmenu(#menu);
+    r > 0 ? sset(i, SMIN[i] + r - 1);
+    g_menu_open = 1;
+  );
+  hov = hit || g_drag == i;
+  hov ? g_hint = hint;
+  font_small(); hov ? col_accent() : col_faint(); text_l(caption, x + 1, y - 14, w, 12);
+  hov ? col_knob_hi() : col_panel2(); rect(x, y, w, h, 1);
+  col_line(); rect(x, y, w, h, 0);
+  font_value(); col_text(); fmt_value(#tmp, i); text_l(#tmp, x + 8, y, w - 22, h);
+  col_dim(); gfx_triangle((x + w - 15) * ui_s, (y + h * 0.5 - 2) * ui_s, (x + w - 7) * ui_s, (y + h * 0.5 - 2) * ui_s, (x + w - 11) * ui_s, (y + h * 0.5 + 3) * ui_s);
+);
+// compact value cell: label left, value right; same gestures as a knob
+function cell_small(x, y, w, h, i, label, hint) local(hit, hov)
+(
+  hit = inside(x, y, w, h) && !g_menu_open;
+  edit_value(i, hit);
+  hov = hit || g_drag == i;
+  hov ? g_hint = hint;
+  hov ? col_knob_hi() : col_panel2(); rect(x, y, w, h, 1);
+  col_line(); rect(x, y, w, h, 0);
+  font_small(); hov ? col_accent() : col_dim(); text_l(label, x + 8, y, w - 16, h);
+  font_value(); col_text(); fmt_value(#tmp, i); text_r(#tmp, x + 8, y, w - 16, h);
+);
+function toggle(x, y, w, h, i, label, hint) local(v, hit)
+(
+  v = slider(i) >= 0.5;
+  hit = inside(x, y, w, h) && !g_menu_open;
+  hit && g_mdown ? sset(i, !v);
+  hit ? g_hint = hint;
+  v ? col_accent_dim() : col_knob(); rect(x, y, w, h, 1);
+  hit ? col_accent() : col_line(); rect(x, y, w, h, 0);
+  font_title(); v ? col_text() : col_dim(); text_c(label, x, y, w, h);
+);
+function btn(x, y, w, h, label, hint) local(hit)
+(
+  hit = inside(x, y, w, h) && !g_menu_open;
+  hit ? g_hint = hint;
+  hit ? col_knob_hi() : col_knob(); rect(x, y, w, h, 1);
+  hit ? col_accent() : col_line(); rect(x, y, w, h, 0);
+  font_title(); hit ? col_text() : col_dim(); text_c(label, x, y, w, h);
+  hit && g_mdown
+);
+function panel(x, y, w, h, title)
+(
+  col_panel(); rect(x, y, w, h, 1);
+  col_line(); rect(x, y, w, h, 0);
+  font_title(); col_text(); text_l(title, x + 10, y + 2, w - 20, 20);
+);
+
+// the lane editor: one row of steps; the shown lane is switched by the tabs above it
+function lane_from_y(y, h, l) local(f, v)
+(
+  f = clamp(1 - (ui_my - y) / h, 0, 1);
+  l == L_RATCH ? clamp(1 + floor(f * 4), 1, 4)
+  : l == L_OCT ? clamp(floor(-2 + f * 4 + 0.5), -2, 2)
+  : ( v = LMIN[l] + f * (LMAX[l] - LMIN[l]); floor(v / 5 + 0.5) * 5 )
+);
+function lane_editor(x, y, w, h) local(l, s, cw, cx, v, hit, si, cy, hb, k, f, bh, gap, on)
+(
+  l = ui_lane; cw = (w - 15 * 4) / 16; gap = 4;
+  hit = inside(x, y - 2, w, h + 4) && !g_menu_open;
+  hit && (g_mdown || g_rdown) ? (
+    s = clamp(floor((ui_mx - x) / (cw + gap)), 0, 15); si = LANE_BASE + l * NSTEP + s;
+    g_rdown || (g_now - g_click_t < 0.35 && g_click_id == si) ? ( sset(si, LDEF[l]); g_click_t = 0; g_drag = -1; )
+    : ( g_drag = 1000; g_click_t = g_now; g_click_id = si; );
+  );
+  g_drag == 1000 ? ( s = clamp(floor((ui_mx - x) / (cw + gap)), 0, 15); sset(LANE_BASE + l * NSTEP + s, lane_from_y(y, h, l)); );
+  hit && g_wheel != 0 ? ( s = clamp(floor((ui_mx - x) / (cw + gap)), 0, 15); si = LANE_BASE + l * NSTEP + s; sset(si, slider(si) + (g_wheel > 0 ? 1 : -1) * (l == L_OCT || l == L_RATCH ? 1 : 5)); g_wheel = 0; );
+  hit ? ( g_hint = (l == L_ACC ? "Accent: velocity of each step (100 % = as played, 0 = rest). Drag to draw, double-click or right-click to reset a step"
+        : l == L_OCT ? "Octave: shifts a step by octaves. Drag to draw, double-click or right-click to reset a step"
+        : l == L_GATE ? "Gate: note length of each step relative to the Gate knob. Drag to draw, double-click or right-click to reset"
+        : l == L_CHANCE ? "Chance: probability that a step plays; a skipped step keeps the sequence in time. Drag to draw"
+        : "Ratchet: repeats a step 1-4 times inside its length. Drag to draw, double-click or right-click to reset"); );
+  s = 0;
+  while (s < 16) (
+    cx = x + s * (cw + gap); v = slider(LANE_BASE + l * NSTEP + s); on = s < (pat_len|0);
+    on ? col_panel2() : col_bg(); rect(cx, y, cw, h, 1);
+    col_line(); rect(cx, y, cw, h, 0);
+    f = (LDEF[l] - LMIN[l]) / (LMAX[l] - LMIN[l]); cy = y + h - f * h;
+    l == L_RATCH ? (
+      k = 0;
+      while (k < v) ( bh = (h - 3 * 3) / 4; on ? (k == 0 ? col_accent_dim() : col_accent()) : col_faint(); rect(cx + 3, y + h - (k + 1) * bh - k * 3, cw - 6, bh, 1); k += 1; );
+    ) : l == L_OCT ? (
+      col_line(); rect(cx, cy - 0.5, cw, 1, 1);
+      hb = (v - LDEF[l]) / (LMAX[l] - LMIN[l]) * h;
+      v != 0 ? ( on ? col_accent() : col_faint(); hb > 0 ? rect(cx + 3, cy - hb, cw - 6, hb, 1) : rect(cx + 3, cy, cw - 6, -hb, 1); );
+      font_small(); col_text(); v != 0 ? ( sprintf(#tmp, "%+d", v); text_c(#tmp, cx, hb > 0 ? cy - hb - 14 : cy - hb + 2, cw, 12); );
+    ) : (
+      hb = (v - LMIN[l]) / (LMAX[l] - LMIN[l]) * h;
+      on ? (v == LDEF[l] ? col_accent_dim() : col_accent()) : col_faint(); rect(cx + 3, y + h - hb, cw - 6, hb, 1);
+      col_line(); rect(cx, cy - 0.5, cw, 1, 1);
+      l == L_ACC && v <= 0 ? ( col_dim(); rect(cx + cw * 0.5 - 4, y + h - 8, 8, 2, 1); );
+    );
+    ui_active && ui_step == s ? ( col_mod(); rect(cx, y, cw, h, 0); rect(cx + 1, y + 1, cw - 2, h - 2, 0); );
+    font_small(); ui_active && ui_step == s ? col_mod() : col_faint(); sprintf(#tmp, "%d", s + 1); text_c(#tmp, cx, y + h + 2, cw, 12);
+    s += 1;
+  );
+);
+// pattern length as a strip of ticks over the steps: click or drag to set, scroll to nudge
+function length_strip(x, y, w, h) local(s, cw, cx, hit, gap)
+(
+  cw = (w - 15 * 4) / 16; gap = 4;
+  hit = inside(x, y - 2, w, h + 4) && !g_menu_open;
+  hit && g_mdown ? g_drag = 1001;
+  g_drag == 1001 ? sset(10, clamp(floor((ui_mx - x) / (cw + gap)), 0, 15) + 1);
+  hit && g_wheel != 0 ? ( sset(10, slider(10) + (g_wheel > 0 ? 1 : -1)); g_wheel = 0; );
+  hit ? g_hint = "Pattern length: click or drag to set how many steps play";
+  s = 0;
+  while (s < 16) (
+    cx = x + s * (cw + gap);
+    s < (pat_len|0) ? (hit ? col_accent() : col_dim()) : col_line(); rect(cx, y, cw, h, 1);
+    s += 1;
+  );
+);
+function lane_tabs(x, y, w, h) local(k, tw, hit, labels)
+(
+  labels = "Accent|Octave|Gate|Chance|Ratchet";
+  tw = w / 5; k = 0;
+  while (k < 5) (
+    hit = inside(x + k * tw, y, tw, h) && !g_menu_open;
+    hit && g_mdown ? ui_lane = k;
+    hit ? g_hint = "Choose which step property the lane below edits";
+    k == ui_lane ? ( col_panel2(); rect(x + k * tw, y, tw, h, 1); col_accent(); rect(x + k * tw, y + h - 2, tw, 2, 1); );
+    opt_label(#tmp, labels, k);
+    font_title(); k == ui_lane ? col_text() : hit ? col_dim() : col_faint(); text_c(#tmp, x + k * tw, y, tw, h);
+    k += 1;
+  );
+);
+// musically bounded randomisation of the shown lane, inside the pattern length; Reset undoes it
+function lane_dice() local(s, l, r, v)
+(
+  l = ui_lane; dice_n += 1; s = 0;
+  while (s < (pat_len|0)) (
+    r = hash01(dice_n * 64 + s, 7 + l);
+    v = l == L_ACC ? 60 + floor(r * 17) * 5
+      : l == L_OCT ? (r < 0.6 ? 0 : r < 0.85 ? 1 : -1)
+      : l == L_GATE ? 40 + floor(r * 21) * 5
+      : l == L_CHANCE ? 50 + floor(r * 11) * 5
+      : (r < 0.6 ? 1 : r < 0.9 ? 2 : 3);
+    sset(LANE_BASE + l * NSTEP + s, v);
+    s += 1;
+  );
+);
+function lane_reset() local(s) ( s = 0; while (s < NSTEP) ( sset(LANE_BASE + ui_lane * NSTEP + s, LDEF[ui_lane]); s += 1; ); );
+function chord_text(dst) local(p, i, n, first)
+(
+  strcpy(dst, ""); n = 0; p = 0; first = 1;
+  while (p < 128 && n < 12) (
+    i = 0;
+    while (i < held_n) (
+      HELD[i*HELD_STR] == p ? ( first ? 0 : strcat(dst, "  "); note_name(#nn2, p); strcat(dst, #nn2); first = 0; n += 1; i = held_n; );
+      i += 1;
+    );
+    p += 1;
+  );
+  held_n > n ? strcat(dst, " ...");
+);
+
+// ---- frame -------------------------------------------------------------------
+g_now = time_precise();
+g_mdown = (mouse_cap & 1) && !(g_last_cap & 1);
+g_rdown = (mouse_cap & 2) && !(g_last_cap & 2);
+g_up_id = -1;
+!(mouse_cap & 1) && g_drag >= 0 ? ( g_up_id = g_drag; g_drag = -1; );
+g_last_cap = mouse_cap;
+g_wheel = mouse_wheel; mouse_wheel = 0;
+g_menu_open = 0;
+g_hint = "";
+gfx_clear = -1;
+col_bg(); gfx_rect(0, 0, gfx_w, gfx_h, 1);
+
+// header band
+col_panel(); rect(0, 0, 720, 50, 1);
+col_line(); rect(0, 50, 720, 1, 1);
+col_accent(); rect(16, 12, 3, 26, 1);
+font_logo(); col_text(); text_l("YOSHI", 28, 8, 100, 34);
+font_small(); col_faint(); text_l("arpeggiator", 108, 14, 100, 24);
+toggle(214, 14, 44, 22, 1, "On", "Enable. Off passes MIDI through and hands held keys to the synth");
+toggle(264, 14, 52, 22, 7, "Hold", "Hold: the chord keeps playing after the keys are released; the next chord replaces it");
+btn(322, 14, 58, 22, "Panic", "Release every note now and clear the held chord") ? ui_panic = 1;
+font_label(); held_n > 0 ? ( col_text(); chord_text(#chord); ) : ( col_faint(); strcpy(#chord, "no notes held"); );
+text_r(#chord, 400, 14, 226, 22);
+ui_playing ? col_mod() : col_faint(); circle(642, 25, 3, 1);
+font_small(); col_dim(); sprintf(#tmp, "%.1f BPM", tempo); text_l(#tmp, 652, 14, 60, 22);
+
+// panels: arpeggio / timing / feel
+py = 60; ph = 108;
+panel(16, py, 232, ph, "ARPEGGIO");
+menubtn(26, py + 44, 130, 24, 3, "ORDER", "Up|Down|Up/Down|Down/Up|As Played|Random|Chord", "Order: how the held notes are sequenced. Chord plays them together and climbs the octaves");
+knob(206, py + 54, 17, 4, "Octaves", "Octaves: how many octaves the sequence spans");
+panel(256, py, 232, ph, "TIMING");
+menubtn(266, py + 44, 96, 24, 2, "RATE", "1/1|1/2.|1/2|1/4.|1/2T|1/4|1/8.|1/4T|1/8|1/16.|1/8T|1/16|1/32.|1/16T|1/32|1/32T", "Rate: note division. Drag or scroll to change, click for the list");
+menubtn(370, py + 44, 70, 24, 8, "SYNC", "Free|Beat|Song", "Sync: Free starts from your chord; Beat snaps to the host grid; Song also locks the pattern to the song position");
+knob(462, py + 54, 17, 6, "Swing", "Swing: delays every other step, 100 % = triplet feel");
+panel(496, py, 208, ph, "FEEL");
+knob(552, py + 54, 17, 5, "Gate", "Gate: note length as a share of the step; over 100 % overlaps the next note");
+knob(648, py + 54, 17, 9, "Dynamics", "Dynamics: 100 % follows the played velocity, 0 % plays every note at 100");
+
+// pattern
+pp = 178;
+panel(16, pp, 688, 154, "PATTERN");
+lane_tabs(96, pp + 3, 330, 22);
+cell_small(446, pp + 3, 78, 22, 10, "LENGTH", "Pattern length in steps: drag, scroll, or click the strip below");
+cell_small(530, pp + 3, 58, 22, 11, "SEED", "Seed of the repeatable random choices (Chance, Random order). Change it for another take");
+btn(596, pp + 3, 48, 22, "Dice", "Fill the shown lane with musical random values (Reset undoes it)") ? lane_dice();
+btn(650, pp + 3, 48, 22, "Reset", "Set every step of the shown lane back to neutral") ? lane_reset();
+length_strip(26, pp + 34, 668, 6);
+lane_editor(26, pp + 46, 668, 88);
+
+// footer
+font_small(); col_dim();
+text_l(strlen(g_hint) ? g_hint : "Hold a chord. Drag knobs and values, shift for fine control, scroll to nudge, double-click to reset.", 16, 336, 600, 16);
+col_faint(); text_r("Yoshi 1.0", 620, 336, 84, 16);

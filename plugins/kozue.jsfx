@@ -1,0 +1,1190 @@
+desc:kozue
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Michele Ibba
+// kozue — the thesin_bis.jsfx instrument in a redesigned interface. Audio sections, sliders,
+// MIDI handling and the 128-preset library are byte-identical to thesin_bis.jsfx; only desc: and @gfx differ.
+// Architecture: dual oscillator + noise -> multimode SVF -> amp, two ADSRs, two LFOs,
+// 4-slot modulation matrix, chorus, flanger, delay, reverb, compressor, limiter.
+// 10-note polyphony. Zero look-ahead / zero declared PDC latency.
+tags:instrument synthesizer MIDI
+options:gfx_hz=30 want_all_kb
+in_pin:none
+out_pin:Left
+out_pin:Right
+
+slider1:patch=0<0,79,1>-Patch
+slider2:master=0.72<0,1,0.001>-Master
+slider3:tune=0<-100,100,1>-Master tune (cent)
+slider4:osc1_wave=1<0,4,1>-Osc 1 wave
+slider5:osc1_oct=0<-2,2,1>-Osc 1 octave
+slider6:osc1_semi=0<-12,12,1>-Osc 1 semitone
+slider7:osc1_fine=0<-50,50,1>-Osc 1 fine
+slider8:osc1_pw=0.5<0.05,0.95,0.001>-Osc 1 pulse width
+slider9:osc2_wave=2<0,4,1>-Osc 2 wave
+slider10:osc2_oct=0<-2,2,1>-Osc 2 octave
+slider11:osc2_semi=0<-12,12,1>-Osc 2 semitone
+slider12:osc2_fine=-7<-50,50,1>-Osc 2 fine
+slider13:osc2_pw=0.5<0.05,0.95,0.001>-Osc 2 pulse width
+slider14:osc_mix=0.48<0,1,0.001>-Oscillator mix
+slider15:noise_amt=0<0,1,0.001>-Noise
+slider16:filter_type=0<0,2,1>-Filter type
+slider17:cutoff=3200<30,18000,1>-Filter cutoff
+slider18:resonance=0.20<0,0.95,0.001>-Filter resonance
+slider19:filter_env_amt=0.35<-1,1,0.001>-Filter envelope amount
+slider20:keytrack=0.35<0,1,0.001>-Filter key tracking
+slider21:amp_a=0.01<0,5,0.001>-Amp attack
+slider22:amp_d=0.20<0,5,0.001>-Amp decay
+slider23:amp_s=0.80<0,1,0.001>-Amp sustain
+slider24:amp_r=0.30<0.005,8,0.001>-Amp release
+slider25:filt_a=0.005<0,5,0.001>-Filter attack
+slider26:filt_d=0.35<0,5,0.001>-Filter decay
+slider27:filt_s=0.25<0,1,0.001>-Filter sustain
+slider28:filt_r=0.35<0.005,8,0.001>-Filter release
+slider29:lfo1_rate=0.75<0.03,20,0.001>-LFO 1 rate
+slider30:lfo1_shape=0<0,3,1>-LFO 1 shape
+slider31:lfo2_rate=0.18<0.03,20,0.001>-LFO 2 rate
+slider32:lfo2_shape=1<0,3,1>-LFO 2 shape
+slider33:m1src=1<0,3,1>-Matrix 1 source
+slider34:m1dst=3<0,17,1>-Matrix 1 destination
+slider35:m1amt=0.18<-1,1,0.001>-Matrix 1 amount
+slider36:m2src=2<0,3,1>-Matrix 2 source
+slider37:m2dst=15<0,17,1>-Matrix 2 destination
+slider38:m2amt=0.12<-1,1,0.001>-Matrix 2 amount
+slider39:m3src=0<0,3,1>-Matrix 3 source
+slider40:m3dst=0<0,17,1>-Matrix 3 destination
+slider41:m3amt=0<-1,1,0.001>-Matrix 3 amount
+slider42:m4src=0<0,3,1>-Matrix 4 source
+slider43:m4dst=0<0,17,1>-Matrix 4 destination
+slider44:m4amt=0<-1,1,0.001>-Matrix 4 amount
+slider45:chorus_on=0<0,1,1>-Chorus on
+slider46:chorus_rate=0.28<0.03,5,0.001>-Chorus rate
+slider47:chorus_depth=0.45<0,1,0.001>-Chorus depth
+slider48:chorus_mix=0.20<0,1,0.001>-Chorus mix
+slider49:flanger_on=0<0,1,1>-Flanger on
+slider50:flanger_rate=0.16<0.03,5,0.001>-Flanger rate
+slider51:flanger_depth=0.40<0,1,0.001>-Flanger depth
+slider52:flanger_fb=0.25<-0.9,0.9,0.001>-Flanger feedback
+slider53:flanger_mix=0.18<0,1,0.001>-Flanger mix
+slider54:delay_on=0<0,1,1>-Delay on
+slider55:delay_time=330<20,1000,1>-Delay time ms
+slider56:delay_fb=0.32<0,0.92,0.001>-Delay feedback
+slider57:delay_mix=0.18<0,1,0.001>-Delay mix
+slider58:reverb_on=0<0,1,1>-Reverb on
+slider59:reverb_size=0.55<0,1,0.001>-Reverb size
+slider60:reverb_damp=0.45<0,1,0.001>-Reverb damping
+slider61:reverb_mix=0.16<0,1,0.001>-Reverb mix
+slider62:comp_on=1<0,1,1>-Compressor on
+slider63:comp_thresh=-10<-36,0,0.1>-Compressor threshold dB
+slider64:comp_ratio=2.5<1,12,0.1>-Compressor ratio
+slider65:comp_attack=8<0.2,100,0.1>-Compressor attack ms
+slider66:comp_release=90<10,500,1>-Compressor release ms
+slider67:limiter_on=1<0,1,1>-Limiter on
+slider68:limiter_ceiling=-0.8<-12,0,0.1>-Limiter ceiling dB
+slider69:bank=0<0,1,1{Original,Extended}>-Library bank
+
+@init
+ext_noinit = 1;
+ext_nodenorm = 1;
+ext_tail_size = -1;
+pdc_delay = 0;
+pdc_bot_ch = 0;
+pdc_top_ch = 2;
+
+VOICE_COUNT = 10;
+VOICE_STRIDE = 32;
+CHANNELS = 5000; MIDIQ = 2000000; QCAP = 65536;
+SMOOTH = 6000; MODSM = 6200; SAVEBUF = 7000;
+VBASE = 0;
+
+// fixed memory regions — deliberately separated for readability and safety
+CHL = 10000; CHR = 30000; CHSIZE = 16384;
+FLL = 50000; FLR = 70000; FLSIZE = 16384;
+DLL = 100000; DLR = 650000; DLSIZE = 524288;
+RVL = 1200000; RVR = 1400000; RVSIZE = 131072;
+
+age_counter = 1;
+pitchbend = 0;
+modwheel = 0;
+lfo1_phase = 0;
+lfo2_phase = 0;
+chor_phase = 0;
+fl_phase = 0;
+chpos = 0;
+flpos = 0;
+dlpos = 0;
+rvpos = 0;
+rev_damp_l = 0;
+rev_damp_r = 0;
+comp_env = 0;
+!instance_ready ? (last_patch=-1;last_bank=-1;instance_ready=1;);
+smooth_ready = 0; dsp_rate = 0;
+limit_gain=1;
+active_slider = -1;
+last_mouse_cap = 0;
+peak_meter = 0;
+
+function clamp(v lo hi) ( max(lo,min(hi,v)); );
+function db2lin(db) ( 10^(db/20); );
+function hz_from_note(n) ( 440 * 2^((n-69)/12); );
+
+// Independent integrated BLEP residual: smooth triangle derivative corners.
+function polyblamp(t dt) local(u z) (
+  u=abs(t-floor(t+0.5));
+  u<dt ? (z=1-u/dt; dt*z*z*z/3;) : 0;
+);
+
+function polyblep(t dt) local(x) (
+  x = 0;
+  t < dt ? (
+    t /= dt;
+    x = t+t-t*t-1;
+  ) : t > 1-dt ? (
+    t = (t-1)/dt;
+    x = t*t+t+t+1;
+  );
+  x;
+);
+
+function oscwave(ph wave pw dt) local(y t2) (
+  wave == 0 ? y = sin(2*$pi*ph)
+  : wave == 1 ? (
+    y = 2*ph-1;
+    y -= polyblep(ph,dt);
+  )
+  : wave == 2 ? (
+    y = ph < 0.5 ? 1 : -1;
+    y += polyblep(ph,dt);
+    t2 = ph + 0.5;
+    t2 >= 1 ? t2 -= 1;
+    y -= polyblep(t2,dt);
+  )
+  : wave == 3 ? (
+    y = 1 - 4*abs(ph-0.5) + 4*polyblamp(ph,dt) - 4*polyblamp(ph-0.5,dt);
+  )
+  : (
+    y = (ph < pw ? 1 : -1) - (2*pw-1); // remove duty-cycle DC before resonance
+    y += polyblep(ph,dt);
+    t2 = ph - pw;
+    t2 < 0 ? t2 += 1;
+    y -= polyblep(t2,dt);
+  );
+  y;
+);
+
+function lfowave(ph shape) local(y) (
+  shape == 0 ? y = sin(2*$pi*ph)
+  : shape == 1 ? y = 2*ph-1
+  : shape == 2 ? y = ph < 0.5 ? 1 : -1
+  : y = 1 - 4*abs(ph-0.5);
+  y;
+);
+
+function modsrc(src) (
+  src == 1 ? lfo1v : src == 2 ? lfo2v : src == 3 ? modwheel*2-1 : 0;
+);
+
+function modsum(dst) local(v) (
+  v=0;
+  m1dst == dst ? v += modsrc(m1src)*m1amt;
+  m2dst == dst ? v += modsrc(m2src)*m2amt;
+  m3dst == dst ? v += modsrc(m3src)*m3amt;
+  m4dst == dst ? v += modsrc(m4src)*m4amt;
+  v;
+);
+
+function read_delay(base size wpos ds) local(rp i0 i1 frac) (
+  rp = wpos - ds;
+  rp < 0 ? rp += size * (1 + floor((-rp)/size));
+  rp >= size ? rp -= size * floor(rp/size);
+  i0 = floor(rp);
+  i1 = i0 + 1; i1 >= size ? i1 = 0;
+  frac = rp-i0;
+  base[i0]*(1-frac) + base[i1]*frac;
+);
+
+function reset_patch_defaults() (
+  master=0.72; tune=0;
+  osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5;
+  osc2_wave=2; osc2_oct=0; osc2_semi=0; osc2_fine=-7; osc2_pw=0.5;
+  osc_mix=0.48; noise_amt=0;
+  filter_type=0; cutoff=3200; resonance=0.20; filter_env_amt=0.35; keytrack=0.35;
+  amp_a=0.01; amp_d=0.20; amp_s=0.80; amp_r=0.30;
+  filt_a=0.005; filt_d=0.35; filt_s=0.25; filt_r=0.35;
+  lfo1_rate=0.75; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=1;
+  m1src=1; m1dst=3; m1amt=0.18;
+  m2src=2; m2dst=15; m2amt=0.12;
+  m3src=0; m3dst=0; m3amt=0;
+  m4src=0; m4dst=0; m4amt=0;
+  chorus_on=0; chorus_rate=0.28; chorus_depth=0.45; chorus_mix=0.20;
+  flanger_on=0; flanger_rate=0.16; flanger_depth=0.40; flanger_fb=0.25; flanger_mix=0.18;
+  delay_on=0; delay_time=330; delay_fb=0.32; delay_mix=0.18;
+  reverb_on=0; reverb_size=0.55; reverb_damp=0.45; reverb_mix=0.16;
+  comp_on=1; comp_thresh=-10; comp_ratio=2.5; comp_attack=8; comp_release=90;
+  limiter_on=1; limiter_ceiling=-0.8;
+);
+
+function load_original_patch(idx) local(cat v) (
+  reset_patch_defaults();
+  cat=floor(idx/16); v=idx-cat*16;
+
+  // BASS — short envelopes, controlled low end, mostly dry
+  cat == 0 ? (
+    master=0.76; cutoff=520 + v*115; resonance=0.12 + (v%4)*0.10;
+    filter_env_amt=0.25 + (v%5)*0.11; keytrack=0.22;
+    amp_a=0.002; amp_d=0.10+(v%4)*0.055; amp_s=0.72-(v%3)*0.10; amp_r=0.09+(v%4)*0.045;
+    filt_a=0.001; filt_d=0.12+(v%5)*0.07; filt_s=0.08+(v%3)*0.09; filt_r=0.12;
+    osc1_wave = v%5; osc2_wave=(v+2)%5; osc2_oct = v==0 ? -1 : 0;
+    osc2_semi = (v==4 || v==11) ? 7 : 0; osc2_fine=-5-(v%4)*2; osc_mix=0.38+(v%5)*0.08;
+    noise_amt=(v==6 || v==13) ? 0.08 : 0;
+    v==0 ? (osc1_wave=0; osc2_wave=0; osc1_oct=-1; osc2_oct=-1; cutoff=420; filter_env_amt=0; amp_s=0.92;)
+    : v==2 ? (osc1_wave=4; osc1_pw=0.27; osc2_wave=1; cutoff=780; resonance=0.72; filter_env_amt=0.80; filt_d=0.22;)
+    : v==7 ? (chorus_on=1; chorus_mix=0.16; chorus_depth=0.35; osc2_semi=12; osc_mix=0.28;)
+    : v==9 ? (amp_d=0.08; amp_s=0.18; amp_r=0.08; filter_env_amt=0.65; filt_d=0.09;)
+    : v==10 ? (resonance=0.78; cutoff=900; m1amt=0.10;)
+    : v==13 ? (osc1_wave=4; osc1_pw=0.16; osc2_wave=4; osc2_pw=0.66; resonance=0.42;)
+    : 0;
+  )
+  // LEAD — brighter, more modulation, selected ambience
+  : cat == 1 ? (
+    master=0.68; cutoff=3100+v*430; resonance=0.18+(v%4)*0.08; filter_env_amt=0.18+(v%4)*0.08; keytrack=0.45;
+    amp_a=0.004+(v%4)*0.006; amp_d=0.16; amp_s=0.82; amp_r=0.20+(v%3)*0.08;
+    osc1_wave=(v+1)%5; osc2_wave=(v+3)%5; osc2_semi=(v%4==1)?7:0; osc2_fine=-8+(v%3)*3; osc_mix=0.48;
+    lfo1_rate=4.2+(v%5)*0.65; m1src=1; m1dst=1; m1amt=0.018+(v%3)*0.012;
+    v==4 ? (osc1_wave=0; osc2_wave=3; cutoff=7600; amp_a=0.018; chorus_on=1; chorus_mix=0.16;)
+    : v==7 ? (chorus_on=1; chorus_mix=0.24; chorus_depth=0.42; delay_on=1; delay_time=280; delay_mix=0.10;)
+    : v==8 ? (cutoff=1900; resonance=0.72; filter_env_amt=0.52;)
+    : v==9 ? (noise_amt=0.025; cutoff=10000; reverb_on=1; reverb_mix=0.12;)
+    : v==10 ? (chorus_on=1; chorus_rate=0.38; chorus_mix=0.25;)
+    : v==11 ? (delay_on=1; delay_time=375; delay_fb=0.38; delay_mix=0.25;)
+    : v==12 ? (osc1_wave=4; osc1_pw=0.22; osc2_wave=4; osc2_pw=0.34;)
+    : v==13 ? (osc2_semi=12; chorus_on=1; chorus_mix=0.20; reverb_on=1; reverb_mix=0.10;)
+    : 0;
+  )
+  // KEYS — percussive to sustained, modest effects
+  : cat == 2 ? (
+    master=0.70; cutoff=4200+v*300; resonance=0.12+(v%4)*0.06; filter_env_amt=0.15+(v%4)*0.12; keytrack=0.55;
+    amp_a=0.003+(v%3)*0.004; amp_d=0.34+(v%4)*0.11; amp_s=0.42+(v%3)*0.12; amp_r=0.28+(v%4)*0.10;
+    filt_a=0.002; filt_d=0.22+(v%5)*0.08; filt_s=0.20; filt_r=0.32;
+    osc1_wave=(v%2)?3:1; osc2_wave=(v%3==0)?0:2; osc2_semi=(v==2 || v==7 || v==14)?12:0; osc2_fine=-4; osc_mix=0.42;
+    v==1 ? (osc1_wave=3; osc2_wave=0; cutoff=5200; amp_d=0.75; amp_s=0.30; chorus_on=1; chorus_mix=0.18;)
+    : v==2 ? (osc1_wave=0; osc2_wave=3; amp_d=0.65; amp_s=0.28; chorus_on=1; chorus_mix=0.23;)
+    : v==3 ? (amp_d=0.16; amp_s=0.12; amp_r=0.14; filter_env_amt=0.45;)
+    : v==6 ? (chorus_on=1; chorus_mix=0.30; chorus_depth=0.55;)
+    : v==7 ? (osc1_wave=0; osc2_wave=0; osc2_semi=12; amp_d=0.85; amp_s=0.12; reverb_on=1; reverb_mix=0.18;)
+    : v==8 ? (cutoff=2600; noise_amt=0.025;)
+    : v==9 ? (osc1_wave=2; osc2_wave=2; amp_a=0.008; amp_s=0.90; filter_env_amt=0.05;)
+    : v==10 ? (amp_d=0.12; amp_s=0.18; filter_env_amt=0.55; filt_d=0.10;)
+    : v==11 ? (chorus_on=1; reverb_on=1; chorus_mix=0.18; reverb_mix=0.14;)
+    : v==13 ? (osc1_wave=4; osc1_pw=0.31; amp_d=0.10; amp_s=0.22;)
+    : 0;
+  )
+  // PADS — long envelopes and richer modulation/space
+  : cat == 3 ? (
+    master=0.57; cutoff=2100+v*340; resonance=0.13+(v%3)*0.07; filter_env_amt=0.10+(v%4)*0.09; keytrack=0.30;
+    amp_a=0.55+(v%5)*0.28; amp_d=0.80+(v%3)*0.35; amp_s=0.76+(v%3)*0.06; amp_r=1.25+(v%5)*0.45;
+    filt_a=0.65+(v%4)*0.25; filt_d=1.10; filt_s=0.40+(v%3)*0.12; filt_r=1.50;
+    osc1_wave=(v%3==0)?1:3; osc2_wave=(v%2)?1:2; osc2_semi=(v%4==1)?12:0; osc2_fine=-9-(v%3)*3; osc_mix=0.50;
+    chorus_on=1; chorus_rate=0.16+(v%4)*0.045; chorus_depth=0.48+(v%3)*0.10; chorus_mix=0.22+(v%3)*0.05;
+    reverb_on=1; reverb_size=0.62+(v%4)*0.08; reverb_mix=0.18+(v%4)*0.035;
+    lfo1_rate=0.08+(v%5)*0.045; m1src=1; m1dst=3; m1amt=0.14+(v%3)*0.05;
+    lfo2_rate=0.05+(v%4)*0.035; m2src=2; m2dst=7; m2amt=0.20;
+    v==1 ? (noise_amt=0.06; cutoff=4600; amp_a=1.4;)
+    : v==4 ? (osc2_semi=12; chorus_mix=0.34; reverb_mix=0.23;)
+    : v==6 ? (m2dst=8; m2amt=0.25;)
+    : v==7 ? (cutoff=1150; resonance=0.34; amp_a=1.7;)
+    : v==8 ? (noise_amt=0.035; cutoff=5200; reverb_mix=0.30;)
+    : v==9 ? (m3src=1; m3dst=2; m3amt=0.15; m4src=2; m4dst=15; m4amt=0.18;)
+    : v==11 ? (delay_on=1; delay_time=460; delay_fb=0.42; delay_mix=0.16; reverb_mix=0.32;)
+    : v==13 ? (cutoff=7800; resonance=0.25; amp_a=2.0; reverb_mix=0.36;)
+    : 0;
+  )
+  // FX — evolving/noisy/textural but still MIDI playable
+  : (
+    master=0.50; cutoff=900+v*620; resonance=0.30+(v%5)*0.11; filter_env_amt=(v%2)?0.62:-0.28; keytrack=0.16;
+    amp_a=0.12+(v%4)*0.32; amp_d=0.70+(v%4)*0.40; amp_s=0.45+(v%3)*0.18; amp_r=1.0+(v%5)*0.55;
+    filt_a=0.10+(v%4)*0.25; filt_d=0.65+(v%5)*0.32; filt_s=0.18+(v%4)*0.12; filt_r=1.2;
+    osc1_wave=(v+1)%5; osc2_wave=(v+2)%5; osc2_semi=(v%3==0)?12:(v%3==1?7:-5); osc2_fine=-12; osc_mix=0.52;
+    noise_amt=0.08+(v%5)*0.055;
+    lfo1_rate=0.08+(v%6)*0.13; lfo2_rate=0.05+(v%5)*0.09;
+    m1src=1; m1dst=(v%2)?3:1; m1amt=0.30+(v%3)*0.12;
+    m2src=2; m2dst=15; m2amt=0.22+(v%4)*0.08;
+    reverb_on=1; reverb_size=0.72; reverb_mix=0.28+(v%3)*0.06;
+    delay_on=(v%3==0 || v==5 || v==10); delay_time=190+v*31; delay_fb=0.35; delay_mix=delay_on?0.20:0.12;
+    v==0 ? (noise_amt=0.42; amp_a=1.8; cutoff=700; filter_env_amt=0.92; filt_a=2.2; m1dst=3; m1amt=0.55;)
+    : v==2 ? (osc1_wave=4; osc1_pw=0.18; osc2_wave=2; lfo1_shape=2; lfo1_rate=5.5; m1dst=1; m1amt=0.08;)
+    : v==3 ? (noise_amt=0.62; osc_mix=0.30; cutoff=5800; m1dst=3; m1amt=0.42;)
+    : v==4 ? (cutoff=520; resonance=0.62; amp_a=2.2; amp_r=4.5; delay_on=1; delay_time=620; delay_mix=0.18;)
+    : v==5 ? (amp_a=0.001; amp_d=0.12; amp_s=0.06; amp_r=0.20; osc1_wave=0; osc2_wave=0; reverb_mix=0.42;)
+    : v==6 ? (noise_amt=0.35; reverb_mix=0.48; m2dst=15; m2amt=0.40;)
+    : v==7 ? (resonance=0.86; cutoff=1200; m1dst=3; m1amt=0.60;)
+    : v==8 ? (flanger_on=1; flanger_mix=0.35; flanger_fb=0.60; noise_amt=0.22;)
+    : v==9 ? (osc1_wave=0; osc2_wave=3; amp_a=1.3; reverb_mix=0.44;)
+    : v==10 ? (delay_on=1; delay_time=510; delay_fb=0.58; delay_mix=0.32; m2dst=11; m2amt=0.22;)
+    : v==11 ? (filter_type=2; cutoff=680; noise_amt=0.30; chorus_on=1; chorus_mix=0.22;)
+    : v==12 ? (noise_amt=0.55; amp_a=1.1; m1dst=15; m1amt=0.35;)
+    : v==13 ? (lfo1_shape=2; lfo1_rate=2.2; m1dst=1; m1amt=0.16; resonance=0.72;)
+    : v==14 ? (filter_type=1; cutoff=3400; filter_env_amt=-0.85; amp_a=0.7; amp_r=3.8;)
+    : v==15 ? (cutoff=420; resonance=0.76; noise_amt=0.20; amp_a=2.6; amp_r=5.2; reverb_mix=0.50;)
+    : 0;
+  );
+);
+
+// PRESET_LIBRARY_INTEGRATED: explicit extension; original identities retained.
+function load_patch(idx) (
+  idx=floor(clamp(idx,0,127));
+  idx<80 ? (
+    load_original_patch(idx);
+    idx==0 ? (comp_on=0; master=0.74; m2src=0; m2dst=0; m2amt=0; amp_a=0.008; m1src=0; m1dst=0; m1amt=0; osc2_fine=0;);
+    idx==1 ? (comp_on=0; master=0.854; m2src=0; m2dst=0; m2amt=0; amp_a=0.004; m1src=0; m1dst=0; m1amt=0;);
+    idx==2 ? (comp_on=0; master=0.945; m2src=0; m2dst=0; m2amt=0; amp_a=0.004; m1src=0; m1dst=0; m1amt=0;);
+    idx==3 ? (comp_on=0; master=0.715; m2src=0; m2dst=0; m2amt=0; amp_a=0.004; m1src=0; m1dst=0; m1amt=0;);
+    idx==4 ? (comp_on=0; master=0.805; m2src=0; m2dst=0; m2amt=0; amp_a=0.004; m1src=0; m1dst=0; m1amt=0;);
+    idx==5 ? (comp_on=0; master=0.823; m2src=0; m2dst=0; m2amt=0; amp_a=0.004; m1src=0; m1dst=0; m1amt=0;);
+    idx==6 ? (comp_on=0; master=0.795; m2src=0; m2dst=0; m2amt=0; amp_a=0.004; m1src=0; m1dst=0; m1amt=0;);
+    idx==7 ? (comp_on=0; master=0.691; m2src=0; m2dst=0; m2amt=0; amp_a=0.004; m1src=0; m1dst=0; m1amt=0;);
+    idx==8 ? (comp_on=0; master=0.869; m2src=0; m2dst=0; m2amt=0; amp_a=0.004; m1src=0; m1dst=0; m1amt=0; cutoff=420; filter_env_amt=0.12;);
+    idx==9 ? (comp_on=0; master=1; m2src=0; m2dst=0; m2amt=0; amp_a=0.004; m1src=0; m1dst=0; m1amt=0;);
+    idx==10 ? (comp_on=0; master=0.901; m2src=0; m2dst=0; m2amt=0; amp_a=0.004;);
+    idx==11 ? (comp_on=0; master=1; m2src=0; m2dst=0; m2amt=0; amp_a=0.004; m1src=0; m1dst=0; m1amt=0;);
+    idx==12 ? (comp_on=0; master=0.557; m2src=0; m2dst=0; m2amt=0; amp_a=0.012; m1src=0; m1dst=0; m1amt=0; cutoff=950; filter_env_amt=0.22;);
+    idx==13 ? (comp_on=0; master=0.75; m2src=0; m2dst=0; m2amt=0; amp_a=0.004; m1src=0; m1dst=0; m1amt=0;);
+    idx==14 ? (comp_on=0; master=0.927; m2src=0; m2dst=0; m2amt=0; amp_a=0.004; m1src=0; m1dst=0; m1amt=0;);
+    idx==15 ? (comp_on=0; master=0.696; m2src=0; m2dst=0; m2amt=0; amp_a=0.004; m1src=0; m1dst=0; m1amt=0;);
+    idx==16 ? (comp_on=0; master=0.669; m2src=0; m2dst=0; m2amt=0;);
+    idx==17 ? (comp_on=0; master=0.467; m2src=0; m2dst=0; m2amt=0;);
+    idx==18 ? (comp_on=0; master=0.542; m2src=0; m2dst=0; m2amt=0;);
+    idx==19 ? (comp_on=0; master=0.497; m2src=0; m2dst=0; m2amt=0;);
+    idx==20 ? (comp_on=0; master=0.814; m2src=0; m2dst=0; m2amt=0;);
+    idx==21 ? (comp_on=0; master=0.652; m2src=0; m2dst=0; m2amt=0;);
+    idx==22 ? (comp_on=0; master=0.49; m2src=0; m2dst=0; m2amt=0;);
+    idx==23 ? (comp_on=0; master=0.68; m2src=0; m2dst=0; m2amt=0;);
+    idx==24 ? (comp_on=0; master=0.591; m2src=0; m2dst=0; m2amt=0;);
+    idx==25 ? (comp_on=0; master=0.559; m2src=0; m2dst=0; m2amt=0;);
+    idx==26 ? (comp_on=0; master=0.708; m2src=0; m2dst=0; m2amt=0;);
+    idx==27 ? (comp_on=0; master=0.513; m2src=0; m2dst=0; m2amt=0;);
+    idx==28 ? (comp_on=0; master=0.521; m2src=0; m2dst=0; m2amt=0;);
+    idx==29 ? (comp_on=0; master=0.609; m2src=0; m2dst=0; m2amt=0;);
+    idx==30 ? (comp_on=0; master=0.499; m2src=0; m2dst=0; m2amt=0;);
+    idx==31 ? (comp_on=0; master=0.653; m2src=0; m2dst=0; m2amt=0;);
+    idx==32 ? (comp_on=0; master=0.907; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==33 ? (comp_on=0; master=0.992; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==34 ? (comp_on=0; master=1; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==35 ? (comp_on=0; master=1; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==36 ? (comp_on=0; master=0.677; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==37 ? (comp_on=0; master=0.548; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==38 ? (comp_on=0; master=1; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==39 ? (comp_on=0; master=1; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==40 ? (comp_on=0; master=0.616; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==41 ? (comp_on=0; master=0.312; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; osc2_fine=0; amp_d=0.12; amp_s=0.96; amp_r=0.14;);
+    idx==42 ? (comp_on=0; master=1; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==43 ? (comp_on=0; master=0.649; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==44 ? (comp_on=0; master=0.896; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==45 ? (comp_on=0; master=1; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==46 ? (comp_on=0; master=0.557; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==47 ? (comp_on=0; master=0.783; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0;);
+    idx==48 ? (comp_on=0; master=0.546;);
+    idx==49 ? (comp_on=0; master=0.731;);
+    idx==50 ? (comp_on=0; master=0.562;);
+    idx==51 ? (comp_on=0; master=0.803;);
+    idx==52 ? (comp_on=0; master=0.643;);
+    idx==53 ? (comp_on=0; master=0.659;);
+    idx==54 ? (comp_on=0; master=0.521;);
+    idx==55 ? (comp_on=0; master=0.884;);
+    idx==56 ? (comp_on=0; master=0.739;);
+    idx==57 ? (comp_on=0; master=0.71;);
+    idx==58 ? (comp_on=0; master=0.514;);
+    idx==59 ? (comp_on=0; master=0.886;);
+    idx==60 ? (comp_on=0; master=0.556;);
+    idx==61 ? (comp_on=0; master=0.833;);
+    idx==62 ? (comp_on=0; master=0.612;);
+    idx==63 ? (comp_on=0; master=0.722;);
+    idx==64 ? (comp_on=0; master=0.584;);
+    idx==65 ? (comp_on=0; master=0.393;);
+    idx==66 ? (comp_on=0; master=0.461;);
+    idx==67 ? (comp_on=0; master=0.451;);
+    idx==68 ? (comp_on=0; master=0.78;);
+    idx==69 ? (comp_on=0; master=1;);
+    idx==70 ? (comp_on=0; master=0.578;);
+    idx==71 ? (comp_on=0; master=0.56;);
+    idx==72 ? (comp_on=0; master=0.696;);
+    idx==73 ? (comp_on=0; master=0.71;);
+    idx==74 ? (comp_on=0; master=0.548;);
+    idx==75 ? (comp_on=0; master=1;);
+    idx==76 ? (comp_on=0; master=0.538;);
+    idx==77 ? (comp_on=0; master=0.505;);
+    idx==78 ? (comp_on=0; master=1;);
+    idx==79 ? (comp_on=0; master=0.761;);
+  ) : (
+    idx==80 ? (master=0.886; tune=0; osc1_wave=0; osc1_oct=-1; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=3; osc2_oct=0; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.15; noise_amt=0; filter_type=0; cutoff=620; resonance=0.06; filter_env_amt=0; keytrack=0.3; amp_a=0.007; amp_d=0.24; amp_s=0.86; amp_r=0.14; filt_a=0.002; filt_d=0.16; filt_s=0.15; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==81 ? (master=0.765; tune=0; osc1_wave=4; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.36; osc2_wave=1; osc2_oct=0; osc2_semi=0; osc2_fine=-3; osc2_pw=0.5; osc_mix=0.24; noise_amt=0; filter_type=0; cutoff=740; resonance=0.26; filter_env_amt=0.5; keytrack=0.32; amp_a=0.002; amp_d=0.17; amp_s=0.56; amp_r=0.095; filt_a=0.001; filt_d=0.105; filt_s=0.07; filt_r=0.1; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==82 ? (master=0.706; tune=0; osc1_wave=2; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=0; osc2_oct=-1; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.4; noise_amt=0; filter_type=0; cutoff=530; resonance=0.35; filter_env_amt=0.42; keytrack=0.38; amp_a=0.004; amp_d=0.32; amp_s=0.68; amp_r=0.17; filt_a=0.003; filt_d=0.28; filt_s=0.13; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==83 ? (master=0.766; tune=0; osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=2; osc1_pw=0.5; osc2_wave=1; osc2_oct=0; osc2_semi=0; osc2_fine=-3; osc2_pw=0.5; osc_mix=0.45; noise_amt=0; filter_type=0; cutoff=930; resonance=0.15; filter_env_amt=0.28; keytrack=0.36; amp_a=0.003; amp_d=0.23; amp_s=0.79; amp_r=0.13; filt_a=0.002; filt_d=0.19; filt_s=0.25; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==84 ? (master=1; tune=0; osc1_wave=3; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=4; osc2_oct=0; osc2_semi=0; osc2_fine=0; osc2_pw=0.23; osc_mix=0.22; noise_amt=0; filter_type=0; cutoff=1600; resonance=0.31; filter_env_amt=-0.27; keytrack=0.45; amp_a=0.005; amp_d=0.26; amp_s=0.48; amp_r=0.12; filt_a=0.016; filt_d=0.2; filt_s=0.7; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==85 ? (master=0.822; tune=0; osc1_wave=0; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=3; osc2_oct=0; osc2_semi=0; osc2_fine=-1; osc2_pw=0.5; osc_mix=0.26; noise_amt=0; filter_type=0; cutoff=410; resonance=0.07; filter_env_amt=0; keytrack=0.3; amp_a=0.013; amp_d=0.4; amp_s=0.72; amp_r=0.25; filt_a=0.012; filt_d=0.25; filt_s=0.15; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==86 ? (master=0.806; tune=0; osc1_wave=4; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.2; osc2_wave=0; osc2_oct=-1; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.29; noise_amt=0; filter_type=0; cutoff=680; resonance=0.44; filter_env_amt=0.62; keytrack=0.4; amp_a=0.001; amp_d=0.1; amp_s=0.08; amp_r=0.075; filt_a=0.001; filt_d=0.068; filt_s=0.02; filt_r=0.07; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==87 ? (master=0.766; tune=0; osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=0; osc2_oct=0; osc2_semi=7; osc2_fine=0; osc2_pw=0.5; osc_mix=0.19; noise_amt=0; filter_type=0; cutoff=1100; resonance=0.23; filter_env_amt=0.27; keytrack=0.3; amp_a=0.005; amp_d=0.28; amp_s=0.76; amp_r=0.16; filt_a=0.002; filt_d=0.23; filt_s=0.2; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==88 ? (master=0.825; tune=0; osc1_wave=0; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=3; osc2_oct=0; osc2_semi=0; osc2_fine=-4; osc2_pw=0.5; osc_mix=0.36; noise_amt=0; filter_type=0; cutoff=7800; resonance=0.08; filter_env_amt=0; keytrack=0.55; amp_a=0.015; amp_d=0.26; amp_s=0.85; amp_r=0.24; filt_a=0.002; filt_d=0.2; filt_s=0.15; filt_r=0.18; lfo1_rate=5.8; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=1; m1dst=1; m1amt=0.016; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=1; delay_time=360; delay_fb=0.23; delay_mix=0.12; reverb_on=1; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0.075; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==89 ? (master=0.835; tune=0; osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=3; osc1_pw=0.5; osc2_wave=1; osc2_oct=0; osc2_semi=0; osc2_fine=-5; osc2_pw=0.5; osc_mix=0.49; noise_amt=0; filter_type=0; cutoff=3100; resonance=0.24; filter_env_amt=0.19; keytrack=0.48; amp_a=0.008; amp_d=0.24; amp_s=0.83; amp_r=0.19; filt_a=0.008; filt_d=0.3; filt_s=0.38; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.22; chorus_depth=0.26; chorus_mix=0.14; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.35; reverb_damp=0.6; reverb_mix=0.07; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==90 ? (master=0.634; tune=0; osc1_wave=4; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.16; osc2_wave=4; osc2_oct=0; osc2_semi=0; osc2_fine=4; osc2_pw=0.29; osc_mix=0.32; noise_amt=0; filter_type=0; cutoff=5100; resonance=0.2; filter_env_amt=0.12; keytrack=0.6; amp_a=0.004; amp_d=0.18; amp_s=0.76; amp_r=0.16; filt_a=0.002; filt_d=0.12; filt_s=0.3; filt_r=0.18; lfo1_rate=4.9; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=1; m1dst=1; m1amt=0.012; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=1; delay_time=235; delay_fb=0.19; delay_mix=0.11; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==91 ? (master=0.635; tune=0; osc1_wave=0; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=2; osc2_oct=1; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.31; noise_amt=0; filter_type=0; cutoff=4700; resonance=0.16; filter_env_amt=0.2; keytrack=0.55; amp_a=0.005; amp_d=0.23; amp_s=0.78; amp_r=0.21; filt_a=0.002; filt_d=0.19; filt_s=0.3; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.38; reverb_damp=0.6; reverb_mix=0.1; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==92 ? (master=1; tune=0; osc1_wave=3; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=2; osc2_oct=0; osc2_semi=0; osc2_fine=-2; osc2_pw=0.5; osc_mix=0.38; noise_amt=0; filter_type=1; cutoff=1250; resonance=0.34; filter_env_amt=0.1; keytrack=0.94; amp_a=0.018; amp_d=0.31; amp_s=0.86; amp_r=0.27; filt_a=0.018; filt_d=0.27; filt_s=0.32; filt_r=0.18; lfo1_rate=5.2; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=1; m1dst=1; m1amt=0.02; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.46; reverb_damp=0.7; reverb_mix=0.12; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==93 ? (master=0.665; tune=0; osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=4; osc2_oct=0; osc2_semi=0; osc2_fine=-6; osc2_pw=0.41; osc_mix=0.39; noise_amt=0; filter_type=0; cutoff=2700; resonance=0.22; filter_env_amt=0.15; keytrack=0.52; amp_a=0.007; amp_d=0.3; amp_s=0.82; amp_r=0.25; filt_a=0.002; filt_d=0.3; filt_s=0.3; filt_r=0.18; lfo1_rate=5.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=1; m1dst=5; m1amt=0.34; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=1; delay_time=273; delay_fb=0.32; delay_mix=0.2; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==94 ? (master=0.756; tune=0; osc1_wave=3; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=0; osc2_oct=0; osc2_semi=7; osc2_fine=0; osc2_pw=0.5; osc_mix=0.24; noise_amt=0; filter_type=0; cutoff=7900; resonance=0.09; filter_env_amt=0; keytrack=0.58; amp_a=0.011; amp_d=0.3; amp_s=0.8; amp_r=0.32; filt_a=0.002; filt_d=0.2; filt_s=0.15; filt_r=0.18; lfo1_rate=0.24; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=1; m1dst=6; m1amt=0.22; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.3; chorus_depth=0.31; chorus_mix=0.14; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.42; reverb_damp=0.6; reverb_mix=0.1; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==95 ? (master=0.723; tune=0; osc1_wave=3; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=0; osc2_oct=1; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.17; noise_amt=0.022; filter_type=0; cutoff=3200; resonance=0.13; filter_env_amt=0.09; keytrack=0.72; amp_a=0.028; amp_d=0.27; amp_s=0.82; amp_r=0.2; filt_a=0.034; filt_d=0.25; filt_s=0.6; filt_r=0.18; lfo1_rate=5.3; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=1; m1dst=1; m1amt=0.023; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.38; reverb_damp=0.64; reverb_mix=0.13; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==96 ? (master=1; tune=0; osc1_wave=3; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=0; osc2_oct=1; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.31; noise_amt=0; filter_type=0; cutoff=6900; resonance=0.1; filter_env_amt=0.1; keytrack=0.65; amp_a=0.003; amp_d=0.67; amp_s=0.17; amp_r=0.24; filt_a=0.001; filt_d=0.32; filt_s=0.08; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.33; chorus_depth=0.3; chorus_mix=0.19; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.31; reverb_damp=0.6; reverb_mix=0.09; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==97 ? (master=0.553; tune=0; osc1_wave=2; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=4; osc2_oct=0; osc2_semi=0; osc2_fine=-4; osc2_pw=0.43; osc_mix=0.33; noise_amt=0; filter_type=0; cutoff=2200; resonance=0.18; filter_env_amt=0.24; keytrack=0.63; amp_a=0.007; amp_d=0.28; amp_s=0.63; amp_r=0.15; filt_a=0.002; filt_d=0.19; filt_s=0.24; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.19; chorus_depth=0.34; chorus_mix=0.19; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==98 ? (master=1; tune=0; osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=3; osc2_oct=0; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.58; noise_amt=0; filter_type=0; cutoff=1800; resonance=0.11; filter_env_amt=0.45; keytrack=0.74; amp_a=0.003; amp_d=0.5; amp_s=0.14; amp_r=0.18; filt_a=0.001; filt_d=0.14; filt_s=0.06; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.25; reverb_damp=0.72; reverb_mix=0.07; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==99 ? (master=0.585; tune=0; osc1_wave=0; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=0; osc2_oct=1; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.4; noise_amt=0; filter_type=0; cutoff=10000; resonance=0.04; filter_env_amt=0; keytrack=0.65; amp_a=0.009; amp_d=0.12; amp_s=0.94; amp_r=0.1; filt_a=0.002; filt_d=0.2; filt_s=0.15; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.65; chorus_depth=0.19; chorus_mix=0.16; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.33; reverb_damp=0.6; reverb_mix=0.08; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==100 ? (master=0.915; tune=0; osc1_wave=4; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.36; osc2_wave=3; osc2_oct=-1; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.19; noise_amt=0; filter_type=0; cutoff=1550; resonance=0.26; filter_env_amt=0.37; keytrack=0.68; amp_a=0.005; amp_d=0.54; amp_s=0.23; amp_r=0.23; filt_a=0.002; filt_d=0.23; filt_s=0.11; filt_r=0.18; lfo1_rate=4.4; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=1; m1dst=5; m1amt=0.19; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.3; reverb_damp=0.68; reverb_mix=0.09; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==101 ? (master=1; tune=0; osc1_wave=0; osc1_oct=1; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=0; osc2_oct=1; osc2_semi=7; osc2_fine=0; osc2_pw=0.5; osc_mix=0.27; noise_amt=0; filter_type=0; cutoff=12000; resonance=0.04; filter_env_amt=0; keytrack=0.7; amp_a=0.001; amp_d=1.1; amp_s=0.025; amp_r=0.5; filt_a=0.002; filt_d=0.2; filt_s=0.15; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=1; delay_time=410; delay_fb=0.24; delay_mix=0.08; reverb_on=1; reverb_size=0.57; reverb_damp=0.35; reverb_mix=0.17; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==102 ? (master=0.692; tune=0; osc1_wave=4; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.19; osc2_wave=2; osc2_oct=0; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.23; noise_amt=0; filter_type=0; cutoff=1450; resonance=0.3; filter_env_amt=0.57; keytrack=0.76; amp_a=0.001; amp_d=0.15; amp_s=0.07; amp_r=0.085; filt_a=0.001; filt_d=0.08; filt_s=0.025; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==103 ? (master=1; tune=0; osc1_wave=3; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=1; osc2_oct=0; osc2_semi=0; osc2_fine=-3; osc2_pw=0.5; osc_mix=0.28; noise_amt=0; filter_type=0; cutoff=1650; resonance=0.12; filter_env_amt=0.22; keytrack=0.65; amp_a=0.018; amp_d=0.8; amp_s=0.35; amp_r=0.4; filt_a=0.013; filt_d=0.47; filt_s=0.12; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.22; chorus_depth=0.24; chorus_mix=0.13; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.4; reverb_damp=0.7; reverb_mix=0.11; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==104 ? (master=0.795; tune=0; osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=5; osc1_pw=0.5; osc2_wave=1; osc2_oct=0; osc2_semi=0; osc2_fine=-8; osc2_pw=0.5; osc_mix=0.5; noise_amt=0; filter_type=0; cutoff=1800; resonance=0.16; filter_env_amt=0.21; keytrack=0.45; amp_a=0.62; amp_d=0.9; amp_s=0.79; amp_r=1.7; filt_a=0.78; filt_d=0.85; filt_s=0.48; filt_r=1.3; lfo1_rate=0.11; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=1; m1dst=3; m1amt=0.055; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.18; chorus_depth=0.52; chorus_mix=0.27; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.62; reverb_damp=0.64; reverb_mix=0.2; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==105 ? (master=0.671; tune=0; osc1_wave=0; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=3; osc2_oct=1; osc2_semi=0; osc2_fine=-4; osc2_pw=0.5; osc_mix=0.42; noise_amt=0; filter_type=0; cutoff=5700; resonance=0.08; filter_env_amt=0.09; keytrack=0.55; amp_a=1.35; amp_d=1.2; amp_s=0.85; amp_r=2.25; filt_a=1.1; filt_d=1.1; filt_s=0.65; filt_r=1.8; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.13; chorus_depth=0.37; chorus_mix=0.21; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.7; reverb_damp=0.45; reverb_mix=0.25; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==106 ? (master=1; tune=0; osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=3; osc2_oct=0; osc2_semi=0; osc2_fine=-9; osc2_pw=0.5; osc_mix=0.4; noise_amt=0.105; filter_type=1; cutoff=2100; resonance=0.31; filter_env_amt=0.11; keytrack=0.54; amp_a=0.85; amp_d=0.8; amp_s=0.75; amp_r=1.65; filt_a=1.1; filt_d=0.9; filt_s=0.5; filt_r=1.2; lfo1_rate=0.16; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=1; m1dst=6; m1amt=0.28; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.24; chorus_depth=0.5; chorus_mix=0.25; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.63; reverb_damp=0.53; reverb_mix=0.22; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==107 ? (master=0.51; tune=0; osc1_wave=3; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=0; osc2_oct=-1; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.19; noise_amt=0; filter_type=0; cutoff=920; resonance=0.09; filter_env_amt=0.12; keytrack=0.43; amp_a=0.42; amp_d=1.1; amp_s=0.78; amp_r=1.25; filt_a=0.6; filt_d=0.9; filt_s=0.55; filt_r=1.1; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.12; chorus_depth=0.2; chorus_mix=0.07; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.48; reverb_damp=0.79; reverb_mix=0.1; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==108 ? (master=0.617; tune=0; osc1_wave=0; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=2; osc2_oct=1; osc2_semi=0; osc2_fine=-5; osc2_pw=0.5; osc_mix=0.29; noise_amt=0; filter_type=0; cutoff=2800; resonance=0.18; filter_env_amt=0.1; keytrack=0.53; amp_a=0.9; amp_d=0.95; amp_s=0.81; amp_r=1.9; filt_a=0.75; filt_d=1; filt_s=0.55; filt_r=1.5; lfo1_rate=0.13; lfo1_shape=3; lfo2_rate=0.18; lfo2_shape=0; m1src=1; m1dst=3; m1amt=0.22; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.16; chorus_depth=0.43; chorus_mix=0.24; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.63; reverb_damp=0.48; reverb_mix=0.22; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==109 ? (master=0.657; tune=0; osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=3; osc2_oct=0; osc2_semi=7; osc2_fine=-6; osc2_pw=0.5; osc_mix=0.23; noise_amt=0; filter_type=0; cutoff=2300; resonance=0.21; filter_env_amt=0.2; keytrack=0.47; amp_a=0.7; amp_d=1; amp_s=0.79; amp_r=1.8; filt_a=0.95; filt_d=1; filt_s=0.35; filt_r=1.45; lfo1_rate=0.075; lfo1_shape=0; lfo2_rate=0.12; lfo2_shape=0; m1src=1; m1dst=1; m1amt=0.008; m2src=2; m2dst=3; m2amt=0.08; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.15; chorus_depth=0.44; chorus_mix=0.2; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.65; reverb_damp=0.63; reverb_mix=0.21; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==110 ? (master=1; tune=0; osc1_wave=4; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.28; osc2_wave=3; osc2_oct=0; osc2_semi=0; osc2_fine=-11; osc2_pw=0.5; osc_mix=0.33; noise_amt=0.14; filter_type=1; cutoff=1150; resonance=0.4; filter_env_amt=0.2; keytrack=0.38; amp_a=1.4; amp_d=1.4; amp_s=0.72; amp_r=2.5; filt_a=1.9; filt_d=1.4; filt_s=0.45; filt_r=2; lfo1_rate=0.09; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=1; m1dst=3; m1amt=0.17; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.78; reverb_damp=0.7; reverb_mix=0.28; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==111 ? (master=0.551; tune=0; osc1_wave=4; osc1_oct=0; osc1_semi=0; osc1_fine=8; osc1_pw=0.34; osc2_wave=4; osc2_oct=0; osc2_semi=0; osc2_fine=-11; osc2_pw=0.67; osc_mix=0.49; noise_amt=0; filter_type=0; cutoff=2700; resonance=0.2; filter_env_amt=0.14; keytrack=0.52; amp_a=0.8; amp_d=1.1; amp_s=0.8; amp_r=2; filt_a=1.2; filt_d=1; filt_s=0.48; filt_r=1.6; lfo1_rate=0.1; lfo1_shape=0; lfo2_rate=0.14; lfo2_shape=0; m1src=1; m1dst=2; m1amt=0.19; m2src=2; m2dst=3; m2amt=0.12; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.17; chorus_depth=0.61; chorus_mix=0.3; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=1; delay_time=510; delay_fb=0.28; delay_mix=0.08; reverb_on=1; reverb_size=0.66; reverb_damp=0.61; reverb_mix=0.2; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==112 ? (master=1; tune=0; osc1_wave=0; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=3; osc2_oct=1; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.23; noise_amt=0; filter_type=0; cutoff=4200; resonance=0.08; filter_env_amt=0.12; keytrack=0.72; amp_a=0.004; amp_d=0.3; amp_s=0; amp_r=0.19; filt_a=0.001; filt_d=0.16; filt_s=0; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.34; reverb_damp=0.64; reverb_mix=0.11; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==113 ? (master=1; tune=0; osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=4; osc2_oct=1; osc2_semi=0; osc2_fine=0; osc2_pw=0.3; osc_mix=0.19; noise_amt=0.013; filter_type=0; cutoff=1400; resonance=0.31; filter_env_amt=0.64; keytrack=0.75; amp_a=0.001; amp_d=0.19; amp_s=0; amp_r=0.115; filt_a=0.001; filt_d=0.06; filt_s=0.015; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.27; reverb_damp=0.6; reverb_mix=0.075; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==114 ? (master=1; tune=0; osc1_wave=0; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=0; osc2_oct=1; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.33; noise_amt=0; filter_type=0; cutoff=2000; resonance=0.11; filter_env_amt=0.18; keytrack=0.8; amp_a=0.003; amp_d=0.24; amp_s=0; amp_r=0.16; filt_a=0.002; filt_d=0.1; filt_s=0; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.29; reverb_damp=0.71; reverb_mix=0.09; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==115 ? (master=1; tune=0; osc1_wave=2; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=3; osc2_oct=1; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.26; noise_amt=0; filter_type=0; cutoff=990; resonance=0.39; filter_env_amt=0.78; keytrack=0.68; amp_a=0.001; amp_d=0.23; amp_s=0.015; amp_r=0.13; filt_a=0.001; filt_d=0.105; filt_s=0.035; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=1; delay_time=250; delay_fb=0.35; delay_mix=0.2; reverb_on=1; reverb_size=0.35; reverb_damp=0.6; reverb_mix=0.075; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==116 ? (master=1; tune=0; osc1_wave=3; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=2; osc2_oct=1; osc2_semi=7; osc2_fine=0; osc2_pw=0.5; osc_mix=0.2; noise_amt=0; filter_type=1; cutoff=1050; resonance=0.34; filter_env_amt=0.22; keytrack=0.91; amp_a=0.002; amp_d=0.125; amp_s=0; amp_r=0.085; filt_a=0.001; filt_d=0.05; filt_s=0; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.22; reverb_damp=0.76; reverb_mix=0.085; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==117 ? (master=0.973; tune=0; osc1_wave=4; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.11; osc2_wave=0; osc2_oct=-1; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.16; noise_amt=0; filter_type=2; cutoff=290; resonance=0.16; filter_env_amt=0.07; keytrack=0.72; amp_a=0.001; amp_d=0.065; amp_s=0; amp_r=0.045; filt_a=0.001; filt_d=0.045; filt_s=0; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==118 ? (master=1; tune=0; osc1_wave=0; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=3; osc2_oct=0; osc2_semi=7; osc2_fine=0; osc2_pw=0.5; osc_mix=0.21; noise_amt=0; filter_type=0; cutoff=5500; resonance=0.08; filter_env_amt=0.1; keytrack=0.72; amp_a=0.004; amp_d=0.38; amp_s=0; amp_r=0.27; filt_a=0.001; filt_d=0.22; filt_s=0; filt_r=0.18; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=1; delay_time=390; delay_fb=0.4; delay_mix=0.22; reverb_on=1; reverb_size=0.52; reverb_damp=0.53; reverb_mix=0.15; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==119 ? (master=1; tune=0; osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=0; osc2_oct=1; osc2_semi=0; osc2_fine=0; osc2_pw=0.5; osc_mix=0.29; noise_amt=0; filter_type=0; cutoff=1800; resonance=0.19; filter_env_amt=0.48; keytrack=0.79; amp_a=0.003; amp_d=0.55; amp_s=0; amp_r=0.36; filt_a=0.001; filt_d=0.24; filt_s=0.02; filt_r=0.18; lfo1_rate=0.13; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=1; m1dst=3; m1amt=0.025; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.25; chorus_depth=0.21; chorus_mix=0.085; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.43; reverb_damp=0.6; reverb_mix=0.13; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==120 ? (master=0.742; tune=0; osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=2; osc2_oct=0; osc2_semi=0; osc2_fine=-4; osc2_pw=0.5; osc_mix=0.32; noise_amt=0; filter_type=0; cutoff=1350; resonance=0.2; filter_env_amt=0.44; keytrack=0.58; amp_a=0.014; amp_d=0.24; amp_s=0.74; amp_r=0.14; filt_a=0.024; filt_d=0.15; filt_s=0.42; filt_r=0.12; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.29; reverb_damp=0.65; reverb_mix=0.075; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==121 ? (master=0.643; tune=0; osc1_wave=4; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.31; osc2_wave=1; osc2_oct=0; osc2_semi=0; osc2_fine=-3; osc2_pw=0.5; osc_mix=0.29; noise_amt=0; filter_type=0; cutoff=760; resonance=0.33; filter_env_amt=0.31; keytrack=0.64; amp_a=0.024; amp_d=0.3; amp_s=0.65; amp_r=0.16; filt_a=0.03; filt_d=0.18; filt_s=0.35; filt_r=0.15; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.28; reverb_damp=0.76; reverb_mix=0.075; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==122 ? (master=0.719; tune=0; osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=1; osc2_oct=1; osc2_semi=0; osc2_fine=-2; osc2_pw=0.5; osc_mix=0.3; noise_amt=0; filter_type=0; cutoff=1800; resonance=0.18; filter_env_amt=0.48; keytrack=0.62; amp_a=0.009; amp_d=0.25; amp_s=0.72; amp_r=0.12; filt_a=0.016; filt_d=0.14; filt_s=0.32; filt_r=0.1; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==123 ? (master=0.643; tune=0; osc1_wave=3; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=4; osc2_oct=0; osc2_semi=0; osc2_fine=-5; osc2_pw=0.42; osc_mix=0.41; noise_amt=0; filter_type=0; cutoff=1200; resonance=0.2; filter_env_amt=0.36; keytrack=0.64; amp_a=0.075; amp_d=0.47; amp_s=0.79; amp_r=0.3; filt_a=0.092; filt_d=0.31; filt_s=0.47; filt_r=0.27; lfo1_rate=0.5; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=0; m1dst=0; m1amt=0; m2src=0; m2dst=0; m2amt=0; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.18; chorus_depth=0.25; chorus_mix=0.12; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.38; reverb_damp=0.66; reverb_mix=0.12; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==124 ? (master=0.684; tune=0; osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=4; osc2_oct=0; osc2_semi=0; osc2_fine=-5; osc2_pw=0.27; osc_mix=0.36; noise_amt=0; filter_type=0; cutoff=2200; resonance=0.24; filter_env_amt=0.18; keytrack=0.56; amp_a=0.015; amp_d=0.3; amp_s=0.74; amp_r=0.23; filt_a=0.015; filt_d=0.3; filt_s=0.35; filt_r=0.18; lfo1_rate=4; lfo1_shape=2; lfo2_rate=0.25; lfo2_shape=3; m1src=1; m1dst=5; m1amt=0.92; m2src=2; m2dst=3; m2amt=0.11; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=1; delay_time=375; delay_fb=0.22; delay_mix=0.13; reverb_on=0; reverb_size=0.45; reverb_damp=0.6; reverb_mix=0; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==125 ? (master=0.803; tune=0; osc1_wave=3; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.5; osc2_wave=4; osc2_oct=1; osc2_semi=0; osc2_fine=-7; osc2_pw=0.21; osc_mix=0.27; noise_amt=0; filter_type=0; cutoff=2900; resonance=0.22; filter_env_amt=0.1; keytrack=0.6; amp_a=0.19; amp_d=0.6; amp_s=0.73; amp_r=0.9; filt_a=0.22; filt_d=0.6; filt_s=0.4; filt_r=0.7; lfo1_rate=0.18; lfo1_shape=0; lfo2_rate=0.27; lfo2_shape=0; m1src=1; m1dst=6; m1amt=0.6; m2src=2; m2dst=3; m2amt=0.24; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=1; chorus_rate=0.22; chorus_depth=0.37; chorus_mix=0.15; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.52; reverb_damp=0.56; reverb_mix=0.17; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==126 ? (master=1; tune=0; osc1_wave=1; osc1_oct=0; osc1_semi=0; osc1_fine=4; osc1_pw=0.5; osc2_wave=1; osc2_oct=0; osc2_semi=0; osc2_fine=-8; osc2_pw=0.5; osc_mix=0.49; noise_amt=0; filter_type=1; cutoff=1650; resonance=0.39; filter_env_amt=0.12; keytrack=0.5; amp_a=0.32; amp_d=0.8; amp_s=0.75; amp_r=1.1; filt_a=0.4; filt_d=0.9; filt_s=0.4; filt_r=0.9; lfo1_rate=0.12; lfo1_shape=0; lfo2_rate=0.18; lfo2_shape=0; m1src=1; m1dst=3; m1amt=0.43; m2src=1; m2dst=4; m2amt=0.13; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=1; flanger_rate=0.08; flanger_depth=0.27; flanger_fb=0.2; flanger_mix=0.09; delay_on=0; delay_time=320; delay_fb=0.26; delay_mix=0; reverb_on=1; reverb_size=0.54; reverb_damp=0.61; reverb_mix=0.16; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+    idx==127 ? (master=0.613; tune=0; osc1_wave=4; osc1_oct=0; osc1_semi=0; osc1_fine=0; osc1_pw=0.39; osc2_wave=1; osc2_oct=0; osc2_semi=0; osc2_fine=-4; osc2_pw=0.5; osc_mix=0.4; noise_amt=0; filter_type=0; cutoff=2400; resonance=0.25; filter_env_amt=0.12; keytrack=0.58; amp_a=0.023; amp_d=0.45; amp_s=0.76; amp_r=0.38; filt_a=0.022; filt_d=0.5; filt_s=0.3; filt_r=0.18; lfo1_rate=3.2; lfo1_shape=0; lfo2_rate=4.8; lfo2_shape=3; m1src=1; m1dst=5; m1amt=0.65; m2src=2; m2dst=3; m2amt=0.18; m3src=0; m3dst=0; m3amt=0; m4src=0; m4dst=0; m4amt=0; chorus_on=0; chorus_rate=0.25; chorus_depth=0.38; chorus_mix=0; flanger_on=0; flanger_rate=0.12; flanger_depth=0.3; flanger_fb=0.18; flanger_mix=0; delay_on=1; delay_time=312; delay_fb=0.26; delay_mix=0.11; reverb_on=1; reverb_size=0.39; reverb_damp=0.61; reverb_mix=0.09; comp_on=0; comp_thresh=-10; comp_ratio=2; comp_attack=12; comp_release=100; limiter_on=1; limiter_ceiling=-0.8;);
+  );
+);
+
+
+// Voice layout retains slots 0..12; 13 channel,14 key held,15 last output,
+// 16 steal residual,17 residual time,18 deterministic noise,19 velocity tone.
+function clear_audio() (
+  memset(VBASE,0,VOICE_COUNT*VOICE_STRIDE);
+  memset(CHL,0,CHSIZE);memset(CHR,0,CHSIZE);memset(FLL,0,FLSIZE);memset(FLR,0,FLSIZE);
+  memset(DLL,0,DLSIZE);memset(DLR,0,DLSIZE);memset(RVL,0,RVSIZE);memset(RVR,0,RVSIZE);
+  memset(1600000,0,131072);memset(1800000,0,131072);
+  chpos=0;flpos=0;dlpos=0;rvpos=0;ap1pos=0;ap2pos=0;
+  lfo1_phase=0;lfo2_phase=0;chor_phase=0;fl_phase=0;age_counter=1;
+  rev_damp_l=0;rev_damp_r=0;comp_env=0;limit_gain=1;dcxl=0;dcxr=0;dcyl=0;dcyr=0;
+  memset(MODSM,0,18);smooth_ready=0;control_count=0;
+);
+function note_on(note vel ch) local(i b best score bestscore) (
+  best=-1; bestscore=10^30; i=0;
+  loop(VOICE_COUNT,
+    b=VBASE+i*VOICE_STRIDE;
+    // Idle first, then quiet release voices, then oldest held note.
+    score=b[0]<0.5 ? -1000000+i : b[12]<0.5 ? b[6] : 10+b[3]*0.000001;
+    score<bestscore ? (bestscore=score;best=i;);i+=1;
+  );
+  b=VBASE+best*VOICE_STRIDE;
+  b[16]=b[15];b[17]=ceil(0.003*srate);
+  b[0]=1;b[1]=note;b[2]=(vel/127)^1.5;b[3]=age_counter;age_counter+=1;
+  b[4]=0;b[5]=0;b[6]=0;b[7]=1;b[8]=0;b[9]=1;b[10]=0;b[11]=0;
+  b[12]=1;b[13]=ch;b[14]=1;b[15]=0;b[18]=note*65537+ch*257+age_counter;
+  b[19]=hz_from_note(note);
+);
+function release_voice(b) (b[12]=0;b[7]=4;b[9]=4;);
+function note_off(note ch) local(i b best age) (
+  i=0;best=-1;age=10^30;
+  loop(VOICE_COUNT,
+    b=VBASE+i*VOICE_STRIDE;
+    b[0]>0.5 && b[1]==note && b[13]==ch && b[14]>0.5 && b[3]<age ? (best=b;age=b[3];);
+    i+=1;
+  );
+  best>=0 ? (best[14]=0;CHANNELS[ch*8]<0.5 ? release_voice(best););
+);
+function midi_event(a n v) local(st ch c i b pedal) (
+  st=a&240;ch=a&15;c=CHANNELS+ch*8;
+  st==144 && v>0 ? note_on(n,v,ch)
+  : (st==128 || (st==144 && v==0)) ? note_off(n,ch)
+  : st==224 ? c[1]=(n+128*v-8192)/8192
+  : st==176 ? (
+    n==1 ? modwheel=v/127
+    : n==64 ? (
+      pedal=c[0];c[0]=v>=64;
+      pedal && !c[0] ? (i=0;loop(VOICE_COUNT,b=VBASE+i*VOICE_STRIDE;b[13]==ch && !b[14] ? release_voice(b);i+=1;););
+    )
+    : n==120 || n==123 ? (
+      i=0;loop(VOICE_COUNT,
+        b=VBASE+i*VOICE_STRIDE;
+        b[13]==ch ? (b[14]=0;n==120 ? (b[0]=0;b[15]=0;b[16]=0;) : !c[0] ? release_voice(b););
+        i+=1;
+      );
+    )
+    : n==121 ? (
+      c[0]=0;c[1]=0;modwheel=0;i=0;
+      loop(VOICE_COUNT,b=VBASE+i*VOICE_STRIDE;b[13]==ch && !b[14] ? release_voice(b);i+=1;);
+    );
+  );
+);
+function update_rate() (
+  dsp_rate=srate;smoothcoef=1-exp(-1/(0.005*srate));modcoef=1-exp(-1/(0.0015*srate));
+  dc_r=exp(-2*$pi*5/srate);limit_release=exp(-1/(0.060*srate));
+  clear_audio();memset(CHANNELS,0,128);modwheel=0;pitchbend=0;
+);
+
+@slider
+patch=floor(clamp(patch,0,79));bank=floor(clamp(bank,0,1));
+bank>0 ? patch=min(patch,47);
+patch != last_patch || bank != last_bank ? (
+  load_patch(patch+bank*80);
+  last_patch=patch;last_bank=bank;clear_audio();
+);
+
+@block
+dsp_rate!=srate ? update_rate();
+// Deserialized values are applied here, not in @serialize: the host pushes its own copy of
+// the slider values before each block, so a restore must be followed by sliderchange().
+restore_pending ? (
+  restore_pending=0;patch=saved_patch;bank=saved_bank;last_patch=patch;last_bank=bank;
+  // Only sliders the factory reload clobbered are rewritten; matching ones keep host precision.
+  si=2;loop(67,abs(slider(si)-SAVEBUF[si])>0.000001*max(1,abs(SAVEBUF[si])) ? (slider(si)=SAVEBUF[si];sliderchange(slider(si)););si+=1;);
+  sliderchange(slider1);sliderchange(slider69);
+);
+ui_patch_request>0 ? (
+  requested=clamp(ui_patch_request-1,0,127);bank=floor(requested/80);patch=requested-bank*80;
+  load_patch(requested);last_patch=patch;last_bank=bank;clear_audio();ui_patch_request=0;
+  sliderchange(slider1);sliderchange(slider69);
+);
+// Transport stop releases held notes without leaving hung MIDI state.
+last_play_state>0 && play_state==0 ? (
+  memset(CHANNELS,0,128);i=0;loop(VOICE_COUNT,b=VBASE+i*VOICE_STRIDE;b[14]=0;release_voice(b);i+=1;);
+);
+last_play_state=play_state;
+qread=0;qwrite=0;samplepos=0;queue_overflow=0;
+while(midirecv(offset,msg1,msg2,msg3)) (
+  status=msg1&240;
+  handled=status==144 || status==128 || status==224 ||
+    (status==176 && (msg2==1 || msg2==64 || msg2==120 || msg2==121 || msg2==123));
+  handled ? (
+    qwrite<QCAP && !queue_overflow ? (q=MIDIQ+qwrite*4;q[0]=offset;q[1]=msg1;q[2]=msg2;q[3]=msg3;qwrite+=1;)
+    : queue_overflow=1;
+  ) : midisend(offset,msg1,msg2,msg3);
+);
+// Drop the whole overflowing block; never replay note-ons whose offs were lost.
+queue_overflow ? (
+  qwrite=0;i=0;loop(VOICE_COUNT,b=VBASE+i*VOICE_STRIDE;b[14]=0;release_voice(b);i+=1;);
+);
+
+@sample
+while(qread<qwrite && MIDIQ[qread*4]<=samplepos) (
+  q=MIDIQ+qread*4;midi_event(q[1],q[2],q[3]);qread+=1;
+);samplepos+=1;
+// Smooth continuous controls without changing stored/automated slider values.
+!smooth_ready ? (si=2;loop(67,SMOOTH[si]=slider(si);si+=1;);smooth_ready=1;);
+si=2;loop(67,SMOOTH[si]+=(slider(si)-SMOOTH[si])*smoothcoef;si+=1;);
+c=CHANNELS;loop(16,c[2]+=(c[1]-c[2])*modcoef;c+=8;);
+// Preserve the existing envelope curve/time convention; cache shared coefficients.
+control_count<=0 ? (
+  aa=1-exp(-1/max(1,max(amp_a,0.001)*srate*0.22));
+  ad=1-exp(-1/max(1,amp_d*srate*0.22));ar=1-exp(-1/max(1,amp_r*srate*0.22));
+  fa=1-exp(-1/max(1,max(filt_a,0.0005)*srate*0.22));
+  fd=1-exp(-1/max(1,filt_d*srate*0.22));fr=1-exp(-1/max(1,filt_r*srate*0.22));
+  atk=exp(-1/max(1,SMOOTH[65]*0.001*srate));rel=exp(-1/max(1,SMOOTH[66]*0.001*srate));
+  control_count=16;
+);control_count-=1;
+// ---------- global modulators ----------
+lfo1_phase += SMOOTH[29]/srate; lfo1_phase >= 1 ? lfo1_phase -= 1;
+lfo2_phase += SMOOTH[31]/srate; lfo2_phase >= 1 ? lfo2_phase -= 1;
+lfo1v = lfowave(lfo1_phase,lfo1_shape);
+lfo2v = lfowave(lfo2_phase,lfo2_shape);
+
+mi=1;loop(17,MODSM[mi]+=(modsum(mi)-MODSM[mi])*modcoef;mi+=1;);
+mpitch=MODSM[1];mmix=MODSM[2];mcut=MODSM[3];mres=MODSM[4];mamp=MODSM[5];mpan=MODSM[6];
+
+outl=0; outr=0; activevoices=0;
+i=0;
+loop(VOICE_COUNT,
+  b=VBASE+i*VOICE_STRIDE;
+  b[0] > 0.5 ? (
+    activevoices += 1;
+    note=b[1]; vel=b[2];
+
+    // Amp envelope
+    b[7] == 1 ? (
+      0 ? (b[6]=1; b[7]=2;) : (
+        coef=aa; b[6]+=(1-b[6])*coef;
+        b[6] > 0.999 ? (b[6]=1; b[7]=2;);
+      );
+    ) : b[7] == 2 ? (
+      coef=ad; b[6]+=(SMOOTH[23]-b[6])*coef;
+      abs(b[6]-SMOOTH[23]) < 0.001 ? (b[6]=SMOOTH[23]; b[7]=3;);
+    ) : b[7] == 3 ? b[6]=SMOOTH[23]
+    : (
+      coef=ar; b[6]+=(0-b[6])*coef;
+      b[6] < 0.00015 ? (b[6]=0; b[0]=0;);
+    );
+
+    // Filter envelope
+    b[9] == 1 ? (
+      0 ? (b[8]=1; b[9]=2;) : (
+        coef=fa; b[8]+=(1-b[8])*coef;
+        b[8] > 0.999 ? (b[8]=1; b[9]=2;);
+      );
+    ) : b[9] == 2 ? (
+      coef=fd; b[8]+=(SMOOTH[27]-b[8])*coef;
+      abs(b[8]-SMOOTH[27]) < 0.001 ? (b[8]=SMOOTH[27]; b[9]=3;);
+    ) : b[9] == 3 ? b[8]=SMOOTH[27]
+    : (
+      coef=fr; b[8]+=(0-b[8])*coef;
+      b[8] < 0.00015 ? b[8]=0;
+    );
+
+    // Oscillators
+    bendsemi=CHANNELS[b[13]*8+2]*2 + mpitch*3;
+    f1=b[19] * 2^((SMOOTH[5]*12+SMOOTH[6]+bendsemi)/12+(SMOOTH[3]+SMOOTH[7])/1200);
+    f2=b[19] * 2^((SMOOTH[10]*12+SMOOTH[11]+bendsemi)/12+(SMOOTH[3]+SMOOTH[12])/1200);
+    dt1=clamp(f1/srate,0.000001,0.45); dt2=clamp(f2/srate,0.000001,0.45);
+    o1=oscwave(b[4],osc1_wave,SMOOTH[8],dt1);
+    o2=oscwave(b[5],osc2_wave,SMOOTH[13],dt2);
+    b[4]+=dt1; b[4]>=1 ? b[4]-=1;
+    b[5]+=dt2; b[5]>=1 ? b[5]-=1;
+    mixv=clamp(SMOOTH[14] + mmix*0.45,0,1);
+    sig=o1*(1-mixv)+o2*mixv;
+    SMOOTH[15] > 0.0001 ? sig = sig*(1-SMOOTH[15]*0.45) + ((b[18]=(b[18]*1664525+1013904223)%4294967296)/2147483648-1)*SMOOTH[15]*0.55;
+
+    // Trapezoidal state-variable filter, independently solved from integrator equations.
+    ctf=SMOOTH[17]*2^(SMOOTH[19]*b[8]*4+mcut*3+SMOOTH[20]*(note-60)/12);
+    ctf=clamp(ctf,30,min(18000,srate*0.42));
+    resv=clamp(SMOOTH[18]+mres*0.42,0,0.95);damp=1.98-resv*1.82;
+    g=tan($pi*ctf/srate);a=1/(1+g*(g+damp));
+    band=a*(b[10]+g*(sig-b[11]));low=b[11]+g*band;
+    b[10]=2*band-b[10];b[11]=2*low-b[11];high=sig-damp*band-low;
+    // Constant-peak bandpass and restrained resonant energy, without nonlinear filtering.
+    filter_type==0 ? fsig=low : filter_type==1 ? fsig=band*damp : fsig=high;
+    fsig*=sqrt(min(1,damp));
+
+    av=clamp(1+mamp*0.75,0,1.8);
+    fsig *= b[6]*vel*av*0.23;
+    b[17]>0 ? (fsig+=b[16]*b[17]/max(1,ceil(0.003*srate));b[17]-=1;);
+    b[15]=fsig;
+    pan=clamp(mpan*0.75,-1,1);
+    lg=sqrt((1-pan)*0.5); rg=sqrt((1+pan)*0.5);
+    outl += fsig*lg; outr += fsig*rg;
+  );
+  i+=1;
+);
+
+// ---------- CHORUS ----------
+(slider(45)>0.5 || SMOOTH[45]>0.000001) ? (
+  chorus_dirty=1;
+  chor_phase += SMOOTH[46]/srate; chor_phase >= 1 ? chor_phase -= 1;
+  cdepth=clamp(SMOOTH[47] + MODSM[7]*0.55,0,1);
+  cmix=clamp(SMOOTH[48] + MODSM[8]*0.45,0,1)*SMOOTH[45];
+  cL=(8 + (10*cdepth)*(0.5+0.5*sin(2*$pi*chor_phase)))*0.001*srate;
+  cR=(8 + (10*cdepth)*(0.5+0.5*sin(2*$pi*(chor_phase+0.25))))*0.001*srate;
+  wetl=read_delay(CHL,CHSIZE,chpos,cL); wetr=read_delay(CHR,CHSIZE,chpos,cR);
+  CHL[chpos]=outl; CHR[chpos]=outr;
+  chpos+=1; chpos>=CHSIZE ? chpos=0;
+  outl=outl*(1-cmix)+wetl*cmix; outr=outr*(1-cmix)+wetr*cmix;
+): chorus_dirty ? (memset(CHL,0,CHSIZE);memset(CHR,0,CHSIZE);chorus_dirty=0;);
+
+// ---------- FLANGER ----------
+(slider(49)>0.5 || SMOOTH[49]>0.000001) ? (
+  flanger_dirty=1;
+  fl_phase += SMOOTH[50]/srate; fl_phase >= 1 ? fl_phase -= 1;
+  fdepth=clamp(SMOOTH[51] + MODSM[9]*0.55,0,1);
+  fmix=clamp(SMOOTH[53] + MODSM[10]*0.45,0,1)*SMOOTH[49];
+  fds=(0.35 + fdepth*3.8*(0.5+0.5*sin(2*$pi*fl_phase)))*0.001*srate;
+  fwetl=read_delay(FLL,FLSIZE,flpos,fds); fwetr=read_delay(FLR,FLSIZE,flpos,fds*1.07);
+  FLL[flpos]=outl+fwetl*SMOOTH[52]; FLR[flpos]=outr+fwetr*SMOOTH[52];
+  flpos+=1; flpos>=FLSIZE ? flpos=0;
+  outl=outl*(1-fmix)+fwetl*fmix; outr=outr*(1-fmix)+fwetr*fmix;
+): flanger_dirty ? (memset(FLL,0,FLSIZE);memset(FLR,0,FLSIZE);flanger_dirty=0;);
+
+// ---------- DELAY ----------
+(slider(54)>0.5 || SMOOTH[54]>0.000001) ? (
+  delay_dirty=1;
+  dtime=clamp(SMOOTH[55]*(1+MODSM[11]*0.35),20,1000)*0.001*srate;
+  dfb=clamp(SMOOTH[56]+MODSM[12]*0.28,0,0.94);
+  dmix=clamp(SMOOTH[57]+MODSM[13]*0.45,0,1)*SMOOTH[54];
+  dwetl=read_delay(DLL,DLSIZE,dlpos,dtime); dwetr=read_delay(DLR,DLSIZE,dlpos,dtime*1.003);
+  DLL[dlpos]=outl+dwetr*dfb; DLR[dlpos]=outr+dwetl*dfb;
+  dlpos+=1; dlpos>=DLSIZE ? dlpos=0;
+  outl=outl*(1-dmix)+dwetl*dmix; outr=outr*(1-dmix)+dwetr*dmix;
+): delay_dirty ? (memset(DLL,0,DLSIZE);memset(DLR,0,DLSIZE);delay_dirty=0;);
+
+// ---------- REVERB: compact stereo multi-tap feedback network ----------
+(slider(58)>0.5 || SMOOTH[58]>0.000001) ? (
+  reverb_dirty=1;
+  rsize=clamp(SMOOTH[59]+MODSM[14]*0.45,0,1);
+  rmix=clamp(SMOOTH[61]+MODSM[15]*0.45,0,1)*SMOOTH[58];
+  scale=0.72+rsize*0.75;
+  t1=clamp(0.0297*scale*srate,1,RVSIZE-2); t2=clamp(0.0371*scale*srate,1,RVSIZE-2);
+  t3=clamp(0.0411*scale*srate,1,RVSIZE-2); t4=clamp(0.0437*scale*srate,1,RVSIZE-2);
+  rl1=read_delay(RVL,RVSIZE,rvpos,t1); rl2=read_delay(RVL,RVSIZE,rvpos,t2); rl3=read_delay(RVL,RVSIZE,rvpos,t3); rl4=read_delay(RVL,RVSIZE,rvpos,t4);
+  rr1=read_delay(RVR,RVSIZE,rvpos,t1*1.013); rr2=read_delay(RVR,RVSIZE,rvpos,t2*0.991); rr3=read_delay(RVR,RVSIZE,rvpos,t3*1.021); rr4=read_delay(RVR,RVSIZE,rvpos,t4*0.982);
+  rwl=(rl1+rl2+rl3+rl4)*0.25; rwr=(rr1+rr2+rr3+rr4)*0.25;
+  dampcoef=1-exp(-2*$pi*(300+6500*(1-SMOOTH[60])^2)/srate);
+  rev_damp_l += (rwl-rev_damp_l)*dampcoef; rev_damp_r += (rwr-rev_damp_r)*dampcoef;
+  rfb=0.62+rsize*0.20;
+  // Two decorrelated allpass stages build tail density without increasing feedback.
+  apdl=read_delay(1600000,65536,ap1pos,0.00431*srate);
+  apdr=read_delay(1665536,65536,ap1pos,0.00517*srate);
+  apvl=outl+apdl*0.55;apvr=outr+apdr*0.55;
+  1600000[ap1pos]=apvl;1665536[ap1pos]=apvr;
+  rinl=apdl-apvl*0.55;rinr=apdr-apvr*0.55;
+  ap1pos=(ap1pos+1)%65536;
+  RVL[rvpos]=rinl + (rev_damp_l*0.78 + rev_damp_r*0.22)*rfb;
+  RVR[rvpos]=rinr + (rev_damp_r*0.78 + rev_damp_l*0.22)*rfb;
+  rvpos+=1; rvpos>=RVSIZE ? rvpos=0;
+  apdl=read_delay(1800000,65536,ap2pos,0.00173*srate);
+  apdr=read_delay(1865536,65536,ap2pos,0.00211*srate);
+  apvl=rwl+apdl*0.5;apvr=rwr+apdr*0.5;
+  1800000[ap2pos]=apvl;1865536[ap2pos]=apvr;
+  rwl=apdl-apvl*0.5;rwr=apdr-apvr*0.5;ap2pos=(ap2pos+1)%65536;
+  outl=outl*(1-rmix)+rwl*rmix; outr=outr*(1-rmix)+rwr*rmix;
+): reverb_dirty ? (
+  memset(RVL,0,RVSIZE);memset(RVR,0,RVSIZE);
+  memset(1600000,0,131072);memset(1800000,0,131072);
+  rev_damp_l=0;rev_damp_r=0;reverb_dirty=0;
+);
+
+// ---------- zero-lookahead compressor ----------
+SMOOTH[62] > 0.000001 ? (
+  detect=max(abs(outl),abs(outr));
+  detect > comp_env ? comp_env=atk*comp_env+(1-atk)*detect : comp_env=rel*comp_env+(1-rel)*detect;
+  thdb=clamp(SMOOTH[63]+MODSM[16]*12,-36,0); th=db2lin(thdb);
+  comp_env > th ? (
+    in_db=20*log(max(comp_env,(1*10^(-12))))/log(10);
+    out_db=thdb+(in_db-thdb)/SMOOTH[64];
+    gain=db2lin(out_db-in_db);
+  ) : gain=1;
+  gain=1+(gain-1)*SMOOTH[62];outl*=gain;outr*=gain;
+);
+
+// ---------- DC rejection + master + linked zero-lookahead peak guard ----------
+dcyl=outl-dcxl+dc_r*dcyl;dcxl=outl;
+dcyr=outr-dcxr+dc_r*dcyr;dcxr=outr;
+outl=dcyl*SMOOTH[2];outr=dcyr*SMOOTH[2];
+ceil=db2lin(clamp(SMOOTH[68]+MODSM[17]*6,-12,0));
+peak=max(abs(outl),abs(outr));
+target_gain=(SMOOTH[67]>0.000001 && peak>ceil) ? ceil/max(peak,0.000000000001) : 1;
+limit_gain=min(target_gain,1+(limit_gain-1)*limit_release);
+// Linked reduction preserves stereo balance. Factory levels keep this guard inactive.
+outl*=1+(limit_gain-1)*SMOOTH[67];outr*=1+(limit_gain-1)*SMOOTH[67];
+abs(outl)<0.000000000000000000000001 ? outl=0;abs(outr)<0.000000000000000000000001 ? outr=0;
+peak=max(abs(outl),abs(outr));peak_meter=max(peak,peak_meter*0.9995);
+spl0=outl;spl1=outr;
+
+@serialize
+// Reopening a project must never reload factory values over edits. REAPER restores the
+// slider line and calls @serialize/@slider in an order this code does not assume, so the
+// blob carries the loaded patch identity and every sound parameter and restores them here.
+reading=file_avail(0)>=0;
+state_version=2;file_var(0,state_version);
+!reading ? (
+  // A write can arrive between the read and the first @block (measured: REAPER stores an
+  // undo state there); while a restore is pending the saved values are written, not the
+  // factory-reloaded sliders, so the pending restore keeps the user's edits.
+  !restore_pending ? (saved_patch=patch;saved_bank=bank;si=2;loop(67,SAVEBUF[si]=slider(si);si+=1;););
+  file_var(0,saved_patch);file_var(0,saved_bank);file_mem(0,SAVEBUF+2,67);
+) : state_version>=2 ? ( // file_avail() is not a remaining-count in @serialize (measured: 1); version gates the layout
+  file_var(0,saved_patch);file_var(0,saved_bank);file_mem(0,SAVEBUF+2,67);
+  saved_patch=floor(clamp(saved_patch,0,79));saved_bank=floor(clamp(saved_bank,0,1));
+  patch=saved_patch;bank=saved_bank;restore_pending=1;
+);
+last_patch=patch;last_bank=bank;instance_ready=1;
+
+@gfx 1100 690
+// KOZUE user interface. Design units are the original 1100x690 layout; everything is drawn
+// through ui_s (1 on plain displays, 2 on Retina via gfx_ext_retina) so lines and text stay
+// crisp. Control positions, hit areas, drag law and the ui_patch_request handshake are the
+// original ones. No variable written here is read by the audio sections except the sliders,
+// ui_patch_request and the peak_meter decay, exactly as before.
+gfx_ext_retina < 1 ? gfx_ext_retina = 1;
+ui_s = gfx_ext_retina > 1 ? gfx_ext_retina : 1;
+ui_mx = mouse_x / ui_s; ui_my = mouse_y / ui_s;
+gfx_clear = -1;
+
+// ---------- palette ----------
+function col_bg() ( gfx_set(0.071,0.078,0.090,1); );
+function col_bar() ( gfx_set(0.047,0.053,0.063,1); );
+function col_panel() ( gfx_set(0.106,0.117,0.133,1); );
+function col_panel_top() ( gfx_set(0.125,0.137,0.155,1); );
+function col_edge() ( gfx_set(0.196,0.216,0.243,1); );
+function col_edge_hi() ( gfx_set(0.30,0.33,0.37,1); );
+function col_well() ( gfx_set(0.040,0.045,0.053,1); );
+function col_text() ( gfx_set(0.90,0.92,0.94,1); );
+function col_dim() ( gfx_set(0.55,0.59,0.65,1); );
+function col_faint() ( gfx_set(0.36,0.40,0.45,1); );
+function col_accent() ( gfx_set(0.24,0.58,0.98,1); );
+function col_accent_dim() ( gfx_set(0.18,0.36,0.58,1); );
+function col_on() ( gfx_set(0.22,0.78,0.52,1); );
+function col_on_dim() ( gfx_set(0.10,0.30,0.20,1); );
+
+// ---------- scaled primitives ----------
+function ui_font(sz flags) ( gfx_setfont(1,"Helvetica Neue",floor(sz*ui_s+0.5),flags); );
+function ui_rect(x y w h) ( gfx_rect(x*ui_s,y*ui_s,w*ui_s,h*ui_s,1); );
+function ui_frame(x y w h) local(t) ( t=max(1,floor(ui_s)); gfx_rect(x*ui_s,y*ui_s,w*ui_s,t,1); gfx_rect(x*ui_s,(y+h)*ui_s-t,w*ui_s,t,1); gfx_rect(x*ui_s,y*ui_s,t,h*ui_s,1); gfx_rect((x+w)*ui_s-t,y*ui_s,t,h*ui_s,1); );
+function ui_line(x1 y1 x2 y2) ( gfx_line(x1*ui_s,y1*ui_s,x2*ui_s,y2*ui_s,1); );
+function ui_circle(x y r fill) ( gfx_circle(x*ui_s,y*ui_s,r*ui_s,fill,1); );
+function ui_arc(x y r a1 a2) ( gfx_arc(x*ui_s,y*ui_s,r*ui_s,a1,a2,1); );
+function ui_ring(x y r a1 a2 w) local(k) ( k=0; while(k<w*ui_s) ( gfx_arc(x*ui_s,y*ui_s,r*ui_s-k,a1,a2,1); k+=1; ); );
+function ui_rrect(x y w h r) (
+  gfx_rect((x+r)*ui_s,y*ui_s,(w-2*r)*ui_s,h*ui_s,1);
+  gfx_rect(x*ui_s,(y+r)*ui_s,w*ui_s,(h-2*r)*ui_s,1);
+  gfx_circle((x+r)*ui_s,(y+r)*ui_s,r*ui_s,1,1); gfx_circle((x+w-r)*ui_s,(y+r)*ui_s,r*ui_s,1,1);
+  gfx_circle((x+r)*ui_s,(y+h-r)*ui_s,r*ui_s,1,1); gfx_circle((x+w-r)*ui_s,(y+h-r)*ui_s,r*ui_s,1,1);
+);
+function ui_rrect_edge(x y w h r) ( gfx_roundrect(x*ui_s,y*ui_s,w*ui_s-1,h*ui_s-1,r*ui_s,1); );
+function ui_text(x y s) ( gfx_x=x*ui_s; gfx_y=y*ui_s; gfx_drawstr(s); );
+function ui_text_box(x y w h s flags) ( gfx_x=x*ui_s; gfx_y=y*ui_s; gfx_drawstr(s,flags,(x+w)*ui_s,(y+h)*ui_s); );
+function hit(x y w h) ( ui_mx>=x && ui_mx<=x+w && ui_my>=y && ui_my<=y+h; );
+
+// ---------- value formatting (display only) ----------
+function set_val_text(sl v) (
+  sl==2 ? sprintf(#val,"%.0f %%",v*100)
+  : sl==3 || sl==7 || sl==12 ? sprintf(#val,"%+.0f ct",v)
+  : sl==5 || sl==10 ? sprintf(#val,"%+.0f oct",v)
+  : sl==6 || sl==11 ? sprintf(#val,"%+.0f st",v)
+  : sl==17 ? (v>=1000 ? sprintf(#val,"%.2f kHz",v/1000) : sprintf(#val,"%.0f Hz",v))
+  : sl==19 || sl==35 || sl==38 || sl==41 || sl==44 || sl==52 ? sprintf(#val,"%+.0f %%",v*100)
+  : sl==21 || sl==22 || sl==24 || sl==25 || sl==26 || sl==28 ? (v<1 ? sprintf(#val,"%.0f ms",v*1000) : sprintf(#val,"%.2f s",v))
+  : sl==29 || sl==31 || sl==46 || sl==50 ? sprintf(#val,"%.2f Hz",v)
+  : sl==55 || sl==66 ? sprintf(#val,"%.0f ms",v)
+  : sl==65 ? sprintf(#val,"%.1f ms",v)
+  : sl==63 || sl==68 ? sprintf(#val,"%.1f dB",v)
+  : sl==64 ? sprintf(#val,"%.1f : 1",v)
+  : sprintf(#val,"%.0f %%",v*100);
+);
+
+// ---------- widgets (same signatures, hit areas and edit law as the original) ----------
+function panel(x y w h name) (
+  col_panel(); ui_rrect(x,y,w,h,5);
+  col_panel_top(); ui_rrect(x,y,w,30,5); ui_rect(x,y+22,w,8);
+  col_edge(); ui_rrect_edge(x,y,w,h,5);
+  col_accent_dim(); ui_rect(x+10,y+29,w-20,1);
+  col_dim(); ui_font(11,'b'); ui_text(x+11,y+9,name);
+);
+
+function knob(sl x y r name lo hi) local(v n ang ax ay pressed nv hov a0 a1) (
+  v=slider(sl); n=clamp((v-lo)/(hi-lo),0,1);
+  pressed=(mouse_cap&1) && !(last_mouse_cap&1);
+  pressed && hit(x-r,y-r,r*2,r*2) ? (
+    active_slider=sl; drag_y=ui_my; drag_v=v;
+  );
+  active_slider==sl && (mouse_cap&1) ? (
+    nv=clamp(drag_v + (drag_y-ui_my)*(hi-lo)/170,lo,hi);
+    sl==5 || sl==6 || sl==10 || sl==11 ? nv=floor(nv+0.5);
+    slider(sl)=nv; slider_automate(slider(sl)); v=nv; n=clamp((v-lo)/(hi-lo),0,1);
+  );
+  active_slider==sl && !(mouse_cap&1) ? (active_slider=-1; sliderchange(slider(sl)););
+  hov=hit(x-r,y-r,r*2,r*2) || active_slider==sl;
+  // track and value arc, 270 degrees from 7:30 clockwise (gfx_arc: 0 = up)
+  a0=-0.75*$pi; a1=a0+1.5*$pi*n;
+  col_well(); ui_circle(x,y,r,1);
+  col_edge_hi(); ui_ring(x,y,r,a0,a0+1.5*$pi,2);
+  hov ? col_accent() : col_accent_dim(); n>0.002 ? ui_ring(x,y,r,a0,a1,2);
+  gfx_set(0.27,0.29,0.33,1); ui_circle(x,y,r-4,1);
+  gfx_set(0.17,0.185,0.21,1); ui_circle(x,y+1,r-5,1);
+  gfx_set(0.13,0.14,0.16,1); ui_circle(x,y+2,r-7,1);
+  ang=0.75*$pi+1.5*$pi*n;
+  ax=x+cos(ang)*(r-8); ay=y+sin(ang)*(r-8);
+  hov ? col_text() : col_accent(); ui_line(x+cos(ang)*3,y+sin(ang)*3,ax,ay);
+  set_val_text(sl,v);
+  r>12 ? (
+    hov ? col_text() : col_dim(); ui_font(10,'b'); ui_text_box(x-r-14,y+r+3,r*2+28,12,name,1);
+    hov ? col_accent() : col_faint(); ui_font(9,0); ui_text_box(x-r-14,y+r+15,r*2+28,11,#val,1);
+  ) : (
+    // compact knob (modulation matrix): the column header names it, the value sits at its right
+    hov ? col_accent() : col_faint(); ui_font(9,0); ui_text_box(x+r+6,y-6,60,12,#val,4);
+  );
+);
+
+function toggle(sl x y w name) local(on pressed hov) (
+  on=slider(sl)>0.5; pressed=(mouse_cap&1) && !(last_mouse_cap&1);
+  pressed && hit(x,y,w,22) ? (slider(sl)=1-slider(sl);slider_automate(slider(sl));sliderchange(slider(sl)););
+  hov=hit(x,y,w,22);
+  on ? col_on_dim() : col_well(); ui_rrect(x,y,w,22,4);
+  on ? col_on() : (hov ? col_edge_hi() : col_edge()); ui_rrect_edge(x,y,w,22,4);
+  on ? col_on() : col_faint(); ui_circle(x+11,y+11,3.5,1);
+  on ? col_text() : col_dim(); ui_font(10,'b'); ui_text(x+20,y+6,name);
+);
+
+function cycle(sl x y w name maxv) local(pressed v hov) (
+  pressed=(mouse_cap&1) && !(last_mouse_cap&1);
+  pressed && hit(x,y,w,22) ? (v=slider(sl)+1; v>maxv?v=0; slider(sl)=v;slider_automate(slider(sl));sliderchange(slider(sl)););
+  hov=hit(x,y,w,22);
+  col_well(); ui_rrect(x,y,w,22,4);
+  hov ? col_edge_hi() : col_edge(); ui_rrect_edge(x,y,w,22,4);
+  col_text(); ui_font(10,'b'); ui_text(x+8,y+6,name);
+  hov ? col_accent() : col_faint(); gfx_triangle((x+w-13)*ui_s,(y+8)*ui_s,(x+w-7)*ui_s,(y+8)*ui_s,(x+w-10)*ui_s,(y+13)*ui_s);
+);
+
+function set_wave_name(v) (
+  v==0?sprintf(#tmp,"SINE"):v==1?sprintf(#tmp,"SAW"):v==2?sprintf(#tmp,"SQUARE"):v==3?sprintf(#tmp,"TRI"):sprintf(#tmp,"PULSE");
+);
+function set_filter_name(v) ( v==0?sprintf(#tmp,"LOWPASS"):v==1?sprintf(#tmp,"BANDPASS"):sprintf(#tmp,"HIGHPASS"); );
+function set_lfo_name(v) ( v==0?sprintf(#tmp,"SINE"):v==1?sprintf(#tmp,"SAW"):v==2?sprintf(#tmp,"SQUARE"):sprintf(#tmp,"TRI"); );
+function set_src_name(v) ( v==0?sprintf(#tmp,"OFF"):v==1?sprintf(#tmp,"LFO 1"):v==2?sprintf(#tmp,"LFO 2"):sprintf(#tmp,"MODWHL"); );
+function set_dst_name(v) (
+  v==0?sprintf(#tmp,"OFF"):v==1?sprintf(#tmp,"PITCH"):v==2?sprintf(#tmp,"OSC MIX"):v==3?sprintf(#tmp,"CUTOFF"):
+  v==4?sprintf(#tmp,"RESONANCE"):v==5?sprintf(#tmp,"AMP"):v==6?sprintf(#tmp,"PAN"):v==7?sprintf(#tmp,"CHOR DEPTH"):
+  v==8?sprintf(#tmp,"CHOR MIX"):v==9?sprintf(#tmp,"FLNG DEPTH"):v==10?sprintf(#tmp,"FLNG MIX"):v==11?sprintf(#tmp,"DLY TIME"):
+  v==12?sprintf(#tmp,"DLY FEED"):v==13?sprintf(#tmp,"DLY MIX"):v==14?sprintf(#tmp,"REV SIZE"):v==15?sprintf(#tmp,"REV MIX"):
+  v==16?sprintf(#tmp,"COMP THR"):sprintf(#tmp,"LIM CEIL");
+);
+
+function modrow(y srcsl dstsl amtsl) (
+  set_src_name(slider(srcsl)); cycle(srcsl,690,y,80,#tmp,3);
+  set_dst_name(slider(dstsl)); cycle(dstsl,775,y,120,#tmp,17);
+  knob(amtsl,930,y+11,11,"AMT",-1,1);
+);
+
+function set_patch_name(i) (
+  sprintf(#patchname,"Patch %d",i);
+  i==0 ? sprintf(#patchname,"Sub Foundation");
+  i==1 ? sprintf(#patchname,"Rubber Bass");
+  i==2 ? sprintf(#patchname,"Acid Pulse");
+  i==3 ? sprintf(#patchname,"Deep Square");
+  i==4 ? sprintf(#patchname,"Neon Bass");
+  i==5 ? sprintf(#patchname,"Round Saw");
+  i==6 ? sprintf(#patchname,"Dry Funk Bass");
+  i==7 ? sprintf(#patchname,"Wide Bass");
+  i==8 ? sprintf(#patchname,"Dark Sub");
+  i==9 ? sprintf(#patchname,"Pluck Bass");
+  i==10 ? sprintf(#patchname,"Reso Bass");
+  i==11 ? sprintf(#patchname,"Electro Bass");
+  i==12 ? sprintf(#patchname,"Soft Bass");
+  i==13 ? sprintf(#patchname,"Dirty Pulse");
+  i==14 ? sprintf(#patchname,"Night Bass");
+  i==15 ? sprintf(#patchname,"Solid Low");
+  i==16 ? sprintf(#patchname,"Clean Lead");
+  i==17 ? sprintf(#patchname,"Bright Saw Lead");
+  i==18 ? sprintf(#patchname,"Pulse Lead");
+  i==19 ? sprintf(#patchname,"Singing Lead");
+  i==20 ? sprintf(#patchname,"Glass Lead");
+  i==21 ? sprintf(#patchname,"Analog Solo");
+  i==22 ? sprintf(#patchname,"Soft Square Lead");
+  i==23 ? sprintf(#patchname,"Neon Lead");
+  i==24 ? sprintf(#patchname,"Reso Lead");
+  i==25 ? sprintf(#patchname,"Air Lead");
+  i==26 ? sprintf(#patchname,"Chorus Lead");
+  i==27 ? sprintf(#patchname,"Delayed Lead");
+  i==28 ? sprintf(#patchname,"Narrow Lead");
+  i==29 ? sprintf(#patchname,"Wide Solo");
+  i==30 ? sprintf(#patchname,"Cutting Lead");
+  i==31 ? sprintf(#patchname,"Velvet Lead");
+  i==32 ? sprintf(#patchname,"Soft Keys");
+  i==33 ? sprintf(#patchname,"Electric Keys");
+  i==34 ? sprintf(#patchname,"Digital EP");
+  i==35 ? sprintf(#patchname,"Pluck Keys");
+  i==36 ? sprintf(#patchname,"Bright Keys");
+  i==37 ? sprintf(#patchname,"Mellow Keys");
+  i==38 ? sprintf(#patchname,"Chorus Keys");
+  i==39 ? sprintf(#patchname,"Bellish Keys");
+  i==40 ? sprintf(#patchname,"LoFi Keys");
+  i==41 ? sprintf(#patchname,"Organish Keys");
+  i==42 ? sprintf(#patchname,"Perc Keys");
+  i==43 ? sprintf(#patchname,"Wide Keys");
+  i==44 ? sprintf(#patchname,"Nocturne Keys");
+  i==45 ? sprintf(#patchname,"Soft Clav");
+  i==46 ? sprintf(#patchname,"Glass Keys");
+  i==47 ? sprintf(#patchname,"Studio Keys");
+  i==48 ? sprintf(#patchname,"Warm Pad");
+  i==49 ? sprintf(#patchname,"Slow Air");
+  i==50 ? sprintf(#patchname,"Analog Bed");
+  i==51 ? sprintf(#patchname,"Blue Pad");
+  i==52 ? sprintf(#patchname,"Wide Strings");
+  i==53 ? sprintf(#patchname,"Soft Choir");
+  i==54 ? sprintf(#patchname,"Drift Pad");
+  i==55 ? sprintf(#patchname,"Dark Pad");
+  i==56 ? sprintf(#patchname,"Cloud Pad");
+  i==57 ? sprintf(#patchname,"Motion Pad");
+  i==58 ? sprintf(#patchname,"Chorus Pad");
+  i==59 ? sprintf(#patchname,"Deep Space");
+  i==60 ? sprintf(#patchname,"Velvet Pad");
+  i==61 ? sprintf(#patchname,"Frozen Pad");
+  i==62 ? sprintf(#patchname,"Sunrise Pad");
+  i==63 ? sprintf(#patchname,"Night Wash");
+  i==64 ? sprintf(#patchname,"Noise Rise");
+  i==65 ? sprintf(#patchname,"Filter Sweep");
+  i==66 ? sprintf(#patchname,"SciFi Pulse");
+  i==67 ? sprintf(#patchname,"Wind Field");
+  i==68 ? sprintf(#patchname,"Dark Drone");
+  i==69 ? sprintf(#patchname,"Signal Ping");
+  i==70 ? sprintf(#patchname,"Space Dust");
+  i==71 ? sprintf(#patchname,"Reso Drift");
+  i==72 ? sprintf(#patchname,"Machine Bed");
+  i==73 ? sprintf(#patchname,"Ghost Tone");
+  i==74 ? sprintf(#patchname,"Orbit FX");
+  i==75 ? sprintf(#patchname,"Underwater");
+  i==76 ? sprintf(#patchname,"Static Bloom");
+  i==77 ? sprintf(#patchname,"Alarm Texture");
+  i==78 ? sprintf(#patchname,"Long Fall");
+  i==79 ? sprintf(#patchname,"Void Layer");
+  i==80 ? sprintf(#patchname,"Weight of One");
+  i==81 ? sprintf(#patchname,"Copper Finger");
+  i==82 ? sprintf(#patchname,"Elastic Octave");
+  i==83 ? sprintf(#patchname,"Sawtooth Anchor");
+  i==84 ? sprintf(#patchname,"Hollow Foot");
+  i==85 ? sprintf(#patchname,"Clickless Dub");
+  i==86 ? sprintf(#patchname,"Sequence Wire");
+  i==87 ? sprintf(#patchname,"Fifth Pressure");
+  i==88 ? sprintf(#patchname,"Silk Line");
+  i==89 ? sprintf(#patchname,"Lantern Solo");
+  i==90 ? sprintf(#patchname,"Narrow Ribbon");
+  i==91 ? sprintf(#patchname,"Octave Beacon");
+  i==92 ? sprintf(#patchname,"Hollow Reedline");
+  i==93 ? sprintf(#patchname,"Syncopated Glow");
+  i==94 ? sprintf(#patchname,"Fifth Glint");
+  i==95 ? sprintf(#patchname,"Air Column");
+  i==96 ? sprintf(#patchname,"Ink Tines");
+  i==97 ? sprintf(#patchname,"Reed Stack");
+  i==98 ? sprintf(#patchname,"Paper Hammer");
+  i==99 ? sprintf(#patchname,"Soft Drawbar");
+  i==100 ? sprintf(#patchname,"Amber Wurble");
+  i==101 ? sprintf(#patchname,"Frost Chimes");
+  i==102 ? sprintf(#patchname,"Electric Quill");
+  i==103 ? sprintf(#patchname,"Velvet Comp");
+  i==104 ? sprintf(#patchname,"Cedar Interval");
+  i==105 ? sprintf(#patchname,"Porcelain Veil");
+  i==106 ? sprintf(#patchname,"Rainline");
+  i==107 ? sprintf(#patchname,"Low Horizon");
+  i==108 ? sprintf(#patchname,"Breathing Glass");
+  i==109 ? sprintf(#patchname,"Threaded Fifth");
+  i==110 ? sprintf(#patchname,"Smoke Chamber");
+  i==111 ? sprintf(#patchname,"Wide Current");
+  i==112 ? sprintf(#patchname,"Felt Droplet");
+  i==113 ? sprintf(#patchname,"Bronze Pick");
+  i==114 ? sprintf(#patchname,"Rubber Mallet");
+  i==115 ? sprintf(#patchname,"Prism Arp");
+  i==116 ? sprintf(#patchname,"Wooden Signal");
+  i==117 ? sprintf(#patchname,"Circuit Pin");
+  i==118 ? sprintf(#patchname,"Droplet Fifth");
+  i==119 ? sprintf(#patchname,"Copper Harp");
+  i==120 ? sprintf(#patchname,"Golden Section");
+  i==121 ? sprintf(#patchname,"Muted Alloy");
+  i==122 ? sprintf(#patchname,"Octave Fanfare");
+  i==123 ? sprintf(#patchname,"Breathing Horns");
+  i==124 ? sprintf(#patchname,"Clockwork Chord");
+  i==125 ? sprintf(#patchname,"Orbit Lace");
+  i==126 ? sprintf(#patchname,"Tidal Sweep");
+  i==127 ? sprintf(#patchname,"Dual Meter");
+);
+
+function set_cat_name(i) (
+  i<16?sprintf(#catname,"BASS"):i<32?sprintf(#catname,"LEAD"):i<48?sprintf(#catname,"KEYS"):i<64?sprintf(#catname,"PAD"):i<80?sprintf(#catname,"FX"):i<88?sprintf(#catname,"BASS / EXTENDED"):i<96?sprintf(#catname,"LEAD / EXTENDED"):i<104?sprintf(#catname,"KEYS / EXTENDED"):i<112?sprintf(#catname,"PAD / EXTENDED"):i<120?sprintf(#catname,"PLUCK / EXTENDED"):sprintf(#catname,"BRASS / MOTION");
+);
+
+// ---------- background ----------
+col_bg(); gfx_rect(0,0,gfx_w,gfx_h,1);
+gfx_gradrect(0,58*ui_s,gfx_w,gfx_h-58*ui_s,0.082,0.090,0.104,1,0,0,0,0,-0.000018/ui_s,-0.000020/ui_s,-0.000024/ui_s,0);
+
+// ---------- top bar ----------
+col_bar(); ui_rect(0,0,1100,58);
+col_accent(); ui_rect(0,57,1100,1);
+col_accent(); ui_font(26,'b'); ui_text(20,12,"KOZUE");
+col_faint(); ui_font(10,0); ui_text(122,21,"10-VOICE SUBTRACTIVE SYNTH");
+set_patch_name(floor(patch)+bank*80); set_cat_name(floor(patch)+bank*80);
+col_well(); ui_rrect(380,10,370,38,5); col_edge(); ui_rrect_edge(380,10,370,38,5);
+pressed=(mouse_cap&1) && !(last_mouse_cap&1);
+pressed && hit(380,10,370,16) ? (ui_patch_request=(bank>0?patch:80+min(patch,47))+1;);
+bank>0 ? col_on() : col_accent(); ui_font(9,'b'); ui_text(392,15,#catname);
+sprintf(#tmp,"BANK %s   %03d",bank>0?"B":"A",floor(patch)+bank*80);
+hit(380,10,370,16) ? col_text() : col_faint(); ui_font(9,0); ui_text_box(560,15,180,12,#tmp,2);
+col_text(); ui_font(16,'b'); ui_text(392,27,#patchname);
+pressed && hit(760,10,34,38) ? (ui_patch_request=max(0,patch+bank*80-1)+1;);
+pressed && hit(798,10,34,38) ? (ui_patch_request=min(127,patch+bank*80+1)+1;);
+hit(760,10,34,38) ? col_edge_hi() : col_well(); ui_rrect(760,10,34,38,5); col_edge(); ui_rrect_edge(760,10,34,38,5);
+hit(798,10,34,38) ? col_edge_hi() : col_well(); ui_rrect(798,10,34,38,5); col_edge(); ui_rrect_edge(798,10,34,38,5);
+col_text(); gfx_triangle(781*ui_s,23*ui_s,781*ui_s,35*ui_s,772*ui_s,29*ui_s); gfx_triangle(811*ui_s,23*ui_s,811*ui_s,35*ui_s,820*ui_s,29*ui_s);
+// output meter: 60 dB range, peak_meter decays here exactly as before
+col_well(); ui_rrect(870,20,205,12,3);
+ui_db=clamp(1+20*log10(max(peak_meter,0.000001))/60,0,1);
+ui_db>0 ? gfx_gradrect(872*ui_s,22*ui_s,201*ui_db*ui_s,8*ui_s,0.18,0.70,0.45,1,(0.9-0.18)/(201*ui_s),(0.55-0.70)/(201*ui_s),(0.25-0.45)/(201*ui_s),0);
+col_edge(); ui_rrect_edge(870,20,205,12,3);
+peak_meter*=0.90;
+col_faint(); ui_font(8,0); ui_text(870,35,"OUTPUT"); ui_text(957,35,"-30"); ui_text(1010,35,"-15"); ui_text(1041,35,"-6"); ui_text(1064,35,"0");
+
+// ---------- OSC 1 ----------
+panel(20,72,245,202,"OSCILLATOR 1");
+set_wave_name(osc1_wave); cycle(4,34,104,104,#tmp,4);
+knob(5,62,160,20,"OCT",-2,2); knob(6,117,160,20,"SEMI",-12,12); knob(7,172,160,20,"FINE",-50,50); knob(8,227,160,20,"PW",0.05,0.95);
+
+// ---------- OSC 2 ----------
+panel(275,72,245,202,"OSCILLATOR 2");
+set_wave_name(osc2_wave); cycle(9,289,104,104,#tmp,4);
+knob(10,317,160,20,"OCT",-2,2); knob(11,372,160,20,"SEMI",-12,12); knob(12,427,160,20,"FINE",-50,50); knob(13,482,160,20,"PW",0.05,0.95);
+
+// ---------- FILTER + MIX ----------
+panel(530,72,310,202,"MIX / FILTER");
+knob(14,570,129,22,"MIX",0,1); knob(15,630,129,22,"NOISE",0,1);
+set_filter_name(filter_type); cycle(16,680,108,135,#tmp,2);
+knob(17,570,210,22,"CUTOFF",30,18000); knob(18,630,210,22,"RES",0,0.95); knob(19,690,210,22,"ENV",-1,1); knob(20,750,210,22,"KEY",0,1);
+
+// ---------- AMP ENV ----------
+panel(850,72,230,202,"AMP ENVELOPE");
+knob(21,885,143,22,"A",0,5); knob(22,938,143,22,"D",0,5); knob(23,991,143,22,"S",0,1); knob(24,1044,143,22,"R",0.005,8);
+knob(2,914,221,25,"MASTER",0,1); knob(3,1000,221,25,"TUNE",-100,100);
+
+// ---------- FILTER ENV ----------
+panel(20,286,255,185,"FILTER ENVELOPE");
+knob(25,55,354,22,"A",0,5); knob(26,112,354,22,"D",0,5); knob(27,169,354,22,"S",0,1); knob(28,226,354,22,"R",0.005,8);
+col_faint(); ui_font(9,0); ui_text(36,428,"Dedicated filter ADSR"); ui_text(36,444,"ENV amount is bipolar");
+
+// ---------- LFOs ----------
+panel(285,286,180,185,"LFO 1");
+knob(29,330,353,24,"RATE",0.03,20); set_lfo_name(lfo1_shape); cycle(30,374,340,72,#tmp,3);
+panel(475,286,180,185,"LFO 2");
+knob(31,520,353,24,"RATE",0.03,20); set_lfo_name(lfo2_shape); cycle(32,564,340,72,#tmp,3);
+
+// ---------- MOD MATRIX ----------
+panel(665,286,415,185,"MODULATION MATRIX");
+col_faint(); ui_font(9,'b'); ui_text(692,316,"SOURCE"); ui_text(778,316,"DESTINATION"); ui_text(916,316,"AMOUNT");
+gfx_set(0.09,0.10,0.115,1); ui_rrect(680,358,395,28,3); ui_rrect(680,422,395,28,3);
+modrow(330,33,34,35); modrow(362,36,37,38); modrow(394,39,40,41); modrow(426,42,43,44);
+
+// ---------- FX ROW ----------
+panel(20,483,185,190,"CHORUS"); toggle(45,34,513,70,"ON"); knob(46,55,570,18,"RATE",0.03,5); knob(47,112,570,18,"DEPTH",0,1); knob(48,169,570,18,"MIX",0,1);
+
+panel(215,483,185,190,"FLANGER"); toggle(49,229,513,70,"ON"); knob(50,247,570,17,"RATE",0.03,5); knob(51,293,570,17,"DEPTH",0,1); knob(52,339,570,17,"FB",-0.9,0.9); knob(53,375,630,17,"MIX",0,1);
+
+panel(410,483,185,190,"DELAY"); toggle(54,424,513,70,"ON"); knob(55,445,570,18,"TIME",20,1000); knob(56,501,570,18,"FEED",0,0.92); knob(57,557,570,18,"MIX",0,1);
+
+panel(605,483,185,190,"REVERB"); toggle(58,619,513,70,"ON"); knob(59,640,570,18,"SIZE",0,1); knob(60,696,570,18,"DAMP",0,1); knob(61,752,570,18,"MIX",0,1);
+
+panel(800,483,280,190,"DYNAMICS"); toggle(62,814,513,70,"COMP"); toggle(67,892,513,70,"LIMIT");
+knob(63,830,570,18,"THR",-36,0); knob(64,880,570,18,"RATIO",1,12); knob(65,930,570,18,"ATK",0.2,100); knob(66,980,570,18,"REL",10,500); knob(68,1040,570,18,"CEIL",-12,0);
+col_faint(); ui_font(8,0); ui_text(816,650,"ZERO LOOK-AHEAD  ·  0 SAMPLES PDC");
+
+// ---------- footer ----------
+col_faint(); ui_font(8,0); ui_text_box(20,678,1060,10,"KOZUE  ·  128 PRESETS IN TWO BANKS  ·  CLICK THE CATEGORY STRIP TO SWITCH BANK, ARROWS TO STEP",1);
+
+last_mouse_cap=mouse_cap;
+
+// ---------------------------------------------------------------------------
+// MIT License
+//
+// Copyright (c) 2026 Michele Ibba
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+// ---------------------------------------------------------------------------
