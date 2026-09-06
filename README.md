@@ -1,6 +1,6 @@
 # DataBeat JSFX Plugins
 
-Five instruments for REAPER, written in JSFX. Each is a single text file: no installer,
+Six plug-ins for REAPER, written in JSFX: five instruments and a reverb. Each is a single text file: no installer,
 build step, signing or manual compilation. You can read every line of code you run and
 change it during playback. That simplicity and access to the source are why we chose JSFX.
 
@@ -35,6 +35,7 @@ These plug-ins need no notarisation, do not phone home and do not expire.
 | 🎹 | **Kozue** | Ten-voice subtractive synthesizer, 128 presets | 1100 × 690 | MIT |
 | 🎼 | **Satoshi** | Harmony instrument — MIDI in, voiced chords out | 1400 × 1044 | AGPL-3.0-only |
 | 🪉 | **Yoshi** | Host-synchronised MIDI arpeggiator | 864 × 422 | MIT |
+| 🍂 | **Momiji** | Algorithmic stereo reverb, 50 presets | 900 × 400 | MIT |
 
 ### Haruki — drums
 
@@ -71,6 +72,14 @@ Hold a chord and choose a rate and note order. A 16-step expression pattern cont
 accent, octave, gate, chance and ratchet. Supports Free, Beat and Song sync. All randomness
 is seeded and repeatable, so a render matches what you heard.
 
+### Momiji — reverb
+
+A sixteen-line feedback delay network with orthogonal scattering, in-loop low and high
+damping, balanced modulation from one quadrature oscillator and a delay geometry that moves
+from echo-like clustering to a dense field. Delay can lock to the host tempo (1/32 to two
+whole notes, dotted and triplet). Fifty presets, a Switch Flip button that generates a bounded
+musical state, and no declared latency. The dry path is the current sample.
+
 ---
 
 ## Install
@@ -99,12 +108,13 @@ Place the plug-ins on your tracks as follows:
 - **Haruki, Satya, Kozue** are instruments. Put them on a track that receives MIDI.
 - **Satoshi and Yoshi** are MIDI processors. Put them on the track *before* the instrument
   that will make the sound.
+- **Momiji** is an audio effect. Put it on an audio track, or on a send/bus with Mix at 100 %.
 
 ---
 
 ## Documentation
 
-`docs/` contains a folder for each instrument. Where a full manual is available, it comes
+`docs/` contains a folder for each plug-in. Where a full manual is available, it comes
 in two formats: `MANUAL.md`, readable on GitHub, and `MANUAL.html`, which you can open in
 a browser. The HTML file contains every screenshot, so no separate image folder is needed.
 
@@ -115,16 +125,17 @@ a browser. The HTML file contains every screenshot, so no separate image folder 
 | Kozue | [Manual](docs/Kozue/MANUAL.md) · [HTML](docs/Kozue/MANUAL.html) |
 | Satoshi | [Manual](docs/Satoshi/README.md) |
 | Yoshi | [Manual](docs/Yoshi/README.md) · [Design notes](docs/Yoshi/DESIGN.md) |
+| Momiji | [Manual](docs/Momiji/MANUAL.md) · [HTML](docs/Momiji/MANUAL.html) |
 
 ---
 
 ## Licences
 
 Each instrument has its own licence, stated in its source file and summarised here.
-Two of the five use copyleft licences for different reasons.
+Two of the six use copyleft licences for different reasons.
 The complete licence texts and the file-by-file scope are in [`LICENSE.md`](LICENSE.md).
 
-**Satya, Kozue, Yoshi — MIT.** Copyright © 2026 Michele Ibba. Do what you like.
+**Satya, Kozue, Yoshi, Momiji — MIT.** Copyright © 2026 Michele Ibba. Do what you like.
 
 **Satoshi — AGPL-3.0-only.** A JSFX adaptation of the author's previous unpublished works.
 Its `@gfx` toolkit and sequencer lane design come from Haruki, which is the same author's own
@@ -171,12 +182,12 @@ Copyright © 2026 Michele Ibba, except where a file names another author.
 
 ```
 README.md      this file
-plugins/       the five .jsfx files, exactly as installed
+plugins/       the six .jsfx files, exactly as installed
 docs/          a folder per instrument
 ```
 
 `plugins/` contains the finished builds, byte-identical to those installed and running in
-REAPER. All five repository copies have been loaded in REAPER and report their expected
+REAPER. All six repository copies have been loaded in REAPER and report their expected
 parameter counts.
 
 `docs/` is adapted from each instrument's development repository. The text is the author's,
