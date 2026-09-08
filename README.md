@@ -1,6 +1,6 @@
 # DataBeat JSFX Plugins
 
-Six plug-ins for REAPER, written in JSFX: five instruments and a reverb. Each is a single text file: no installer,
+Seven plug-ins for REAPER, written in JSFX: five instruments, a reverb and a beat replayer. Each is a single text file: no installer,
 build step, signing or manual compilation. You can read every line of code you run and
 change it during playback. That simplicity and access to the source are why we chose JSFX.
 
@@ -36,6 +36,7 @@ These plug-ins need no notarisation, do not phone home and do not expire.
 | 🎼 | **Satoshi** | Harmony instrument — MIDI in, voiced chords out | 1400 × 1044 | AGPL-3.0-only |
 | 🪉 | **Yoshi** | Host-synchronised MIDI arpeggiator | 864 × 422 | MIT |
 | 🍂 | **Momiji** | Algorithmic stereo reverb, 50 presets | 900 × 400 | MIT |
+| 🔁 | **Raja** | Beat replayer: scheduled or hand-played repeats, 20 presets | 980 × 560 | MIT |
 
 ### Haruki — drums
 
@@ -80,6 +81,17 @@ from echo-like clustering to a dense field. Delay can lock to the host tempo (1/
 whole notes, dotted and triplet). Fifty presets, a Switch Flip button that generates a bounded
 musical state, and no declared latency. The dry path is the current sample.
 
+### Raja — beat replayer
+
+Raja catches a moment of the sound passing through it and repeats a slice of that moment: a
+stutter, a fill, a held texture, a falling echo. Captures happen on a schedule you set, with a
+chance you choose, or the instant you press HOLD. Presses and releases can wait for the next
+sixteenth, eighth, quarter or bar, and a Pattern setting makes the random decisions come back at
+the same places in every pass of a loop while the sound stays live. Slices from 1/256 to a whole
+note with triplets, pitch drop and fall, level and fade, a band filter, three routings (Layer,
+Replace, Repeats Only), twenty presets, no declared latency. A live timeline shows every chance,
+capture and repeat.
+
 ---
 
 ## Install
@@ -109,6 +121,8 @@ Place the plug-ins on your tracks as follows:
 - **Satoshi and Yoshi** are MIDI processors. Put them on the track *before* the instrument
   that will make the sound.
 - **Momiji** is an audio effect. Put it on an audio track, or on a send/bus with Mix at 100 %.
+- **Raja** is an audio effect. Put it on the track you want to repeat, or on a return track with
+  Routing set to Repeats Only.
 
 ---
 
@@ -126,16 +140,17 @@ a browser. The HTML file contains every screenshot, so no separate image folder 
 | Satoshi | [Manual](docs/Satoshi/README.md) |
 | Yoshi | [Manual](docs/Yoshi/README.md) · [Design notes](docs/Yoshi/DESIGN.md) |
 | Momiji | [Manual](docs/Momiji/MANUAL.md) · [HTML](docs/Momiji/MANUAL.html) |
+| Raja | [Manual](docs/Raja/MANUAL.md) · [HTML](docs/Raja/MANUAL.html) |
 
 ---
 
 ## Licences
 
 Each instrument has its own licence, stated in its source file and summarised here.
-Two of the six use copyleft licences for different reasons.
+Two of the seven use copyleft licences for different reasons.
 The complete licence texts and the file-by-file scope are in [`LICENSE.md`](LICENSE.md).
 
-**Satya, Kozue, Yoshi, Momiji — MIT.** Copyright © 2026 Michele Ibba. Do what you like.
+**Satya, Kozue, Yoshi, Momiji, Raja — MIT.** Copyright © 2026 Michele Ibba. Do what you like.
 
 **Satoshi — AGPL-3.0-only.** A JSFX adaptation of the author's previous unpublished works.
 Its `@gfx` toolkit and sequencer lane design come from Haruki, which is the same author's own
@@ -182,12 +197,12 @@ Copyright © 2026 Michele Ibba, except where a file names another author.
 
 ```
 README.md      this file
-plugins/       the six .jsfx files, exactly as installed
+plugins/       the seven .jsfx files, exactly as installed
 docs/          a folder per instrument
 ```
 
 `plugins/` contains the finished builds, byte-identical to those installed and running in
-REAPER. All six repository copies have been loaded in REAPER and report their expected
+REAPER. All seven repository copies have been loaded in REAPER and report their expected
 parameter counts.
 
 `docs/` is adapted from each instrument's development repository. The text is the author's,

@@ -1,0 +1,1117 @@
+desc:Raja
+//tags: repeat rhythm glitch performance
+//author: Michele Ibba (with Claude)
+//version: 1.0
+//SPDX-License-Identifier: MIT
+options:no_meter gfx_hz=30 maxmem=16777216
+
+// ============================================================================
+//  RAJA -- beat replayer for REAPER (JSFX)
+//
+//  Captures incoming audio at scheduled or manual instants and repeats a slice
+//  of it. Behaviour follows "Product Concept Raja.md"; realisation decisions are
+//  recorded in NOTES.md. Layout of this file:
+//    header ....... 22 hidden, automatable parameters (the UI is @gfx)
+//    @init ........ constants, memory map, all functions
+//    @slider ...... nothing cached (parameters are read where they act)
+//    @block ....... host time analysis, gestures, scheduling, per-block updates
+//    @sample ...... instants (manual, Span, opportunity, variation), capture,
+//                   traversal playback with raised-cosine joins, pitch, gain, filter, routing
+//    @serialize ... pattern identity only (no audio, no gestures)
+//    @gfx ......... one-screen interface (980 x 560 design units, scaled)
+//
+//  MIT licence. Copyright (c) 2026 Michele Ibba.
+//  Permission is hereby granted, free of charge, to any person obtaining a copy
+//  of this software and associated documentation files (the "Software"), to deal
+//  in the Software without restriction, including without limitation the rights
+//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//  copies of the Software, and to permit persons to whom the Software is
+//  furnished to do so, subject to the following conditions: the above copyright
+//  notice and this permission notice shall be included in all copies or
+//  substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS",
+//  WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+//  TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+//  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+//  FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+//  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+//  THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//
+//  Provenance: written for Raja from its product concept. No code from any other
+//  plug-in is incorporated. Standard published techniques used from their
+//  descriptions: biquad filter design (Robert Bristow-Johnson, Audio EQ Cookbook),
+//  4-point third-order Hermite interpolation (Olli Niemitalo, 2001), Park-Miller
+//  multiplicative congruential mixing (Park and Miller, 1988).
+// ============================================================================
+
+in_pin:left input
+in_pin:right input
+out_pin:left output
+out_pin:right output
+
+slider1:p_every=5<0,7,1{1/32,1/16,1/8,1/4,1/2,1 bar,2 bars,4 bars}>-Every
+slider2:p_position=0<0,15,1>-Position (1/16)
+slider3:p_chance=0<0,100,0.1>-Chance (%)
+slider4:p_span=4<1,64,1>-Span (1/16)
+slider5:p_slice=8<0,16,1{1/256,1/128T,1/128,1/64T,1/64,1/32T,1/32,1/16T,1/16,1/8T,1/8,1/4T,1/4,1/2T,1/2,1/1T,1/1}>-Slice
+slider6:p_straight=1<0,1,1{Off,On}>-Straight Only
+slider7:p_spread=0<0,100,0.1>-Spread (%)
+slider8:p_change=0<0,4,1{Episode,1/4,1/8,1/16,Each Slice}>-Change
+slider9:p_pitch=0<-36,0,0.01>-Pitch (semitones)
+slider10:p_fall=0<0,12,0.01>-Fall (semitones per traversal)
+slider11:p_level=0<-60,12,0.1>-Repeat Level (dB)
+slider12:p_fade=0<0,24,0.1>-Fade (dB per traversal)
+slider13:p_filter=0<0,1,1{Off,On}>-Filter
+slider14:p_center=1000<20,20000,0.1:log>-Center (Hz)
+slider15:p_width=4<0.25,10,0.01>-Width (octaves)
+slider16:p_routing=1<0,2,1{Layer,Replace,Repeats Only}>-Routing
+slider17:p_enable=1<0,1,1{Off,On}>-Enable
+slider18:p_hold=0<0,1,1{Released,Pressed}>-Hold
+slider19:p_latch=0<0,1,1{Off,On}>-Latch
+slider20:p_gsync=0<0,4,1{Now,1/16,1/8,1/4,Bar}>-Gesture Sync
+slider21:p_pattern=0<0,3,1{Fresh,1 bar,2 bars,4 bars}>-Pattern
+slider22:p_newpat=0<0,1,1{-,New}>-New Pattern
+
+@init
+ext_noinit = 1;
+ext_nodenorm = 1;
+gfx_ext_retina = 1;
+
+// ---------------------------------------------------------------- constants
+M31 = 2147483647;
+NSLICE = 17;
+NEV = 64;            // event ring (opportunities, captures, gestures)
+NTR = 64;            // traversal-start ring
+DENORM = 10 ^ -28;
+
+// memory map (slots)
+DUR  = 0;            // 17 slice durations, fractions of a whole note
+LG2  = 20;           // log2 of each duration (precomputed once)
+CAND = 40;           // candidate slice indices for the current Spread (audio thread)
+CAND_UI = 80;        // the panel's own copy (the UI thread never writes CAND)
+EVB  = 128; EVT = 192; EVW = 256;    // event ring: beat, type, sample time (NEV each)
+TRB  = 320; TRT = 384;               // traversal ring: beat, traversal index (NTR each)
+PREF = 448; NPREF = 31;              // standard third-octave centre frequencies 20 Hz .. 20 kHz (Center magnet)
+PST  = 512; NPVAL = 18; NPRESET = 20; // preset table: 20 x 18 values (sliders 1-16, 20, 21)
+PVAL = 896;                          // the loaded preset's values (edited marker)
+PNAME = 100;                         // preset names: numbered string slots 100..119
+SRC_L = 1024;        // capture buffers follow: SRC_R = SRC_L + CAP; setup_rate() keeps
+                     // SRC_L + 2 * CAP below __memtop() (maxmem), so a longer window
+                     // or a smaller maxmem cannot silently read outside the map
+Q_BW = 0.70710678;   // Butterworth Q of the two second-order filter sections
+WHOLE_PER_MIN = 240; // a whole note is 240 / tempo seconds (tempo in quarter notes per minute)
+DRAG_UNITS = 240;    // design units of drag for a field's full range
+
+// ---------------------------------------------------------------- helpers
+function clampv(v, lo, hi) ( v < lo ? lo : v > hi ? hi : v; );
+function fmod_pos(v, m) ( v - floor(v / m) * m; );
+function db_to_gain(db) ( db <= -60 ? 0 : 10 ^ (db / 20); );
+function log2v(v) ( log(v) / log(2); );
+
+// Park-Miller mixing on exact integers (products stay below 2^53)
+function pm(x) ( x = x * 16807; x - floor(x / M31) * M31; );
+function hmix(h, v) local(s) ( s = h + v; s = s - floor(s / (M31 - 1)) * (M31 - 1) + 1; pm(s); );
+function hash_u(seed, a, b, c) local(h) (
+  h = hmix(seed, 977); h = hmix(h, a); h = hmix(h, b); h = hmix(h, c); h = hmix(h, 3571); h = hmix(h, 0);
+  h / M31;   // in (0, 1)
+);
+function new_seed() local(s) (
+  s = floor(rand(16777214) + time_precise() * 1000);
+  s - floor(s / 16777215) * 16777215 + 1;   // 1 .. 16777215 (float32-safe)
+);
+
+// next grid instant >= t: cycles of length cyc from the bar origin, steps of
+// length step inside a cycle, displaced by off; a step past the cycle end is dropped
+function grid_next(t, step, cyc, off) local(rel, cs, n, cand) (
+  rel = t - t_origin;
+  cs = floor(rel / cyc + 0.000001) * cyc;
+  n = ceil((rel - cs - off) / step - 0.000001);
+  n < 0 ? n = 0;
+  cand = cs + n * step + off;
+  cand >= cs + cyc - 0.000001 ? cand = cs + cyc + off;
+  t_origin + cand;
+);
+
+// ---------------------------------------------------------------- slices
+function eff_slice_idx() local(i) ( i = p_slice | 0; (p_straight > 0.5 && (i & 1)) ? i += 1; i; );
+// legal sizes within Spread's range around base: up to spread*8 halvings or doublings of the note value; fills buf, returns count
+function build_candidates_into(base_idx, spread, straight, buf) local(n, i, r, lb) (
+  r = spread * 8 + 0.000001; lb = LG2[base_idx];
+  n = 0; i = 0;
+  while (i < NSLICE) (
+    ((!straight) || ((i & 1) == 0)) && abs(LG2[i] - lb) <= r ? ( buf[n] = i; n += 1; );
+    i += 1;
+  );
+  n;
+);
+function build_candidates(base_idx, spread, straight) ( build_candidates_into(base_idx, spread, straight, CAND); );
+function choose_from(buf, n, u) local(j) ( j = floor(u * n); j >= n ? j = n - 1; j < 0 ? j = 0; buf[j]; );
+function choose_idx(u, base_idx) local(n) (      // audio thread
+  n = build_candidates(base_idx, p_spread / 100, p_straight > 0.5);
+  choose_from(CAND, n, u);
+);
+function choose_idx_ui(u, base_idx) local(n) (   // panel: same mapping, its own buffer
+  n = build_candidates_into(base_idx, p_spread / 100, p_straight > 0.5, CAND_UI);
+  choose_from(CAND_UI, n, u);
+);
+function slice_name(str, i) (
+  i == 0 ? strcpy(str, "1/256") : i == 1 ? strcpy(str, "1/128T") : i == 2 ? strcpy(str, "1/128") :
+  i == 3 ? strcpy(str, "1/64T") : i == 4 ? strcpy(str, "1/64") : i == 5 ? strcpy(str, "1/32T") :
+  i == 6 ? strcpy(str, "1/32") : i == 7 ? strcpy(str, "1/16T") : i == 8 ? strcpy(str, "1/16") :
+  i == 9 ? strcpy(str, "1/8T") : i == 10 ? strcpy(str, "1/8") : i == 11 ? strcpy(str, "1/4T") :
+  i == 12 ? strcpy(str, "1/4") : i == 13 ? strcpy(str, "1/2T") : i == 14 ? strcpy(str, "1/2") :
+  i == 15 ? strcpy(str, "1/1T") : strcpy(str, "1/1");
+);
+function every_name(str, e) (
+  e == 0 ? strcpy(str, "1/32") : e == 1 ? strcpy(str, "1/16") : e == 2 ? strcpy(str, "1/8") : e == 3 ? strcpy(str, "1/4") :
+  e == 4 ? strcpy(str, "1/2") : e == 5 ? strcpy(str, "1 bar") : e == 6 ? strcpy(str, "2 bars") : strcpy(str, "4 bars");
+);
+function change_name(str, c) (
+  c == 0 ? strcpy(str, "Episode") : c == 1 ? strcpy(str, "1/4") : c == 2 ? strcpy(str, "1/8") : c == 3 ? strcpy(str, "1/16") : strcpy(str, "Each Slice");
+);
+function gsync_name(str, g) (
+  g == 0 ? strcpy(str, "Now") : g == 1 ? strcpy(str, "1/16") : g == 2 ? strcpy(str, "1/8") : g == 3 ? strcpy(str, "1/4") : strcpy(str, "Bar");
+);
+function pattern_name(str, b) ( b == 0 ? strcpy(str, "Fresh") : b == 1 ? strcpy(str, "1 bar") : sprintf(str, "%d bars", b); );
+// menu string "a|b|c" from a name table: kind 0 Every, 1 Change, 2 Gesture Sync, 3 Pattern, 4 Slice (# greys triplets when Straight Only)
+function build_menu(str, kind, count) local(k) (
+  strcpy(str, ""); k = 0;
+  while (k < count) (
+    kind == 0 ? every_name(#mtmp, k) : kind == 1 ? change_name(#mtmp, k) : kind == 2 ? gsync_name(#mtmp, k) :
+    kind == 3 ? pattern_name(#mtmp, k == 3 ? 4 : k) : slice_name(#mtmp, k);
+    (kind == 4 && p_straight > 0.5 && (k & 1)) ? strcat(str, "#");
+    strcat(str, #mtmp); k < count - 1 ? strcat(str, "|");
+    k += 1;
+  );
+);
+
+// ---------------------------------------------------------------- rings
+function ev_push(type, b) (
+  EVB[ev_head] = b; EVT[ev_head] = type; EVW[ev_head] = t_samples + spos;
+  ev_head += 1; ev_head >= NEV ? ev_head = 0;
+  ev_last_type = type; ev_last_beat = b;
+);
+function tr_push(b) (
+  TRB[tr_head] = b; TRT[tr_head] = ep_trav;
+  tr_head += 1; tr_head >= NTR ? tr_head = 0;
+);
+
+// ---------------------------------------------------------------- manual-state helpers
+function latch_clear() ( p_latch > 0.5 ? ( p_latch = 0; slider_automate(2 ^ 18); ); );
+// Hold is momentary: a press that survives a cancel needs a fresh press. Latch is state: Raja clears its own
+// Latch, and a Latch the host asserts afterwards (automation lane, controller) is a new request.
+function cancel_manual() ( man_pending = 0; man_req_prev = 0; hold_stale = p_hold > 0.5; latch_clear(); );
+
+
+// ---------------------------------------------------------------- sample rate
+function setup_rate() (
+  rate_seen = srate;
+  CAP = floor(16 * srate);
+  CAP > floor((__memtop() - SRC_L) / 2) ? CAP = floor((__memtop() - SRC_L) / 2);   // both channels must fit below maxmem
+  SRC_R = SRC_L + CAP;
+  xf_len = floor(0.003 * srate + 0.5); xf_len < 8 ? xf_len = 8;   // transition length: slice joins, capture start, release
+  gr_len = floor(0.005 * srate + 0.5); gr_len < 8 ? gr_len = 8;
+  filt_dirty = 1;
+  ep_active = 0; ep_ending = 0; ep_owner = 0; src_len = 0;
+  cancel_manual();   // a sample-rate change is a discontinuity: episode gone, gestures need a fresh request
+);
+
+// ---------------------------------------------------------------- filter (repeat path only)
+function filt_design() local(w, cw, sw, al, a0, flo, fhi) (
+  filt_dirty = 0; f_center_seen = p_center; f_width_seen = p_width;
+  flo = p_center / (2 ^ (p_width / 2)); fhi = p_center * (2 ^ (p_width / 2));
+  flo = clampv(flo, 10, 0.45 * srate); fhi = clampv(fhi, 10, 0.45 * srate);
+  f_lo_eff = flo; f_hi_eff = fhi;
+  w = 2 * $pi * flo / srate; cw = cos(w); sw = sin(w); al = sw / (2 * Q_BW);
+  a0 = 1 + al; h_b0 = (1 + cw) / 2 / a0; h_b1 = -(1 + cw) / a0; h_b2 = h_b0; h_a1 = -2 * cw / a0; h_a2 = (1 - al) / a0;
+  w = 2 * $pi * fhi / srate; cw = cos(w); sw = sin(w); al = sw / (2 * Q_BW);
+  a0 = 1 + al; l_b0 = (1 - cw) / 2 / a0; l_b1 = (1 - cw) / a0; l_b2 = l_b0; l_a1 = -2 * cw / a0; l_a2 = (1 - al) / a0;
+);
+function filt_reset() ( hl1 = 0; hl2 = 0; hr1 = 0; hr2 = 0; ll1 = 0; ll2 = 0; lr1 = 0; lr2 = 0; );
+function hp_l(x) local(y) ( y = h_b0 * x + hl1; hl1 = h_b1 * x - h_a1 * y + hl2; hl2 = h_b2 * x - h_a2 * y; y; );
+function hp_r(x) local(y) ( y = h_b0 * x + hr1; hr1 = h_b1 * x - h_a1 * y + hr2; hr2 = h_b2 * x - h_a2 * y; y; );
+function lp_l(x) local(y) ( y = l_b0 * x + ll1; ll1 = l_b1 * x - l_a1 * y + ll2; ll2 = l_b2 * x - l_a2 * y; y; );
+function lp_r(x) local(y) ( y = l_b0 * x + lr1; lr1 = l_b1 * x - l_a1 * y + lr2; lr2 = l_b2 * x - l_a2 * y; y; );
+
+// ---------------------------------------------------------------- interpolation and transitions
+function hermite(y0, y1, y2, y3, t) local(c1, c2, c3) (
+  c1 = 0.5 * (y2 - y0);
+  c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3;
+  c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);
+  ((c3 * t + c2) * t + c1) * t + y1;
+);
+// raised-cosine weight k of n (0 < w < 1 at both ends, no wasted endpoints)
+function wcos(k, n) ( 0.5 - 0.5 * cos($pi * (k + 1) / (n + 1)); );
+// both channels at a fractional source position, never past `lim` acquired samples (holds the last one): rd0, rd1
+function read_src(pos, lim) local(ip, fr, i0, i2, i3) (
+  ip = floor(pos); fr = pos - ip;
+  ip > lim - 1 ? ( ip = lim - 1; fr = 0; );
+  ip < 0 ? ( ip = 0; fr = 0; );
+  fr <= 0 ? ( rd0 = SRC_L[ip]; rd1 = SRC_R[ip]; ) : (
+    i0 = ip - 1; i0 < 0 ? i0 = 0;
+    i2 = ip + 1; i2 > lim - 1 ? i2 = lim - 1;
+    i3 = ip + 2; i3 > lim - 1 ? i3 = lim - 1;
+    rd0 = hermite(SRC_L[i0], SRC_L[ip], SRC_L[i2], SRC_L[i3], fr);
+    rd1 = hermite(SRC_R[i0], SRC_R[ip], SRC_R[i2], SRC_R[i3], fr);
+  );
+);
+
+// ---------------------------------------------------------------- pattern (Repeatable Chance)
+function pattern_bars_ctrl() ( p_pattern == 1 ? 1 : p_pattern == 2 ? 2 : p_pattern == 3 ? 4 : 0; );
+function pattern_q(b, bars) local(phi) ( phi = fmod_pos(b - t_origin, bars * t_num); floor(phi * 256 / t_den + 0.5); );
+// variation draw for the current episode: recurring for a patterned automatic episode, fresh otherwise
+function draw_var(salt, k) ( (ep_owner == 1 && ep_patlen > 0) ? hash_u(ep_seed, ep_q, salt, k) : rand(1); );
+// decides one opportunity; a pending New Pattern identity becomes current here (next automatic decision)
+function chance_decide(b) local(u, bars) (
+  pat_pending_seed > 0 ? ( pat_seed = pat_pending_seed; pat_pending_seed = 0; );
+  bars = pattern_bars_ctrl();
+  u = bars > 0 ? hash_u(pat_seed, pattern_q(b, bars), 1, 0) : rand(1);
+  u < p_chance / 100;
+);
+
+// ---------------------------------------------------------------- presets
+// Twenty presets over the eighteen sound and timing controls (sliders 1-16, 20, 21); Enable, Hold, Latch and
+// New Pattern are never part of a preset. Preset 0 equals the slider defaults, so a new instance is not edited.
+// The panel requests a preset (index + 1) and the audio thread applies it; the edited marker is derived from
+// the values, never from timing.
+function preset_def(i, name, e, po, ch, sp, sl, st, sd, cg, pit, fa, lv, fd, fi, ce, wi, ro, gs, pa) local(b) (
+  b = PST + i * NPVAL;
+  strcpy(PNAME + i, name);
+  b[0] = e; b[1] = po; b[2] = ch; b[3] = sp; b[4] = sl; b[5] = st; b[6] = sd; b[7] = cg; b[8] = pit;
+  b[9] = fa; b[10] = lv; b[11] = fd; b[12] = fi; b[13] = ce; b[14] = wi; b[15] = ro; b[16] = gs; b[17] = pa;
+);
+function preset_values(i) local(b, k) ( b = PST + i * NPVAL; k = 0; while (k < NPVAL) ( PVAL[k] = b[k]; k += 1; ); );
+function preset_apply(i) (
+  preset_values(i);
+  p_every = PVAL[0]; p_position = PVAL[1]; p_chance = PVAL[2]; p_span = PVAL[3]; p_slice = PVAL[4]; p_straight = PVAL[5];
+  p_spread = PVAL[6]; p_change = PVAL[7]; p_pitch = PVAL[8]; p_fall = PVAL[9]; p_level = PVAL[10]; p_fade = PVAL[11];
+  p_filter = PVAL[12]; p_center = PVAL[13]; p_width = PVAL[14]; p_routing = PVAL[15]; p_gsync = PVAL[16]; p_pattern = PVAL[17];
+  slider_automate(65535 | (2 ^ 19) | (2 ^ 20));   // sliders 1-16, 20 and 21 in one notification
+  preset_idx = i; preset_dirty = 0;
+);
+function preset_check_dirty() (
+  preset_dirty = (abs(p_every - PVAL[0]) > 0.0005 || abs(p_position - PVAL[1]) > 0.0005 || abs(p_chance - PVAL[2]) > 0.0005 ||
+    abs(p_span - PVAL[3]) > 0.0005 || abs(p_slice - PVAL[4]) > 0.0005 || abs(p_straight - PVAL[5]) > 0.0005 ||
+    abs(p_spread - PVAL[6]) > 0.0005 || abs(p_change - PVAL[7]) > 0.0005 || abs(p_pitch - PVAL[8]) > 0.0005 ||
+    abs(p_fall - PVAL[9]) > 0.0005 || abs(p_level - PVAL[10]) > 0.0005 || abs(p_fade - PVAL[11]) > 0.0005 ||
+    abs(p_filter - PVAL[12]) > 0.0005 || abs(p_center - PVAL[13]) > 0.0005 || abs(p_width - PVAL[14]) > 0.0005 ||
+    abs(p_routing - PVAL[15]) > 0.0005 || abs(p_gsync - PVAL[16]) > 0.0005 || abs(p_pattern - PVAL[17]) > 0.0005) ? 1 : 0;
+);
+
+// ---------------------------------------------------------------- grids from the controls
+function opp_setup() local(e) (
+  e = p_every | 0;
+  opp_step = e == 0 ? t_den / 32 : e == 1 ? t_den / 16 : e == 2 ? t_den / 8 : e == 3 ? t_den / 4 :
+             e == 4 ? t_den / 2 : e == 5 ? t_num : e == 6 ? 2 * t_num : 4 * t_num;
+  opp_cyc = max(opp_step, t_num);
+  opp_off = fmod_pos(p_position * t_den / 16, opp_step);
+);
+function var_step() ( p_change == 1 ? t_den / 4 : p_change == 2 ? t_den / 8 : p_change == 3 ? t_den / 16 : 0; );
+function var_periodic_next(t) local(s) ( s = var_step(); (s > 0 && t_running) ? grid_next(t, s, max(s, t_num), 0) : -1; );
+function gs_step() ( p_gsync == 1 ? t_den / 16 : p_gsync == 2 ? t_den / 8 : p_gsync == 3 ? t_den / 4 : p_gsync == 4 ? t_num : 0; );
+// ---------------------------------------------------------------- episode and traversal
+function whole_samples() ( WHOLE_PER_MIN * srate / t_tempo_eff; );
+function gain_target() ( db_to_gain(p_level - acc_fade); );
+function traversal_begin() local(P) (
+  P = p_pitch - acc_fall; P < -48 ? P = -48; P > 0 ? P = 0;
+  tv_pitch = P; tv_rate = 2 ^ (P / 12);
+  tv_idx = choose_idx(tv_u, eff_slice_idx());
+  tv_len = floor(DUR[tv_idx] * whole_samples() + 0.5);
+  tv_len > src_cap ? tv_len = src_cap;
+  tv_len < 1 ? tv_len = 1;
+  g_tgt = gain_target(); g_cur = g_tgt; g_ramp = 0;
+  tr_push(beat_now);
+);
+function start_episode(owner, b) (
+  ep_active ? (   // replacement: the old repeat fades under the new capture for a few ms (no audible tail)
+    wold = es_k < es_n ? wcos(es_k - 1, es_n) : 1;          // an episode still fading in is carried at its current weight
+    ghost_active = 1; ghost_pos = tv_pos; ghost_rate = tv_rate; ghost_len = tv_len; ghost_avail = src_len;
+    ghost_gain = g_cur * (ep_ending ? 1 - wcos(xf_pos, xf_len) : 1) * wold;
+    es_dry_scale = es_k < es_n ? es_dry_scale * (1 - wold) : 0;   // and its dry path keeps fading out from where it was
+  ) : ( ghost_active = 0; es_dry_scale = 1; );
+  ep_active = 1; ep_ending = 0; ep_owner = owner; ep_anchor = b; ep_trav = 0; acc_fall = 0; acc_fade = 0;
+  ep_id += 1;
+  src_len = 0;
+  src_cap = floor(whole_samples() + 0.5); src_cap > CAP ? src_cap = CAP; src_cap < 1 ? src_cap = 1;
+  owner == 1 ? (
+    ep_end = b + p_span * t_den / 16;
+    ep_seed = pat_seed; ep_patlen = pattern_bars_ctrl();
+    ep_q = ep_patlen > 0 ? pattern_q(b, ep_patlen) : 0;
+    tv_u = ep_patlen > 0 ? hash_u(ep_seed, ep_q, 2, 0) : rand(1);
+  ) : (
+    ep_end = -1; ep_patlen = 0; ep_q = 0; tv_u = rand(1);
+  );
+  tv_pending_u = -1; tv_pos = 0;
+  ghost_active ? 0 : filt_reset();     // a crossfaded replacement keeps the filter running
+  memset(TRB, -1, NTR); tr_head = 0;   // traversal ticks belong to this episode only
+  var_from = b + hs;
+  var_next = var_periodic_next(var_from);   // one initial selection only, even on a periodic boundary
+  traversal_begin();
+  es_n = min(xf_len, floor(0.25 * tv_len / tv_rate)); es_n < 2 ? ( es_n = 0; ghost_active = 0; ); es_k = 0;
+  bx_n = 0; bx_k = 0;
+);
+function end_episode() ( (ep_active && !ep_ending) ? ( ep_ending = 1; xf_pos = 0; ); );
+
+// ---------------------------------------------------------------- panel colour tokens (design review, 2026-09-08)
+C_CANVAS = $x14161A; C_INK = $x101216; C_CARD = $x1C2027; C_WELL = $x101318; C_FIELD = $x252B34; C_HOVER = $x303743;
+C_EDGE = $x424B59; C_TXT = $xF3F5F7; C_TXT2 = $xB2BAC7; C_ACC = $xCEBCFF; C_ACC_DIM = $x65547F; C_ACC_HOV = $xDDCFFF;
+C_ACC_WELL = $x352E45; C_MAN = $xDCE2E9; C_MAN_BAND = $x323941; C_ROSE = $xF18D97;
+
+// ---------------------------------------------------------------- initial state
+DUR[0] = 1/256; DUR[1] = 1/192; DUR[2] = 1/128; DUR[3] = 1/96; DUR[4] = 1/64; DUR[5] = 1/48;
+DUR[6] = 1/32;  DUR[7] = 1/24;  DUR[8] = 1/16;  DUR[9] = 1/12; DUR[10] = 1/8; DUR[11] = 1/6;
+DUR[12] = 1/4;  DUR[13] = 1/3;  DUR[14] = 1/2;  DUR[15] = 2/3; DUR[16] = 1;
+k = 0; while (k < NSLICE) ( LG2[k] = log2v(DUR[k]); k += 1; );
+PREF[0] = 20; PREF[1] = 25; PREF[2] = 31.5; PREF[3] = 40; PREF[4] = 50; PREF[5] = 63; PREF[6] = 80; PREF[7] = 100; PREF[8] = 125; PREF[9] = 160;
+PREF[10] = 200; PREF[11] = 250; PREF[12] = 315; PREF[13] = 400; PREF[14] = 500; PREF[15] = 630; PREF[16] = 800; PREF[17] = 1000; PREF[18] = 1250; PREF[19] = 1600;
+PREF[20] = 2000; PREF[21] = 2500; PREF[22] = 3150; PREF[23] = 4000; PREF[24] = 5000; PREF[25] = 6300; PREF[26] = 8000; PREF[27] = 10000; PREF[28] = 12500; PREF[29] = 16000; PREF[30] = 20000;
+memset(TRB, -1, NTR);
+(pat_seed < 1 || pat_seed > 16777215) ? pat_seed = new_seed();
+t_num <= 0 ? t_num = 4;
+t_den <= 0 ? t_den = 4;
+opp_setup();
+filt_on_prev = p_filter > 0.5;
+t_init = 0; t_running = 0; ep_active = 0; ep_ending = 0; ep_owner = 0; man_pending = 0; opp_next = -1; var_next = -1;
+enable_prev = 1;
+setup_rate();
+
+// ---- preset table: hold-to-play presets first (0-8), scheduled presets after (9-19) --------------
+//         idx  name                     Every Pos Chance Span Slice Str Spread Chg Pitch Fall Level Fade Filt Center Width Rout GSync Pat
+preset_def(0,  "Stutter (HOLD)",          5,  0,   0,   4,  8, 1,  0, 0,   0, 0,   0, 0, 0, 1000, 4,   1, 0, 0);
+preset_def(1,  "On the Beat (HOLD)",      5,  0,   0,   4,  8, 1,  0, 0,   0, 0,   0, 0, 0, 1000, 4,   1, 3, 0);
+preset_def(2,  "Bar Loop (HOLD)",         5,  0,   0,   4, 16, 1,  0, 0,   0, 0,   0, 0, 0, 1000, 4,   1, 4, 0);
+preset_def(3,  "Buzz Tone (HOLD)",        5,  0,   0,   4,  0, 1,  0, 0,   0, 0,   0, 0, 0, 1000, 4,   1, 0, 0);
+preset_def(4,  "Octave Down (HOLD)",      5,  0,   0,   4, 10, 1,  0, 0, -12, 0,   0, 0, 0, 1000, 4,   1, 2, 0);
+preset_def(5,  "Falling Tail (HOLD)",     5,  0,   0,   4, 10, 1,  0, 0,  -7, 2,  -3, 2, 0, 1000, 4,   0, 2, 0);
+preset_def(6,  "Filter Sweep (HOLD)",     5,  0,   0,   4,  8, 1,  0, 0,   0, 0,   0, 0, 1, 1000, 1.5, 1, 0, 0);
+preset_def(7,  "Triplet Shuffle (HOLD)",  5,  0,   0,   4,  9, 0, 25, 4,   0, 0,   0, 0, 0, 1000, 4,   1, 2, 0);
+preset_def(8,  "Glitch Burst (HOLD)",     5,  0,   0,   4,  4, 0, 60, 4,   0, 0,   0, 0, 0, 1000, 4,   1, 0, 0);
+preset_def(9,  "Stutter Beat 3",          5,  8, 100,   4,  8, 1,  0, 0,   0, 0,   0, 0, 0, 1000, 4,   1, 0, 0);
+preset_def(10, "Half-Bar Chop",           4,  0,  60,   4,  8, 1,  0, 0,   0, 0,   0, 0, 0, 1000, 4,   1, 0, 0);
+preset_def(11, "Triplet Roll",            5, 12,  70,   4,  7, 0,  0, 0,   0, 0,   0, 0, 0, 1000, 4,   1, 0, 0);
+preset_def(12, "Drum Fills",              5, 12,  20,   2,  6, 1,  0, 0,   0, 0, -12, 2, 0, 1000, 4,   0, 0, 0);
+preset_def(13, "Glitch Variation",        2,  0,  45,   6,  6, 0, 40, 4,   0, 0,   0, 0, 0, 1000, 4,   1, 0, 0);
+preset_def(14, "Locked Groove",           2,  0,  30,   2,  6, 1, 30, 0,   0, 0,   0, 0, 0, 1000, 4,   1, 0, 1);
+preset_def(15, "Returning Fill",          3,  0,  35,   2,  6, 1, 50, 0,   0, 0,   0, 0, 0, 1000, 4,   1, 0, 2);
+preset_def(16, "Falling Echo",            5,  0, 100,   8,  8, 1,  0, 0, -12, 2,   0, 3, 0, 1000, 4,   1, 0, 0);
+preset_def(17, "Tape Slow",               6,  8, 100,   8, 12, 1,  0, 0,  -5, 3,   0, 0, 0, 1000, 4,   1, 0, 0);
+preset_def(18, "Filtered Ghost",          5,  4,  50,   4,  8, 1,  0, 0,   0, 0,  -6, 2, 1, 2000, 2,   0, 0, 0);
+preset_def(19, "Send Return",             5, 12,  50,   4,  8, 1,  0, 0,   0, 0,   0, 1, 0, 1000, 4,   2, 0, 0);
+preset_idx = 0; preset_values(0); preset_dirty = 0; ui_req_preset = 0; pl_open = 0;
+
+@slider
+// parameters are read where they act; nothing is cached here
+
+@block
+spos = 0;
+srate !== rate_seen ? setup_rate();
+(filt_dirty || p_center !== f_center_seen || p_width !== f_width_seen) ? filt_design();
+filt_on = p_filter > 0.5; (filt_on && !filt_on_prev) ? filt_reset(); filt_on_prev = filt_on;
+restore_pending ? (   // project load: gestures never persist
+  restore_pending = 0; p_hold = 0; p_latch = 0; p_newpat = 0; sliderchange((2 ^ 17) | (2 ^ 18) | (2 ^ 21));
+  hold_stale = 0; man_req_prev = 0; man_pending = 0;
+);
+
+// ---- host musical time ---------------------------------------------------
+den = ts_denom >= 1 ? ts_denom : 4; num = ts_num >= 1 ? ts_num : 4;
+tempo > 0 ? t_tempo_last = tempo;
+t_fallback = !(tempo > 0);
+t_tempo_eff = t_tempo_last > 0 ? t_tempo_last : 120;
+bps_host = t_tempo_eff / 60 / srate * den / 4;
+first = !t_init; t_init = 1;
+exp_end = t_beat_prev + t_sb_prev * t_bps_prev;
+tol = max(den / 32, 2 * t_sb_prev * t_bps_prev);
+moving = abs(beat_position - t_beat_prev) > 0.0000001;
+consistent = abs(beat_position - exp_end) <= tol;
+playing = (play_state & 1) > 0;
+run_now = playing || ((!first) && moving && consistent);
+ts_changed = (num !== t_num) || (den !== t_den);
+ts_clean = 0;
+(ts_changed && !first) ? (
+  cand_origin = t_origin + floor((beat_position - t_origin) / t_num + 0.000001) * t_num;
+  (beat_position - cand_origin) <= (t_sb_prev * t_bps_prev + tol) ? ( t_origin = cand_origin; ts_clean = 1; )   // marker on a bar line: bars re-anchor, the episode continues
+                                                                  : ( t_origin = beat_position; );             // partial measure: a bar-map discontinuity
+);
+t_num = num; t_den = den;
+reloc = run_now && (first || (!t_running) || (!consistent) || (ts_changed && !ts_clean));
+realign = reloc || (ts_changed && ts_clean);
+stopped_now = t_running && !run_now;
+(reloc || stopped_now) ? ( ep_active ? ( end_episode(); ev_push(7, beat_position); ); cancel_manual(); );
+reloc ? n_reloc += 1;
+t_running = run_now;
+t_beat0 = beat_position;
+t_bps = run_now ? bps_host : 0;
+hs = 0.5 * t_bps;
+t_beat_prev = beat_position; t_sb_prev = samplesblock; t_bps_prev = bps_host;
+
+// ---- Enable ---------------------------------------------------------------
+enable = p_enable > 0.5;
+(enable_prev && !enable) ? ( ep_active ? ( end_episode(); ev_push(7, beat_position); ); cancel_manual(); );
+enable_prev = enable;
+
+// ---- preset request from the panel (index + 1): applied here, on the audio thread ----------
+ui_req_preset > 0 ? ( preset_apply(ui_req_preset - 1); ui_req_preset = 0; );
+preset_check_dirty();
+
+// ---- New Pattern trigger (parameter or button) ----------------------------
+p_newpat > 0.5 ? (
+  pattern_bars_ctrl() > 0 ? pat_pending_seed = new_seed();
+  p_newpat = 0; sliderchange(2 ^ 21);
+);
+
+// ---- automatic schedule ---------------------------------------------------
+opp_setup();
+(run_now && enable) ? (
+  (realign || !sched_ok) ? t_sched_from = beat_position : t_sched_from = max(t_sched_from, beat_position);
+  sched_ok = 1;
+  opp_next = grid_next(t_sched_from, opp_step, opp_cyc, opp_off);
+) : ( sched_ok = 0; opp_next = -1; );
+
+// ---- manual request and Gesture Sync --------------------------------------
+hold = p_hold > 0.5; latch = p_latch > 0.5;
+(hold_stale && !hold) ? hold_stale = 0;
+req = enable && ((hold && !hold_stale) || latch);
+gs_stp = gs_step();
+sync_ok = run_now && gs_stp > 0;
+manual_live = ep_active && !ep_ending && ep_owner == 2;
+(req && !man_req_prev) ? (
+  man_pending == 2 ? ( man_pending = 0; ) :
+  manual_live ? ( 0; ) :
+  ( man_pending = 1; man_boundary = sync_ok ? grid_next(beat_position, gs_stp, max(gs_stp, t_num), 0) : beat_position; )
+);
+(!req && man_req_prev) ? (
+  man_pending == 1 ? ( man_pending = 0; ) :
+  manual_live ? ( man_pending = 2; man_boundary = sync_ok ? grid_next(beat_position, gs_stp, max(gs_stp, t_num), 0) : beat_position; ) : ( 0; )
+);
+man_req_prev = req;
+
+// ---- variation boundaries (periodic Change modes) ------------------------
+(ep_active && !ep_ending && run_now && var_step() > 0) ? (
+  var_from = max(var_from, beat_position);
+  var_next = var_periodic_next(var_from);
+) : var_next = -1;
+
+// ---- repeat level edits ramp; Fade steps happen at traversal starts --------
+ep_active ? ( gt = gain_target(); gt !== g_tgt ? ( g_tgt = gt; g_inc = (g_tgt - g_cur) / gr_len; g_ramp = gr_len; ); );
+
+// ---- interface heartbeat: a GUI-pressed Hold is released if the window stops drawing
+ui_frames !== ui_frames_seen ? ( ui_frames_seen = ui_frames; ui_idle = 0; ) : ui_idle += samplesblock;
+(ui_hold_pressed && ui_idle > 0.5 * srate) ? ( ui_hold_pressed = 0; p_hold = 0; slider_automate(2 ^ 17); );
+
+// ---- meters (n_opp, n_acc, n_rej, n_supp, n_man, n_reloc above are read only by the telemetry build, tests/make_testbuild.py)
+pk_in_disp = max(pk_in_disp * 0.9, pk_in); pk_in = 0;
+pk_out_disp = max(pk_out_disp * 0.9, pk_out); pk_out = 0;
+t_samples += samplesblock;
+// @@TEST_HOOK_BLOCK
+
+@sample
+beat_now = t_beat0 + spos * t_bps;
+in0 = spl0; in1 = spl1;
+a0 = abs(in0); a0 > pk_in ? pk_in = a0; a1 = abs(in1); a1 > pk_in ? pk_in = a1;
+man_trans = 0;
+
+// 2. due manual entry or exit (1. disable/transport is handled at block start)
+(man_pending && beat_now >= man_boundary - hs) ? (
+  man_pending == 1 ? ( start_episode(2, man_boundary); ev_push(4, man_boundary); n_man += 1; )
+                   : ( end_episode(); ev_push(5, man_boundary); );
+  man_pending = 0; man_trans = 1;
+);
+// 3. end of the automatic Span
+(ep_active && !ep_ending && ep_owner == 1 && beat_now >= ep_end - hs) ? ( end_episode(); ev_push(6, ep_end); );
+// 4. automatic opportunity
+(opp_next >= 0 && beat_now >= opp_next - hs) ? (
+  (man_trans || (ep_active && !ep_ending && ep_owner == 2)) ? ( ev_push(3, opp_next); n_supp += 1; ) :
+  ( chance_decide(opp_next) ? ( start_episode(1, opp_next); ev_push(2, opp_next); n_acc += 1; )
+                            : ( ev_push(1, opp_next); n_rej += 1; ); );
+  n_opp += 1;
+  t_sched_from = opp_next + hs;
+  opp_next = grid_next(t_sched_from, opp_step, opp_cyc, opp_off);
+);
+// 5. periodic variation boundary: the choice waits for the next traversal start
+(var_next >= 0 && ep_active && !ep_ending && beat_now >= var_next - hs) ? (
+  tv_pending_u = draw_var(3, floor((var_next - ep_anchor) * 256 / t_den + 0.5));
+  var_from = var_next + hs;
+  var_next = var_periodic_next(var_from);
+);
+
+// ---- capture, traversal, shaping ------------------------------------------
+rep0 = 0; rep1 = 0; dry_g = 1;
+ep_active ? (
+  (src_len < src_cap && !ep_ending) ? ( SRC_L[src_len] = in0; SRC_R[src_len] = in1; src_len += 1; );
+  tv_pos >= tv_len ? (
+    // slice boundary: the finished repeat's continuation fades under the new start (no click)
+    bx_tail_pos = tv_pos; bx_tail_rate = tv_rate; bx_tail_gain = g_cur; prev_out = tv_len / tv_rate;
+    ep_trav += 1; acc_fall += p_fall; acc_fade += p_fade;
+    tv_pos -= tv_len;
+    tv_pending_u >= 0 ? ( tv_u = tv_pending_u; tv_pending_u = -1; );
+    (p_change | 0) == 4 ? tv_u = draw_var(4, ep_trav);
+    traversal_begin();
+    bx_n = min(xf_len, floor(0.25 * min(prev_out, tv_len / tv_rate))); bx_n < 2 ? bx_n = 0; bx_k = 0;
+  );
+  read_src(tv_pos, src_len); h0 = rd0; h1 = rd1;
+  tv_pos += tv_rate;
+  g_ramp > 0 ? ( g_cur += g_inc; g_ramp -= 1; g_ramp <= 0 ? g_cur = g_tgt; );
+  rep0 = h0 * g_cur; rep1 = h1 * g_cur;
+  bx_k < bx_n ? (
+    w = wcos(bx_k, bx_n); read_src(bx_tail_pos, src_len);
+    rep0 = rd0 * bx_tail_gain * (1 - w) + rep0 * w; rep1 = rd1 * bx_tail_gain * (1 - w) + rep1 * w;
+    bx_tail_pos += bx_tail_rate; bx_k += 1;
+  );
+  es_dry = 0;
+  es_k < es_n ? (
+    // capture start: fade in from the replaced repeat, or from silence / the dry path
+    w = wcos(es_k, es_n);
+    ghost_active ? (
+      ghost_pos >= ghost_len ? ghost_pos -= ghost_len;
+      read_src(ghost_pos, ghost_avail);
+      rep0 = rd0 * ghost_gain * (1 - w) + rep0 * w; rep1 = rd1 * ghost_gain * (1 - w) + rep1 * w;
+      ghost_pos += ghost_rate;
+    ) : ( rep0 *= w; rep1 *= w; );
+    es_dry = es_dry_scale * (1 - w);
+    es_k += 1; es_k >= es_n ? ghost_active = 0;
+  );
+  p_filter > 0.5 ? ( rep0 = lp_l(hp_l(rep0 + DENORM)); rep1 = lp_r(hp_r(rep1 + DENORM)); );
+  ep_ending ? (
+    w = wcos(xf_pos, xf_len); rep0 *= (1 - w); rep1 *= (1 - w); dry_g = w;
+    xf_pos += 1;
+    xf_pos >= xf_len ? ( ep_active = 0; ep_ending = 0; ep_owner = 0; src_len = 0; ghost_active = 0; );
+  ) : dry_g = es_dry;
+);
+
+// ---- routing ----------------------------------------------------------------
+rt = p_routing | 0;
+rt == 0 ? ( spl0 = in0 + rep0; spl1 = in1 + rep1; ) :
+rt == 1 ? ( spl0 = in0 * dry_g + rep0; spl1 = in1 * dry_g + rep1; ) :
+          ( spl0 = rep0; spl1 = rep1; );
+a0 = abs(spl0); a0 > pk_out ? pk_out = a0; a1 = abs(spl1); a1 > pk_out ? pk_out = a1;
+spos += 1;
+
+@serialize
+ser_ver = 2;
+file_var(0, ser_ver);
+file_var(0, pat_seed);
+ser_ver >= 2 ? file_var(0, preset_idx);   // version 1 states (no preset) read as preset 0
+file_avail(0) >= 0 ? (
+  (ser_ver < 1 || ser_ver > 2 || pat_seed < 1 || pat_seed > 16777215) ? pat_seed = new_seed();   // unknown layout: keep a valid identity
+  (preset_idx < 0 || preset_idx >= NPRESET || preset_idx !== floor(preset_idx)) ? preset_idx = 0;
+  preset_values(preset_idx);   // the marker compares the restored values with this preset; nothing is re-applied
+  restore_pending = 1;
+);
+
+@gfx 980 560
+// ---- frame setup ------------------------------------------------------------
+UW = 980; UH = 560; UI_NUDGE = 0.0001;
+UIS = min(gfx_w / UW, gfx_h / UH); UIS < 0.3 ? UIS = 0.3;
+UOX = floor((gfx_w - UW * UIS) / 2); UOY = floor((gfx_h - UH * UIS) / 2);
+mx = (mouse_x - UOX) / UIS; my = (mouse_y - UOY) / UIS;
+lmb = mouse_cap & 1; rmb = mouse_cap & 2;
+click = lmb && !lmb_prev; rclick = rmb && !rmb_prev;
+shift = (mouse_cap & 8) > 0;
+wheel_acc += mouse_wheel; mouse_wheel = 0;
+wsteps = 0; abs(wheel_acc) >= 60 ? ( wsteps = wheel_acc > 0 ? 1 : -1; wheel_acc = 0; );
+ui_frames += 1;
+gfx_clear = -1;
+frame_dmx = mx - mx_prev; frame_dmy = my - my_prev;
+lmb ? 0 : drag_id = -1;
+(ui_hold_pressed && !lmb) ? ( ui_hold_pressed = 0; p_hold = 0; slider_automate(2 ^ 17); );
+strcpy(#hint, "");
+
+// ---- drawing helpers (design units -> device pixels) ---------------------------
+function scx(x) ( UOX + x * UIS; );
+function scy(y) ( UOY + y * UIS; );
+function hex(c) ( gfx_r = ((c >> 16) & 255) / 255; gfx_g = ((c >> 8) & 255) / 255; gfx_b = (c & 255) / 255; gfx_a = 1; );
+function rect(x, y, w, h) ( gfx_rect(scx(x), scy(y), w * UIS + 0.5, h * UIS + 0.5); );
+function lin(x, y, x2, y2) ( gfx_line(scx(x), scy(y), scx(x2), scy(y2), 1); );
+function vline(x, y, y2, wd) ( gfx_rect(scx(x) - wd * UIS / 2, scy(y), max(wd * UIS, 1), (y2 - y) * UIS + 0.5); );
+function hline(x, y, x2, wd) ( gfx_rect(scx(x), scy(y) - wd * UIS / 2, (x2 - x) * UIS + 0.5, max(wd * UIS, 1)); );
+function circ_f(x, y, r) ( gfx_circle(scx(x), scy(y), r * UIS, 1, 1); );
+function circ_o(x, y, r) ( gfx_circle(scx(x), scy(y), r * UIS, 0, 1); gfx_circle(scx(x), scy(y), r * UIS - 0.5, 0, 1); );
+function tri_down(cx, cy, w, h) ( gfx_triangle(scx(cx - w / 2), scy(cy - h / 2), scx(cx + w / 2), scy(cy - h / 2), scx(cx), scy(cy + h / 2)); );
+function tri_up(cx, cy, w, h) ( gfx_triangle(scx(cx - w / 2), scy(cy + h / 2), scx(cx + w / 2), scy(cy + h / 2), scx(cx), scy(cy - h / 2)); );
+function cross(cx, cy, s) ( lin(cx - s, cy - s, cx + s, cy + s); lin(cx - s, cy + s, cx + s, cy - s); );
+function rrect(x, y, w, h, r) local(dx0, dy0, dw, dh, dr) (
+  dx0 = scx(x); dy0 = scy(y); dw = w * UIS; dh = h * UIS; dr = r * UIS;
+  gfx_rect(dx0 + dr, dy0, dw - 2 * dr + 0.5, dh + 0.5); gfx_rect(dx0, dy0 + dr, dr + 0.5, dh - 2 * dr + 0.5); gfx_rect(dx0 + dw - dr, dy0 + dr, dr + 0.5, dh - 2 * dr + 0.5);
+  gfx_circle(dx0 + dr, dy0 + dr, dr, 1, 1); gfx_circle(dx0 + dw - dr, dy0 + dr, dr, 1, 1); gfx_circle(dx0 + dr, dy0 + dh - dr, dr, 1, 1); gfx_circle(dx0 + dw - dr, dy0 + dh - dr, dr, 1, 1);
+);
+function panel(x, y, w, h, r, face, edge, ew) ( hex(edge); rrect(x, y, w, h, r); hex(face); rrect(x + ew, y + ew, w - 2 * ew, h - 2 * ew, max(r - ew, 1)); );
+function setf(pt, bold) ( gfx_setfont(1, "Arial", floor(pt * UIS + 0.5), bold ? 'b' : 0); );
+// text at a baseline: align 0 left (x), 1 centred on x, 2 right edge at x
+function tb(str, x, bl, pt, bold, align) local(tw, th) (
+  setf(pt, bold); gfx_measurestr(str, tw, th);
+  gfx_x = align == 1 ? scx(x) - tw / 2 : align == 2 ? scx(x) - tw : scx(x);
+  gfx_y = scy(bl) - th * 0.8;
+  gfx_drawstr(str);
+);
+function twidth(str, pt, bold) local(tw, th) ( setf(pt, bold); gfx_measurestr(str, tw, th); tw / UIS; );
+function hit(x, y, w, h) ( mx >= x && mx < x + w && my >= y && my < y + h; );
+// magnet: plain gestures move in musical steps, Shift in fine steps
+function snap_step(sidx, fine) (
+  sidx == 3 ? (fine ? 0.1 : 1) : sidx == 7 ? (fine ? 1 : 5) : sidx == 9 ? (fine ? 0.1 : 1) : sidx == 10 ? (fine ? 0.1 : 1) :
+  sidx == 11 ? (fine ? 0.1 : 1) : sidx == 12 ? (fine ? 0.1 : 1) : sidx == 15 ? (fine ? 0.05 : 0.25) : 0;
+);
+function snap_to(v, step) ( step > 0 ? floor(v / step + 0.5) * step : v; );
+function snap_center(v, fine) local(k, best, bd, d) (
+  fine ? ( 20 * (2 ^ (floor(log2v(v / 20) * 60 + 0.5) / 60)); ) : (
+    best = PREF[0]; bd = abs(log(v / best)); k = 1;
+    while (k < NPREF) ( d = abs(log(v / PREF[k])); d < bd ? ( bd = d; best = PREF[k]; ); k += 1; );
+    best;
+  );
+);
+function set_param(i, v) (
+  i == 1 ? ( p_every = v; ) : i == 2 ? ( p_position = v; ) : i == 3 ? ( p_chance = v; ) : i == 4 ? ( p_span = v; ) :
+  i == 5 ? ( p_slice = v; ) : i == 6 ? ( p_straight = v; ) : i == 7 ? ( p_spread = v; ) : i == 8 ? ( p_change = v; ) :
+  i == 9 ? ( p_pitch = v; ) : i == 10 ? ( p_fall = v; ) : i == 11 ? ( p_level = v; ) : i == 12 ? ( p_fade = v; ) :
+  i == 13 ? ( p_filter = v; ) : i == 14 ? ( p_center = v; ) : i == 15 ? ( p_width = v; ) : i == 16 ? ( p_routing = v; ) :
+  i == 17 ? ( p_enable = v; ) : i == 18 ? ( p_hold = v; ) : i == 19 ? ( p_latch = v; ) : i == 20 ? ( p_gsync = v; ) :
+  i == 21 ? ( p_pattern = v; ) : ( p_newpat = v; );
+  slider_automate(2 ^ (i - 1));
+);
+function get_param(i) (
+  i == 1 ? p_every : i == 2 ? p_position : i == 3 ? p_chance : i == 4 ? p_span : i == 5 ? p_slice : i == 6 ? p_straight :
+  i == 7 ? p_spread : i == 8 ? p_change : i == 9 ? p_pitch : i == 10 ? p_fall : i == 11 ? p_level : i == 12 ? p_fade :
+  i == 13 ? p_filter : i == 14 ? p_center : i == 15 ? p_width : i == 16 ? p_routing : i == 17 ? p_enable : i == 18 ? p_hold :
+  i == 19 ? p_latch : i == 20 ? p_gsync : i == 21 ? p_pattern : p_newpat;
+);
+// position in bars and beats from the bar origin
+function fmt_pos(str, b) local(rel, bar, bt) (
+  rel = b - t_origin; bar = floor(rel / t_num + 0.000001); bt = rel - bar * t_num;
+  bt < 0 ? bt = 0;
+  sprintf(str, "%d.%d.%02d", bar + 1, floor(bt + 0.000001) + 1, floor((bt - floor(bt + 0.000001)) * 100 + 0.5));
+);
+// plain position: "bar 3 beat 1" or "bar 3 beat 1.50"
+function fmt_plain(str, b) local(rel, bar, bt, fr) (
+  rel = b - t_origin; bar = floor(rel / t_num + 0.000001); bt = rel - bar * t_num; bt < 0 ? bt = 0;
+  fr = bt - floor(bt + 0.000001);
+  fr < 0.005 ? sprintf(str, "bar %d beat %d", bar + 1, floor(bt + 0.000001) + 1) : sprintf(str, "bar %d beat %.2f", bar + 1, bt + 1);
+);
+function fmt_ms(str, samples) local(ms) (
+  ms = samples / srate * 1000;
+  ms >= 1000 ? sprintf(str, "%.2f s", ms / 1000) : ms >= 100 ? sprintf(str, "%.0f ms", ms) : sprintf(str, "%.1f ms", ms);
+);
+function fmt_hz(str, f) ( f >= 1000 ? sprintf(str, "%.2f kHz", f / 1000) : sprintf(str, "%.0f Hz", f); );
+
+// ---- value field: drag / wheel / double-click, right-click menu (has_menu 1 list, 2 Pitch semitones)
+//   #f_lab / #f_val / #f_menu are set by the caller; primary 1 = bright surface, has_bar = numeric trough
+function field(id, x, y, w, h, sidx, vmin, vmax, vdef, stepped, has_menu, norm, primary, has_bar) local(hv, v, d, nv, sel, dbl, dir, k, face) (
+  hv = hit(x, y, w, h);
+  v = get_param(sidx);
+  dbl = 0;
+  (hv && click) ? (
+    (time_precise() - last_click_t < 0.35 && last_click_id == id) ? ( dbl = 1; drag_id = -1; )
+                                                                  : ( drag_id = id; drag_acc = 0; drag_raw = v; );
+    last_click_t = time_precise(); last_click_id = id;
+  );
+  dbl ? set_param(sidx, vdef);
+  (drag_id == id && lmb && !click) ? (
+    d = -frame_dmy + frame_dmx;
+    stepped ? (
+      drag_acc += d;
+      abs(drag_acc) >= 8 ? (
+        dir = drag_acc > 0 ? 1 : -1; drag_acc = 0;
+        nv = v + dir * ((sidx == 5 && p_straight > 0.5) ? 2 : 1);
+        nv = clampv(nv, vmin, vmax);
+        (sidx == 5 && p_straight > 0.5 && ((nv | 0) & 1)) ? nv += 1;
+        nv = clampv(nv, vmin, vmax);
+        nv !== v ? set_param(sidx, nv);
+      );
+    ) : (
+      sidx == 14 ? ( drag_raw = clampv(drag_raw * (1000 ^ (d / DRAG_UNITS * (shift ? 0.1 : 1))), vmin, vmax); nv = snap_center(drag_raw, shift); )   // Center: logarithmic, third-octave magnet
+                 : ( drag_raw = clampv(drag_raw + d * (vmax - vmin) / DRAG_UNITS * (shift ? 0.1 : 1), vmin, vmax); nv = snap_to(drag_raw, snap_step(sidx, shift)); );
+      nv = clampv(nv, vmin, vmax);
+      nv !== v ? set_param(sidx, nv);
+    );
+  );
+  (hv && wsteps !== 0) ? (
+    stepped ? ( nv = v + wsteps * ((sidx == 5 && p_straight > 0.5) ? 2 : 1); )
+            : sidx == 14 ? ( nv = snap_center(v * (2 ^ (wsteps * (shift ? 1 / 60 : 1 / 3))), shift); )
+            : ( nv = snap_to(v + wsteps * snap_step(sidx, shift), snap_step(sidx, shift)); );
+    nv = clampv(nv, vmin, vmax);
+    (sidx == 5 && p_straight > 0.5 && ((nv | 0) & 1)) ? nv = clampv(nv + wsteps, vmin, vmax);
+    nv !== v ? set_param(sidx, nv);
+  );
+  (hv && rclick && has_menu) ? (
+    gfx_x = scx(x); gfx_y = scy(y + h);
+    has_menu == 2 ? (                                   // Pitch: direct semitone entry, 0 .. -36
+      strcpy(#f_menu, ""); k = 0;
+      while (k <= 36) ( sprintf(#mtmp, "%d st", -k); strcat(#f_menu, #mtmp); k < 36 ? strcat(#f_menu, "|"); k += 1; );
+      sel = gfx_showmenu(#f_menu);
+      sel > 0 ? set_param(sidx, -(sel - 1));
+    ) : (
+      sel = gfx_showmenu(#f_menu);
+      sel > 0 ? set_param(sidx, vmin + sel - 1);
+    );
+  );
+  hv ? (
+    strcpy(#hint, #f_lab);
+    has_menu == 1 ? strcat(#hint, ": drag or wheel to step · Double-click resets · Right-click for the list")
+                  : stepped ? strcat(#hint, ": drag or wheel to step · Double-click resets")
+                  : strcat(#hint, ": drag or wheel in steps · Shift for fine steps · Double-click resets");
+    has_menu == 2 ? strcat(#hint, " · Right-click for whole semitones");
+  );
+  // draw
+  face = (drag_id == id || hv) ? C_HOVER : primary ? C_FIELD : C_WELL;
+  drag_id == id ? panel(x, y, w, h, 4, face, C_ACC, 2) : panel(x, y, w, h, 4, face, C_EDGE, 1);
+  hex(C_TXT2); tb(#f_lab, x + 8, y + 15, 11, 0, 0);
+  hex(C_TXT); tb(#f_val, x + 8, y + 36, 16, 1, 0);
+  has_bar ? ( hex(C_EDGE); rect(x + 8, y + h - 5, w - 16, 2); hex(primary ? C_ACC : C_ACC_DIM); rect(x + 8, y + h - 5, (w - 16) * clampv(norm, 0, 1), 2); );
+  hex(C_TXT2);
+  has_menu ? tri_down(x + w - 10, y + 12, 8, 7) : ( rect(x + w - 14, y + 8, 6, 1); rect(x + w - 14, y + 11, 6, 1); );
+);
+function toggle(x, y, w, h, sidx, s_on, s_off) local(hv, on, face) (
+  hv = hit(x, y, w, h); on = get_param(sidx) > 0.5;
+  (hv && click) ? ( set_param(sidx, on ? 0 : 1); drag_id = -1; );
+  hv ? ( strcpy(#hint, #f_lab); strcat(#hint, ": click toggles"); );
+  face = hv ? C_HOVER : on ? C_ACC_WELL : C_WELL;
+  (hv && lmb) ? panel(x, y, w, h, 4, face, on ? C_ACC : C_EDGE, 2) : panel(x, y, w, h, 4, face, on ? C_ACC : C_EDGE, 1);
+  hex(C_TXT2); tb(#f_lab, x + 8, y + 14, 11, 0, 0);
+  on ? ( hex(C_ACC); circ_f(x + 11, y + h - 13, 3); ) : ( hex(C_TXT2); circ_o(x + 11, y + h - 13, 3); );
+  hex(C_TXT); on ? tb(s_on, x + 20, y + h - 8, 16, 1, 0) : tb(s_off, x + 20, y + h - 8, 16, 1, 0);
+);
+// routing segment: returns 1 when clicked
+function segment(x, y, w, h, lit, str) local(hv, pressed, face) (
+  hv = hit(x, y, w, h); pressed = 0;
+  (hv && click) ? ( pressed = 1; drag_id = -1; );
+  hv ? strcpy(#hint, "Routing: Layer adds repeats to the dry sound, Replace swaps it, Repeats Only mutes it");
+  face = lit ? (hv ? C_ACC_HOV : C_ACC) : (hv ? C_HOVER : C_WELL);
+  (hv && lmb) ? panel(x, y, w, h, 3, face, lit ? C_ACC : C_EDGE, 2) : panel(x, y, w, h, 3, face, lit ? C_ACC : C_EDGE, 1);
+  lit ? ( hex(C_INK); circ_f(x + 9, y + h / 2, 2); tb(str, x + w / 2, y + 18, 16, 1, 1); ) : ( hex(C_TXT); tb(str, x + w / 2, y + 18, 16, 1, 1); );
+  pressed;
+);
+function card(x, y, w, h, str) (
+  panel(x, y, w, h, 6, C_CARD, C_EDGE, 1);
+  hex(C_TXT2); tb(str, x + 12, 201, 12, 1, 0);
+  hex(C_EDGE); rect(x + 12, 208, w - 24, 1);
+);
+function meter(y, v, str) local(db, n) (
+  hex(C_TXT2); tb(str, 776, y + 10, 11, 0, 0);
+  hex(C_WELL); rect(828, y + 3, 60, 6);
+  db = v > 0.00001 ? 20 * log10(v) : -100; n = clampv((db + 60) / 60, 0, 1);
+  hex(C_ACC); rect(828, y + 3, 60 * n, 6);
+  db >= 0 ? ( hex(C_ROSE); cross(884, y + 6, 3); );
+  db > -99 ? sprintf(#tmp, "%.1f dB", db) : strcpy(#tmp, "-inf dB");
+  hex(C_TXT); tb(#tmp, 952, y + 10, 12, 0, 2);
+);
+function readout(str, x, bl, bright, bold) ( hex(bright ? C_TXT : C_TXT2); tb(str, x, bl, 12, bold, 0); );
+
+// ---- reads of audio-thread state are direct, word-sized and tolerant of one frame of tearing;
+//      the panel never writes an audio-thread buffer (its candidate list is CAND_UI) -----------------
+running = t_running; enabled = p_enable > 0.5;
+b_disp = t_beat0;
+epa = ep_active; epe = ep_ending; epo = ep_owner; anch = ep_anchor; epend = ep_end;
+manp = man_pending; manb = man_boundary;
+rtm = p_routing | 0;
+latched = p_latch > 0.5;
+manual_live_d = epa && !epe && epo == 2;
+acquiring = epa && src_len < src_cap;
+
+// ---- canvas and header -----------------------------------------------------------
+hex(C_CANVAS); gfx_rect(0, 0, gfx_w, gfx_h);
+hex(C_INK); rect(0, 0, UW, 64);
+hex(C_ACC_DIM); rect(16, 63, 948, 1);
+hex(C_ACC); tb("RAJA", 16, 30, 23, 1, 0);
+hex(C_TXT2); tb("BEAT REPLAYER", 16, 49, 11, 0, 0);
+// preset box (a field's identity) and Raja's own list in the panel's colours; the list is modal while open
+PBX = 112; PBY = 9; PBW = 200; PBH = 46;
+PLX = 112; PLY = 58; PLW = 400; PLC = 200; PLR = 22; PLRY = 88; PLH = 282;
+pb_hv = hit(PBX, PBY, PBW, PBH); pl_was = pl_open; pl_hover = -1;
+pl_open ? (   // no keyboard: REAPER's floating FX window treats Esc as "close the window"
+  hit(PLX, PLRY, PLW, 11 * PLR) ? (
+    pc = mx >= PLX + PLC ? 1 : 0; pr = floor((my - PLRY) / PLR);
+    pl_hover = pc == 0 ? (pr <= 8 ? pr : -1) : 9 + pr;
+  );
+  click ? ( pl_hover >= 0 ? ui_req_preset = pl_hover + 1; pl_open = 0; );   // a row selects; any click closes
+  rclick ? pl_open = 0;
+) : ( (pb_hv && (click || rclick)) ? pl_open = 1; );
+(wsteps !== 0 && (pb_hv || pl_was)) ? ( pnext = preset_idx - wsteps; pnext < 0 ? pnext = NPRESET - 1; pnext >= NPRESET ? pnext = 0; ui_req_preset = pnext + 1; );
+pl_was ? strcpy(#hint, "Choose a preset · click anywhere else to close")
+       : pb_hv ? strcpy(#hint, "Preset: click for the list · wheel to step through the presets");
+(pl_was || pl_open) ? ( click = 0; rclick = 0; wsteps = 0; mx = -100000; my = -100000; drag_id = -1; );   // nothing underneath sees this frame's mouse
+strcpy(#pn, PNAME + preset_idx);
+pl_open ? panel(PBX, PBY, PBW, PBH, 4, C_HOVER, C_ACC, 2) : panel(PBX, PBY, PBW, PBH, 4, pb_hv ? C_HOVER : C_FIELD, C_EDGE, 1);
+hex(C_TXT2); preset_dirty ? tb("Preset · edited", PBX + 8, PBY + 15, 11, 0, 0) : tb("Preset", PBX + 8, PBY + 15, 11, 0, 0);
+hex(C_TXT); tb(#pn, PBX + 8, PBY + 36, 16, 1, 0);
+hex(C_TXT2); tri_down(PBX + PBW - 10, PBY + 12, 8, 7);
+// headline: the pending transition or the current state; owner line: who owns the stream now
+!enabled ? strcpy(#st, "Disabled") :
+epa && epe ? strcpy(#st, "Fading out") :
+manp == 1 ? ( fmt_plain(#tmp, manb); sprintf(#st, "Armed · starts at %s", #tmp); ) :
+manp == 2 ? ( fmt_plain(#tmp, manb); sprintf(#st, "Letting go at %s", #tmp); ) :
+epa && epo == 2 ? ( latched ? strcpy(#st, "Latched") : strcpy(#st, "Held"); ) :
+epa && epo == 1 ? ( fmt_plain(#tmp, epend); sprintf(#st, "Automatic repeat · ends at %s", #tmp); ) :
+running ? strcpy(#st, "Waiting for a capture") : strcpy(#st, "Waiting (transport stopped)");
+owner = epa ? epo : 0;
+owner == 1 ? ( hex(C_ACC); circ_f(330, 24, 4); ) : owner == 2 ? ( hex(C_MAN); tri_down(330, 24, 8, 7); ) : ( hex(C_TXT2); circ_o(330, 24, 4); );
+hex(C_TXT); tb(#st, 344, 31, 18, 1, 0);
+owner == 1 ? (
+  strcpy(#ow, "An automatic repeat is playing");
+  manp == 1 ? ( fmt_plain(#tmp, epend); sprintf(#tmp2, " · ends at %s", #tmp); strcat(#ow, #tmp2); );
+  acquiring ? strcat(#ow, " · still recording its source");
+  epe ? strcat(#ow, " · fading out");
+) : owner == 2 ? (
+  latched ? strcpy(#ow, "You latched the repeat") : strcpy(#ow, "You are holding the repeat");
+  manp == 2 ? strcat(#ow, " · letting go soon");
+  acquiring ? strcat(#ow, " · still recording its source");
+  epe ? strcat(#ow, " · fading out");
+) : ( manp == 1 ? strcpy(#ow, "Nothing is repeating yet") : strcpy(#ow, "Nothing is repeating"); );
+hex(C_TXT2); tb(#ow, 344, 51, 12, 0, 0);
+sprintf(#tmp, "%.1f BPM · %d/%d", t_tempo_eff, t_num, t_den);
+hex(C_TXT); tb(#tmp, 964, 26, 12, 0, 2);
+running ? strcpy(#tmp, "playing") : strcpy(#tmp, "stopped");
+t_fallback ? strcat(#tmp, " · no host tempo, using 120");
+hex(C_TXT2); tb(#tmp, 964, 47, 12, 0, 2);
+
+// ---- timeline ----------------------------------------------------------------------
+TLX = 28; TLW = 924;
+pat_b = pattern_bars_ctrl();
+win = max(t_num, opp_cyc); pat_b > 0 ? win = max(win, pat_b * t_num);
+win_start = t_origin + floor((b_disp - t_origin) / win + 0.000001) * win;
+function tlx(b) ( TLX + (b - win_start) / win * TLW; );
+panel(16, 74, 948, 70, 4, C_WELL, C_EDGE, 1);
+// playhead and promised-boundary geometry first: the band label yields to the boundary label
+xph = clampv(tlx(b_disp), TLX, TLX + TLW);
+pl_x0 = -1; pl_x1 = -1;
+manp > 0 ? (
+  xtb = clampv(tlx(manb), TLX, TLX + TLW);   // a target outside the window sits at the edge; the header carries the exact value
+  fmt_plain(#tmp, manb); manp == 1 ? sprintf(#pl, "start %s", #tmp) : sprintf(#pl, "stop %s", #tmp);
+  lw = twidth(#pl, 12, 1);
+  pl_x0 = max(xtb, xph) + 8;                                  // right of both marks, where the lane is still empty
+  pl_x0 + lw > TLX + TLW ? pl_x0 = min(xtb, xph) - 8 - lw;    // no room there: left of both
+  pl_x0 < TLX ? pl_x0 = TLX;
+  pl_x1 = pl_x0 + lw;
+);
+// axis: beat ticks, bar lines, labels (bar.beat at a one-bar window, bar labels beyond)
+k = 0; nb = floor(win + 0.5);
+while (k <= nb) (
+  xx = tlx(win_start + k);
+  fmod_pos(k, t_num) < 0.0001 ? ( hex(C_EDGE); vline(xx, 94, 138, 1); ) : ( hex(C_EDGE); vline(xx, 94, 100, 1); );
+  (k < nb && (win <= t_num + 0.001 || fmod_pos(k, t_num) < 0.0001)) ? (
+    fmt_pos(#tmp, win_start + k); strcpy_substr(#tmp2, #tmp, 0, strlen(#tmp) - 3);
+    hex(C_TXT2); tb(#tmp2, xx + (k == 0 ? 0 : 0), 89, 11, 0, 0);
+  );
+  k += 1;
+);
+fmt_pos(#tmp, win_start + win); strcpy_substr(#tmp2, #tmp, 0, strlen(#tmp) - 3); hex(C_TXT2); tb(#tmp2, 952, 89, 11, 0, 2);
+hex(C_EDGE); hline(TLX, 105, TLX + TLW, 1);
+// episode lane: automatic extent to its end, manual extent to now
+epa ? (
+  xb0 = clampv(tlx(anch), TLX, TLX + TLW);
+  xb1 = (epo == 1 && epend >= 0) ? tlx(epend) : tlx(b_disp);
+  offend = xb1 > TLX + TLW; xb1 = clampv(xb1, TLX, TLX + TLW); xb1 < xb0 ? xb1 = xb0;
+  hex(epo == 2 ? C_MAN_BAND : C_ACC_WELL); rect(xb0, 116, xb1 - xb0, 19);
+  k = 0;
+  while (k < NTR) (
+    tbt = TRB[k];
+    (tbt >= anch && tbt >= win_start && tbt <= win_start + win && (epend < 0 || epo == 2 || tbt <= epend)) ? ( hex(epo == 2 ? C_MAN : C_ACC); vline(tlx(tbt), 116, 135, 1); );
+    k += 1;
+  );
+  epo == 1 ? ( hex(C_ACC); offend ? tri_down(TLX + TLW - 6, 125, 8, 7) : vline(xb1, 116, 135, 2); );
+  epo == 2 ? ( latched ? strcpy(#tmp, "Latched by you") : strcpy(#tmp, "Held by you"); ) : strcpy(#tmp, "Automatic repeat");
+  bw = twidth(#tmp, 12, 0);
+  (xb1 - xb0 > bw + 22 && !(pl_x1 > xb0 + 5 && pl_x0 < xb0 + 17 + bw)) ? ( hex(C_TXT); tb(#tmp, xb0 + 11, 129, 12, 0, 0); );
+);
+// opportunities from the grid
+o = grid_next(win_start, opp_step, opp_cyc, opp_off); guard = 0;
+while (o < win_start + win - 0.0001 && guard < 300) (
+  xx = tlx(o); hex(abs(o - opp_next) < 0.0001 ? C_TXT : C_TXT2); circ_o(xx, 105, 4);
+  o = grid_next(o + UI_NUDGE, opp_step, opp_cyc, opp_off); guard += 1;
+);
+// recent events (within one window of time)
+win_samples = t_bps > 0 ? win / t_bps : 0;
+k = 0;
+while (k < NEV) (
+  et = EVT[k]; eb = EVB[k]; age = t_samples - EVW[k];
+  (et > 0 && eb >= win_start - 0.0001 && eb <= win_start + win && (win_samples <= 0 || age < win_samples)) ? (
+    xx = tlx(eb);
+    et == 2 ? ( hex(C_ACC); circ_f(xx, 105, 4); ) :
+    et == 1 ? ( hex(C_ROSE); cross(xx, 105, 4); ) :
+    et == 3 ? ( hex(C_MAN); rect(xx - 5, 103.5, 10, 3); ) :
+    et == 4 ? ( hex(C_MAN); tri_down(xx, 105, 8, 7); ) :
+    et == 5 ? ( hex(C_MAN); tri_up(xx, 105, 8, 7); ) : 0;
+  );
+  k += 1;
+);
+// playhead and promised boundary
+hex(C_TXT); vline(xph, 94, 138, 2);
+manp > 0 ? (
+  hex(C_MAN); vline(xtb, 94, 138, 2);
+  manp == 1 ? tri_down(xtb, 97, 8, 7) : tri_up(xtb, 97, 8, 7);
+  hex(C_MAN); tb(#pl, pl_x0, 129, 12, 1, 0);
+);
+// legend
+hex(C_TXT2); circ_o(24, 158, 4); tb("Chance to capture", 35, 162, 11, 0, 0);
+hex(C_ACC); circ_f(150, 158, 4); hex(C_TXT2); tb("Captured", 161, 162, 11, 0, 0);
+hex(C_ROSE); cross(236, 158, 4); hex(C_TXT2); tb("Not captured (Chance)", 247, 162, 11, 0, 0);
+hex(C_MAN); rect(377, 156.5, 10, 3); hex(C_TXT2); tb("Skipped while you held", 393, 162, 11, 0, 0);
+hex(C_MAN); tri_down(535, 158, 8, 7); hex(C_TXT2); tb("You started / stopped", 546, 162, 11, 0, 0);
+hex(C_ACC_WELL); rect(684, 153, 12, 10); hex(C_ACC); vline(690, 153, 163, 1); hex(C_TXT2); tb("Repeat run and its slices", 701, 162, 11, 0, 0);
+sprintf(#tmp, "window %d bar%s", floor(win / t_num + 0.5), win / t_num >= 1.5 ? "s" : ""); tb(#tmp, 952, 162, 11, 0, 2);
+
+// ---- cards -----------------------------------------------------------------------------
+card(16, 180, 220, 356, "TIMING");
+card(248, 180, 244, 356, "REPETITION");
+card(504, 180, 248, 356, "SOUND");
+card(764, 180, 200, 356, "PERFORMANCE & OUTPUT");
+
+// ---- TIMING ----------------------------------------------------------------------------
+strcpy(#f_lab, "Every"); build_menu(#f_menu, 0, 8); e = p_every | 0; every_name(#f_val, e);
+field(1, 28, 216, 94, 48, 1, 0, 7, 5, 1, 1, 0, 1, 0);
+strcpy(#f_lab, "Position"); sprintf(#f_val, "%d/16", p_position | 0); strcpy(#f_menu, "");
+field(2, 130, 216, 94, 48, 2, 0, 15, 0, 1, 0, p_position / 15, 1, 1);
+strcpy(#f_lab, "Chance"); sprintf(#f_val, "%.1f %%", p_chance);
+field(3, 28, 272, 94, 48, 3, 0, 100, 0, 0, 0, p_chance / 100, 1, 1);
+strcpy(#f_lab, "Span"); sprintf(#f_val, "%d/16", p_span | 0);
+field(4, 130, 272, 94, 48, 4, 1, 64, 4, 1, 0, (p_span - 1) / 63, 1, 1);
+strcpy(#f_lab, "Pattern"); build_menu(#f_menu, 3, 4); pattern_name(#f_val, pat_b);
+field(21, 28, 328, 94, 48, 21, 0, 3, 0, 1, 1, 0, 0, 0);
+// New Pattern action
+hv = hit(130, 328, 94, 48);
+(hv && click && pat_b > 0) ? ( set_param(22, 1); drag_id = -1; );
+hv ? strcpy(#hint, pat_b > 0 ? "New Pattern: click for a different set of random choices from the next capture" : "New Pattern: choose a Pattern length first");
+pat_b == 0 ? panel(130, 328, 94, 48, 4, hv ? C_HOVER : C_WELL, C_EDGE, 1)
+           : pat_pending_seed > 0 ? panel(130, 328, 94, 48, 4, hv ? C_HOVER : C_FIELD, C_ACC, 2)
+           : (hv && lmb) ? panel(130, 328, 94, 48, 4, C_HOVER, C_ACC, 2) : panel(130, 328, 94, 48, 4, hv ? C_HOVER : C_FIELD, C_EDGE, 1);
+hex(C_TXT); tb("New Pattern", 177, 347, 12, 1, 1);
+hex(C_TXT2); pat_b == 0 ? tb("needs a Pattern", 177, 365, 11, 0, 1) : pat_pending_seed > 0 ? tb("pending", 177, 365, 11, 0, 1) : tb("Ready", 177, 365, 11, 0, 1);
+// readouts
+ry = 392; rl = 17; n = 0;
+opp_next >= 0 ? (
+  fmt_plain(#tmp, opp_next); sprintf(#tmp2, "Next chance: %s", #tmp); readout(#tmp2, 28, ry + rl * n, 1, 0); n += 1;
+  manual_live_d ? strcpy(#tmp2, "skipped while you hold") : sprintf(#tmp2, "in %.1f beats", opp_next - b_disp);
+  readout(#tmp2, 28, ry + rl * n, 0, 0); n += 1;
+) : ( enabled ? (running ? readout("Next chance: none scheduled", 28, ry + rl * n, 1, 0) : readout("Next chance: when playing", 28, ry + rl * n, 1, 0)) : readout("Next chance: when enabled", 28, ry + rl * n, 1, 0); n += 1; );
+ev_last_type > 0 ? (
+  ev_last_type == 1 ? strcpy(#tmp2, "Last: no capture (Chance)") : ev_last_type == 2 ? strcpy(#tmp2, "Last: captured") :
+  ev_last_type == 3 ? strcpy(#tmp2, "Last: skipped (you held)") : ev_last_type == 4 ? strcpy(#tmp2, "Last: you started a repeat") :
+  ev_last_type == 5 ? strcpy(#tmp2, "Last: you stopped the repeat") : ev_last_type == 6 ? strcpy(#tmp2, "Last: repeat finished") : strcpy(#tmp2, "Last: repeat cancelled");
+  readout(#tmp2, 28, ry + rl * n, 1, 0); n += 1;
+  fmt_plain(#tmp, ev_last_beat); sprintf(#tmp2, "at %s", #tmp); readout(#tmp2, 28, ry + rl * n, 0, 0); n += 1;
+) : ( readout("Last: nothing yet", 28, ry + rl * n, 1, 0); n += 1; );
+eff_off = fmod_pos(p_position * t_den / 16, opp_step); every_name(#tmp, e);
+eff_off > 0.0001 ? sprintf(#tmp2, "Captures start %d/16 into every %s", floor(eff_off * 16 / t_den + 0.5), #tmp) : sprintf(#tmp2, "Captures start on every %s", #tmp);
+readout(#tmp2, 28, ry + rl * n, 1, 0); n += 1;
+manual_live_d ? ( latched ? strcpy(#tmp2, "Ends when you unlatch") : strcpy(#tmp2, "Ends when you let go"); manp == 2 ? strcat(#tmp2, " (soon)"); ) :
+(epa && epo == 1 && !epe) ? ( fmt_plain(#tmp, epend); sprintf(#tmp2, "This repeat ends at %s", #tmp); ) : sprintf(#tmp2, "Each capture repeats for %d/16", p_span | 0);
+readout(#tmp2, 28, ry + rl * n, 1, 0); n += 1;
+manual_live_d ? readout("Pattern: automatic captures only", 28, ry + rl * n, 1, 0) :
+pat_b == 0 ? readout("Random choices: new every time", 28, ry + rl * n, 1, 0) : ( sprintf(#tmp2, "Random choices repeat every %d bar%s", pat_b, pat_b > 1 ? "s" : ""); readout(#tmp2, 28, ry + rl * n, 1, 0); );
+n += 1;
+(pat_b > 0 && pat_pending_seed > 0) ? ( readout("New pattern at the next capture", 28, ry + rl * n, 0, 0); n += 1; );
+manual_live_d ? ( readout("You are in control; automatic waits", 28, ry + rl * n, 1, 1); n += 1; );
+
+// ---- REPETITION -------------------------------------------------------------------------
+strcpy(#f_lab, "Slice"); slice_name(#f_val, p_slice | 0); build_menu(#f_menu, 4, NSLICE);
+field(5, 260, 216, 106, 48, 5, 0, 16, 8, 1, 1, 0, 1, 0);
+strcpy(#f_lab, "Spread"); sprintf(#f_val, "%.0f %%", p_spread); strcpy(#f_menu, "");
+field(7, 374, 216, 106, 48, 7, 0, 100, 0, 0, 0, p_spread / 100, 1, 1);
+strcpy(#f_lab, "Straight Only"); toggle(260, 272, 106, 48, 6, "On", "Off");
+strcpy(#f_lab, "Change"); build_menu(#f_menu, 1, 5); c = p_change | 0; change_name(#f_val, c);
+field(8, 374, 272, 106, 48, 8, 0, 4, 0, 1, 1, 0, 0, 0);
+p_straight > 0.5 ? readout("Triplets off", 260, 338, 0, 0) : readout("Triplets allowed", 260, 338, 0, 0);
+nom = eff_slice_idx(); ws_now = whole_samples();
+slice_name(#tmp, nom); fmt_ms(#tmp2, DUR[nom] * ws_now);
+(p_straight > 0.5 && ((p_slice | 0) & 1)) ? sprintf(#rl1, "Plays as %s = %s (no triplets)", #tmp, #tmp2) : sprintf(#rl1, "Slice %s = %s of sound", #tmp, #tmp2);
+readout(#rl1, 260, 356, 1, 0);
+epa ? ( slice_name(#tmp, tv_idx); sprintf(#rl1, "Playing now: %s", #tmp); ) : strcpy(#rl1, "Playing now: nothing");
+readout(#rl1, 260, 373, 1, 0);
+epa ? (
+  tv_pending_u >= 0 ? ( slice_name(#tmp2, choose_idx_ui(tv_pending_u, nom)); sprintf(#rl1, "Next repeat: %s (chosen)", #tmp2); )
+                    : ( slice_name(#tmp2, choose_idx_ui(tv_u, nom)); sprintf(#rl1, "Next repeat: %s", #tmp2); );
+) : strcpy(#rl1, "Next repeat: none");
+readout(#rl1, 260, 390, 1, 0);
+ncand = build_candidates_into(nom, p_spread / 100, p_straight > 0.5, CAND_UI);
+ncand > 1 ? ( slice_name(#tmp, CAND_UI[0]); slice_name(#tmp2, CAND_UI[ncand - 1]); sprintf(#rl1, "Sizes allowed: %s to %s (%d)", #tmp, #tmp2, ncand); )
+          : strcpy(#rl1, "Size fixed at Slice");
+readout(#rl1, 260, 407, 1, 0);
+sfac = 2 ^ (p_spread / 100 * 8);   // how much shorter or longer than Slice a drawn size may be
+p_spread > 0 ? ( sfac >= 9.95 ? sprintf(#rl1, "Spread: up to %.0f× shorter or longer", sfac) : sprintf(#rl1, "Spread: up to %.1f× shorter or longer", sfac); ) : strcpy(#rl1, "Spread is 0: Change does nothing");
+readout(#rl1, 260, 424, 0, 0);
+epa ? ( fmt_ms(#tmp, tv_len / tv_rate); sprintf(#rl1, "Each repeat lasts %s", #tmp); fmt_ms(#tmp2, tv_len);
+        tv_rate < 0.9999 ? sprintf(#rl2, "slowed to %.0f%% (%s at full speed)", tv_rate * 100, #tmp2) : strcpy(#rl2, "at full speed"); )
+    : ( fmt_ms(#tmp, DUR[nom] * ws_now / (2 ^ (clampv(p_pitch, -48, 0) / 12))); sprintf(#rl1, "Each repeat would last %s", #tmp); fmt_ms(#tmp2, DUR[nom] * ws_now);
+        p_pitch < -0.005 ? sprintf(#rl2, "slowed to %.0f%% (%s at full speed)", 100 * (2 ^ (p_pitch / 12)), #tmp2) : strcpy(#rl2, "at full speed"); );
+readout(#rl1, 260, 441, 1, 0); readout(#rl2, 260, 458, 0, 0);
+epa ? ( fmt_ms(#tmp, src_cap); sprintf(#rl1, "Captured %d%% of the %s source", floor(100 * src_len / max(src_cap, 1) + 0.5), #tmp); ) : strcpy(#rl1, "Nothing captured yet");
+readout(#rl1, 260, 475, 1, 0);
+hex(C_WELL); rect(260, 481, 220, 6);
+epa ? ( hex(C_ACC); rect(260, 481, 220 * clampv(src_len / max(src_cap, 1), 0, 1), 6); );
+readout("Playback", 260, 503, 0, 0);
+hex(C_EDGE); rect(321, 498, 159, 2);
+epa ? (
+  xs = 321 + 159 * clampv(tv_len / max(src_cap, 1), 0, 1); hex(C_MAN); rect(xs - 1, 494, 2, 10);
+  xd = 321 + 159 * clampv(tv_pos / max(src_cap, 1), 0, 1); hex(C_TXT); circ_f(xd, 499, 3);
+);
+epa ? ( sprintf(#rl1, "Repeat %d of capture %d", ep_trav + 1, ep_id); readout(#rl1, 260, 526, 0, 0); );
+
+// ---- SOUND ------------------------------------------------------------------------------
+strcpy(#f_menu, "");
+strcpy(#f_lab, "Pitch"); sprintf(#f_val, "%.1f st", p_pitch);
+field(9, 516, 216, 108, 48, 9, -36, 0, 0, 0, 2, (p_pitch + 36) / 36, 1, 1);
+strcpy(#f_lab, "Repeat Level"); p_level <= -60 ? strcpy(#f_val, "Silence") : sprintf(#f_val, "%+.1f dB", p_level);
+field(11, 632, 216, 108, 48, 11, -60, 12, 0, 0, 0, (p_level + 60) / 72, 1, 1);
+strcpy(#f_lab, "Fall"); sprintf(#f_val, "%.1f st", p_fall);
+field(10, 516, 272, 76, 48, 10, 0, 12, 0, 0, 0, p_fall / 12, 0, 1);
+strcpy(#f_lab, "Fade"); sprintf(#f_val, "%.1f dB", p_fade);
+field(12, 600, 272, 76, 48, 12, 0, 24, 0, 0, 0, p_fade / 24, 0, 1);
+strcpy(#f_lab, "Filter"); toggle(684, 272, 56, 48, 13, "On", "Off");
+strcpy(#f_lab, "Center"); fmt_hz(#f_val, p_center);
+field(14, 516, 328, 108, 48, 14, 20, 20000, 1000, 0, 0, log(p_center / 20) / log(1000), 0, 1);
+strcpy(#f_lab, "Width"); sprintf(#f_val, "%.2f oct", p_width);
+field(15, 632, 328, 108, 48, 15, 0.25, 10, 4, 0, 0, (p_width - 0.25) / 9.75, 0, 1);
+sy0 = 396;
+epa ? ( sprintf(#rl1, "Pitch now: %.1f st", tv_pitch); acc_fall > 0.005 ? sprintf(#rl2, "set %.1f, lowered %.1f more by Fall", p_pitch, acc_fall) : sprintf(#rl2, "set %.1f, no Fall yet", p_pitch); )
+    : ( sprintf(#rl1, "Repeats start at %.1f st", p_pitch); p_fall > 0.005 ? sprintf(#rl2, "each repeat falls %.1f st more", p_fall) : strcpy(#rl2, "no extra fall per repeat"); );
+readout(#rl1, 516, sy0, 1, 0); readout(#rl2, 516, sy0 + 17, 0, 0);
+epa ? ( (p_level - acc_fade) <= -60 ? strcpy(#rl1, "Level now: silent") : sprintf(#rl1, "Level now: %+.1f dB", p_level - acc_fade); acc_fade > 0.05 ? sprintf(#rl2, "set %+.1f, lowered %.1f dB by Fade", p_level, acc_fade) : sprintf(#rl2, "set %+.1f, no Fade yet", p_level); )
+    : ( p_level <= -60 ? strcpy(#rl1, "Repeats start silent") : sprintf(#rl1, "Repeats start at %+.1f dB", p_level); p_fade > 0.05 ? sprintf(#rl2, "each repeat loses %.1f dB", p_fade) : strcpy(#rl2, "no fade per repeat"); );
+readout(#rl1, 516, sy0 + 34, 1, 0); readout(#rl2, 516, sy0 + 51, 0, 0);
+p_filter > 0.5 ? ( fmt_hz(#tmp, f_lo_eff); fmt_hz(#tmp2, f_hi_eff); sprintf(#rl1, "Filter passes %s to %s", #tmp, #tmp2); readout(#rl1, 516, sy0 + 68, 1, 0); readout("on the repeats only; dry sound untouched", 516, sy0 + 85, 0, 0); )
+                : ( readout("Filter off: Center and Width do nothing", 516, sy0 + 68, 0, 0); readout("Dry sound always at full level", 516, sy0 + 85, 0, 0); );
+readout("Pitch cannot fall below -48 st", 516, sy0 + 102, 0, 0);
+
+// ---- PERFORMANCE & OUTPUT -------------------------------------------------------------------
+hh = hit(776, 216, 176, 56);
+(hh && click) ? ( ui_hold_pressed = 1; p_hold = 1; slider_automate(2 ^ 17); drag_id = -1; );
+hh ? strcpy(#hint, "Hold: press and keep pressed to repeat, let go anywhere to stop");
+holding = p_hold > 0.5;
+holding ? panel(776, 216, 176, 56, 4, C_MAN, C_MAN, 1) : panel(776, 216, 176, 56, 4, hh ? C_HOVER : C_FIELD, C_MAN, 1);
+hex(holding ? C_INK : C_TXT); tb("HOLD", 864, 241, 18, 1, 1);
+hex(holding ? C_INK : C_TXT2); holding ? tb("Pressed", 864, 259, 12, 0, 1) : tb("Released", 864, 259, 12, 0, 1);
+strcpy(#f_lab, "Latch"); toggle(776, 280, 84, 40, 19, "On", "Off");
+strcpy(#f_lab, "Enable"); toggle(868, 280, 84, 40, 17, "On", "Off");
+strcpy(#f_lab, "Gesture Sync"); build_menu(#f_menu, 2, 5); g = p_gsync | 0; gsync_name(#f_val, g);
+field(20, 776, 328, 176, 48, 20, 0, 4, 0, 1, 1, 0, 1, 0);
+hex(C_TXT2); tb("Routing", 776, 390, 11, 0, 0);
+segment(776, 396, 176, 24, rtm == 0, "Layer") ? set_param(16, 0);
+segment(776, 422, 176, 24, rtm == 1, "Replace") ? set_param(16, 1);
+segment(776, 448, 176, 24, rtm == 2, "Repeats Only") ? set_param(16, 2);
+rtm == 2 ? ( hex(C_TXT); tb("Dry sound: blocked", 776, 486, 12, 1, 0); hex(C_ROSE); cross(946, 481, 4); )
+         : ( rtm == 1 && epa && !epe ? strcpy(#tmp, "Dry sound: replaced") : strcpy(#tmp, "Dry sound: passing"); hex(C_TXT); tb(#tmp, 776, 486, 12, 1, 0); );
+epa && enabled ? strcpy(#tmp, "Repeats: playing") : strcpy(#tmp, "Repeats: silent");
+hex(C_TXT); tb(#tmp, 776, 501, 12, 0, 0);
+meter(506, pk_in_disp, "In");
+meter(520, pk_out_disp, "Out peak");
+
+// ---- footer ------------------------------------------------------------------------------------
+hex(C_TXT2);
+strlen(#hint) > 0 ? tb(#hint, 16, 553, 11, 0, 0) : tb("Drag or wheel in steps · Shift for fine steps · Double-click resets · Right-click for lists", 16, 553, 11, 0, 0);
+running ? tb("Playback: dot = read point, line = slice end", 964, 553, 11, 0, 2) : tb("Stopped: gestures act at once · dot = read point, line = slice end", 964, 553, 11, 0, 2);
+
+// ---- preset list (drawn last, over the timeline and cards) -------------------------------------
+pl_open ? (
+  panel(PLX, PLY, PLW, PLH, 6, C_CARD, C_EDGE, 1);
+  hex(C_EDGE); rect(PLX + PLC, PLY + 12, 1, PLH - 24);
+  hex(C_TXT2); tb("HOLD TO PLAY", PLX + 12, PLY + 21, 12, 1, 0); tb("SCHEDULED", PLX + PLC + 12, PLY + 21, 12, 1, 0);
+  hex(C_EDGE); rect(PLX + 12, PLY + 27, PLC - 24, 1); rect(PLX + PLC + 12, PLY + 27, PLC - 24, 1);
+  pidx = 0;
+  while (pidx < NPRESET) (
+    pc = pidx < 9 ? 0 : 1; pr = pidx < 9 ? pidx : pidx - 9;
+    prx = PLX + pc * PLC; pry = PLRY + pr * PLR;
+    pidx == preset_idx ? ( hex(C_ACC_WELL); rrect(prx + 8, pry, PLC - 16, PLR - 2, 3); hex(C_ACC); circ_f(prx + 18, pry + 10, 3); )
+    : pidx == pl_hover ? ( hex(C_HOVER); rrect(prx + 8, pry, PLC - 16, PLR - 2, 3); );
+    hex(C_TXT); tb(PNAME + pidx, prx + 28, pry + 15, 12, pidx == preset_idx ? 1 : 0, 0);
+    pidx += 1;
+  );
+);
+
+// ---- frame end ------------------------------------------------------------------------
+lmb_prev = lmb; rmb_prev = rmb; mx_prev = mx; my_prev = my;

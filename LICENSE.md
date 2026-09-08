@@ -11,6 +11,7 @@ documentation and screenshots are licensed as follows:
 | Satoshi | `plugins/Satoshi.jsfx`, `docs/Satoshi/**` | [AGPL-3.0-only](LICENSES/AGPL-3.0-only.txt) |
 | Yoshi | `plugins/Yoshi.jsfx`, `docs/Yoshi/**` | [MIT](LICENSES/MIT.txt) |
 | Momiji | `plugins/Momiji.jsfx`, `docs/Momiji/**` | [MIT](LICENSES/MIT.txt) |
+| Raja | `plugins/Raja.jsfx`, `docs/Raja/**` | [MIT](LICENSES/MIT.txt) |
 
 The top-level `README.md` and repository metadata are licensed under
 [MIT](LICENSES/MIT.txt), copyright © 2026 Michele Ibba.
