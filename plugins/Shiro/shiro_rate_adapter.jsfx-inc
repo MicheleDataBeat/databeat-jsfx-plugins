@@ -1,0 +1,173 @@
+@init
+// Host/core clock and MIDI adapter. Native standalone contract: tests/check_rate_adapter.py.
+// Caller supplies fixed memory, 33-tap sparse stereo phase coefficient arrays,
+// and forwards every raw MIDI message at its original host offset BEFORE enqueue.
+// Each coefficient array has 66 entries [h0,0,h1,0,...,h32,0].
+function ra_clear_events()
+(
+  ra_input_count=0; ra_current_read=0; ra_carry_count=0; ra_carry_read=0;
+  ra_cursor=0;
+  memset(ra_heads,0,ra_max_host+1); memset(ra_tails,0,ra_max_host+1);
+);
+
+// Lifecycle/rate epoch reset only: caller also retires engine voices and controllers.
+// Do not call on ordinary stop/pause/seek, which keep the continuous audio clock/FIR.
+function ra_reset(ratio)
+(
+  ra_ratio=ratio==2?2:1; ra_host_total=0; ra_core_total=0; ra_phase=0;
+  ra_overflow=0; ra_fault=0; ra_bad_offset=0; ra_hist_head=0;
+  memset(ra_hist,0,132); ra_clear_events();
+);
+
+function ra_setup(base,max_host,coef0,coef1)
+(
+  ra_max_host=max_host; ra_hostq=base; ra_carry=ra_hostq+5120;
+  ra_heads=ra_carry+5120; ra_tails=ra_heads+max_host+1;
+  ra_hist=ra_tails+max_host+1; ra_end=ra_hist+132;
+  ra_coef0=coef0; ra_coef1=coef1;
+  ra_reset(2);
+);
+
+// On MIDI overflow the caller must also apply the existing global fade and clear
+// held/controller state. Wire MIDI remains unaffected; ignore later synth events.
+function ra_fail_events()
+(
+  ra_clear_events(); ra_overflow=1;
+);
+
+function ra_begin(frames)
+(
+  ra_frames=max(0,min(ra_max_host,frames|0));
+  ra_frames!=frames ? ra_fault=1;
+  ra_host_start=ra_host_total;
+  ra_core_start=ceil(ra_host_start/ra_ratio);
+  ra_core_count=ceil((ra_host_start+ra_frames)/ra_ratio)-ra_core_start;
+  ra_input_count=0; ra_current_read=0; ra_cursor=0; ra_carry_read=0;
+  ra_overflow=0; ra_emitted=0; ra_core_outputs=0;
+  memset(ra_heads,0,ra_core_count+1); memset(ra_tails,0,ra_core_count+1);
+);
+
+function ra_enqueue(offs,m1,m2,m3) local(off,due,bucket,p,tail)
+(
+  !ra_overflow && ra_frames>0 ? (
+    ra_input_count>=1024 ? ra_fail_events() : (
+      off=max(0,min(ra_frames-1,offs|0)); off!=offs ? ra_bad_offset+=1;
+      due=ceil((ra_host_start+off)/ra_ratio); bucket=due-ra_core_start;
+      p=ra_hostq+ra_input_count*5;
+      p[0]=ra_host_start+off;p[1]=m1;p[2]=m2;p[3]=m3;p[4]=0;
+      tail=ra_tails[bucket];
+      tail>0 ? ra_hostq[(tail-1)*5+4]=ra_input_count+1 : ra_heads[bucket]=ra_input_count+1;
+      ra_tails[bucket]=ra_input_count+1;
+      ra_input_count+=1;
+    );
+  );
+);
+
+// Next synthesis offset in the current core block; -1 means none in this block.
+// A boundary event is deliberately absent until the next block has its core tick.
+function ra_peek()
+(
+  ra_from_carry=0; ra_next=-1;
+  !ra_overflow ? (
+    ra_carry_read<ra_carry_count && ra_carry_due<ra_core_start+ra_core_count ? (
+      ra_next=ra_carry_due-ra_core_start;ra_from_carry=1;
+    ) : (
+      while(ra_cursor<ra_core_count && ra_heads[ra_cursor]==0)(ra_cursor+=1;);
+      ra_cursor<ra_core_count ? ra_next=ra_cursor;
+    );
+  );
+  ra_next;
+);
+
+function ra_pop() local(p,index,ok)
+(
+  ok=ra_peek()>=0;
+  ok ? (
+    ra_from_carry ? (p=ra_carry+5*ra_carry_read;ra_carry_read+=1;)
+    : (index=ra_heads[ra_cursor]-1;p=ra_hostq+5*index;ra_heads[ra_cursor]=p[4];ra_current_read+=1;);
+    ra_event_offset=ra_next;ra_event_stamp=p[0];ra_m1=p[1];ra_m2=p[2];ra_m3=p[3];
+  );
+  ok;
+);
+
+function ra_needs_core() (ra_ratio==1 || ra_phase==0;);
+
+// Call once per host sample, supplying a new core sample only when needs_core().
+// Odd-start blocks emit phase1 from retained history before consuming a new core sample.
+function ra_output(left,right) local(p,coef)
+(
+  ra_ratio==1 ? (ra_outl=left;ra_outr=right;ra_core_outputs+=1;)
+  : (
+    ra_phase==0 ? (
+      ra_hist_head=(ra_hist_head+32)%33;p=ra_hist+2*ra_hist_head;
+      p[0]=left;p[1]=right;p[66]=left;p[67]=right;ra_core_outputs+=1;
+    );
+    p=ra_hist+2*ra_hist_head;coef=ra_phase==0?ra_coef0:ra_coef1;
+    ra_outl=mem_multiply_sum(coef,p,66);
+    ra_outr=mem_multiply_sum(coef,p+1,66);
+    ra_phase=1-ra_phase;
+  );
+  ra_emitted+=1;
+);
+
+// Block-level quiescent advance: state-equivalent to `frames` calls of ra_output(0,0),
+// omitting only the two mem_multiply_sum() dot products, whose result the caller has
+// already proven this block discards unread.
+function ra_output_silent(frames) local(c,i,p)
+(
+  frames>0 ? (
+    ra_ratio==1 ? (ra_core_outputs+=frames;)
+    : (
+      // c is the count of the frames calls landing on entry phase 0, the ones that push
+      // a core sample; derived from frames and entry ra_phase alone, never from
+      // ra_core_count — ra_finish() checks ra_core_outputs==ra_core_count, so deriving c
+      // from ra_core_count would make that guard circular and disarm it (see NC-E).
+      c=ra_phase==0?ceil(frames/2):floor(frames/2);
+      ra_core_outputs+=c;
+      c>=33 ? (
+        // 33+ zero pushes cycle the head through every one of the 33 slots (and its
+        // mirror) at least once, so the exact result of those writes is a full zero fill.
+        memset(ra_hist,0,132);
+        ra_hist_head=(ra_hist_head+33-(c%33))%33;
+      ) : (
+        // Fewer than 33 pushes: reproduce each head-advance-and-zero-write step exactly,
+        // since not every slot is touched and the head position is load-bearing (NC-D).
+        i=0;
+        while(i<c)(
+          ra_hist_head=(ra_hist_head+32)%33;p=ra_hist+2*ra_hist_head;
+          p[0]=0;p[1]=0;p[66]=0;p[67]=0;
+          i+=1;
+        );
+      );
+      ra_phase=(ra_phase+frames)%2;
+    );
+    ra_emitted+=frames;
+  );
+  ra_outl=0;ra_outr=0;
+);
+
+function ra_finish() local(index,p,count)
+(
+  !ra_overflow ? (
+    index=ra_heads[ra_core_count];count=0;
+    // Any old carry must have been consumed, except an empty block with no new input.
+    ra_carry_read<ra_carry_count ? (
+      (ra_frames>0 || ra_input_count>0) ? (ra_fault=1;ra_fail_events(););
+    ) : (
+      while(index>0 && count<1024)(
+        p=ra_hostq+5*(index-1);memcpy(ra_carry+5*count,p,5);count+=1;index=p[4];
+      );
+      index>0 || ra_current_read+count!=ra_input_count ? (ra_fault=1;ra_fail_events();)
+      : (ra_carry_count=count;ra_carry_read=0;ra_carry_due=ra_core_start+ra_core_count;);
+    );
+  );
+  ra_emitted!=ra_frames || ra_core_outputs!=ra_core_count ? ra_fault=1;
+  ra_host_total+=ra_frames;ra_core_total+=ra_core_count;
+  ra_phase!=(ra_host_total%ra_ratio) ? ra_fault=1;
+);
+
+// Generated causal minimum-phase output FIR; no lookahead or block delay.
+function rate_output_coefficients() (
+mem_set_values(RACOEF+0,0.015584085022342313,0.000000000000000000,0.344775576968523345,0.000000000000000000,0.801792219888063151,0.000000000000000000,-0.113920614413112714,0.000000000000000000,-0.156496915869170417,0.000000000000000000,0.221288285961130288,0.000000000000000000,-0.213200398327728607,0.000000000000000000,0.183749428307473872,0.000000000000000000,-0.151287463266090744,0.000000000000000000,0.121807448374700658,0.000000000000000000,-0.096811928327500130,0.000000000000000000,0.076241950763059729,0.000000000000000000,-0.059562432014262659,0.000000000000000000,0.046154507226042064,0.000000000000000000,-0.035446334933638100,0.000000000000000000,0.026946946328066768,0.000000000000000000,-0.020247230873658224,0.000000000000000000,0.014996614193527793,0.000000000000000000,-0.010965274296159665,0.000000000000000000,0.007818639493775745,0.000000000000000000,-0.005468850916935382,0.000000000000000000,0.003731589759608503,0.000000000000000000,-0.002461611843290459,0.000000000000000000,0.001552343903396310,0.000000000000000000,-0.000922034563322240,0.000000000000000000,0.000504445415906314,0.000000000000000000,-0.000244334539627187,0.000000000000000000,0.000095711734779058,0.000000000000000000,-0.000021286194480018,0.000000000000000000,-0.000008174377464208,0.000000000000000000,0.000023848124610172,0.000000000000000000,0.000001243281923332,0.000000000000000000,0.000000000004541788,0.000000000000000000);
+mem_set_values(RACOEF+66,0.106421588995856478,0.000000000000000000,0.670198194432679806,0.000000000000000000,0.481061976745163378,0.000000000000000000,-0.418693705520992498,0.000000000000000000,0.244072946585875528,0.000000000000000000,-0.117443364102602199,0.000000000000000000,0.040796670758797532,0.000000000000000000,0.002075687112562931,0.000000000000000000,-0.024124783909464913,0.000000000000000000,0.033705374567103125,0.000000000000000000,-0.035966483944241665,0.000000000000000000,0.034079490993385031,0.000000000000000000,-0.030022821380752310,0.000000000000000000,0.025044339760480448,0.000000000000000000,-0.019928938110450562,0.000000000000000000,0.015155455232212130,0.000000000000000000,-0.010996692641470048,0.000000000000000000,0.007547596854976526,0.000000000000000000,-0.004904892130827166,0.000000000000000000,0.002902665092509398,0.000000000000000000,-0.001515876928549178,0.000000000000000000,0.000633855571989560,0.000000000000000000,-0.000126879544344009,0.000000000000000000,-0.000122614005281225,0.000000000000000000,0.000209863340565659,0.000000000000000000,-0.000206228161040650,0.000000000000000000,0.000161260238633667,0.000000000000000000,-0.000106323724711916,0.000000000000000000,0.000058948796441689,0.000000000000000000,-0.000028489259932418,0.000000000000000000,-0.000008490226081692,0.000000000000000000,-0.000000000000118779,0.000000000000000000,0.000000000000000000,0.000000000000000000);
+);

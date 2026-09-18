@@ -1,0 +1,1248 @@
+// Shiro UI: the full instrument panel. UI thread only (functions ui_*),
+// called once per frame as ui_frame() from @gfx 960 680 in Shiro.jsfx. Reads/writes only the interface listed
+// here: TELE, active_bank/meta_get/ovw_ptr, region fields, VOICES/GRAINS (read), ROUTES_UI (via
+// ui_route_edit/ui_routes_refresh), staging fields, factory tables, pb_*, sliders (via the bound indexed form
+// slider(N)=v; slider_automate(slider(N))), atomic_set(CMD[...]), prep_cancel/user_load_path/factory_load_*/reset_sound,
+// preset_trim/#preset_desc (deferred undo notification), ui_scale_idx/ui_drawer/ui_details.
+// Never calls alloc(): all cross-frame state is plain ui_-prefixed globals; per-frame tables (focus order, hit
+// rectangles) are immediate-mode (recomputed every frame from a sequential slot counter), never stored arrays.
+@init
+
+gfx_ext_retina = 1;
+ui_init_done ? 0 : ( ui_focus_ix = -1; ui_nslots = 0; ui_wave_zoom = 1; ui_wave_scroll = 0; ui_pop_kind = 0; ui_pop_owner = -1; ui_drag_slot = -1; ui_press_slot = -1; ui_browser_cat = -1; ui_browser_scroll = 0; ui_init_done = 1; );
+UI_CAT_SLOT = 720;   // eight numbered string slots for the preset browser's category names (factory strings end at 692)
+
+// ==================================================================== colour tokens
+function ui_col(r, g, b) ( gfx_r = r; gfx_g = g; gfx_b = b; gfx_a = 1; );
+function ui_cola(r, g, b, a) ( gfx_r = r; gfx_g = g; gfx_b = b; gfx_a = a; );
+function ui_c_bg() ( ui_col(0.105, 0.107, 0.115); );
+function ui_c_panel() ( ui_col(0.145, 0.148, 0.158); );
+function ui_c_field() ( ui_col(0.19, 0.195, 0.21); );
+function ui_c_fieldhover() ( ui_col(0.23, 0.235, 0.25); );
+function ui_c_line() ( ui_col(0.30, 0.31, 0.33); );
+function ui_c_text() ( ui_col(0.92, 0.91, 0.88); );
+function ui_c_dim() ( ui_col(0.62, 0.62, 0.60); );
+function ui_c_accent() ( ui_col(0.93, 0.66, 0.30); );
+function ui_c_mod() ( ui_col(0.37, 0.72, 0.78); );
+function ui_c_warn() ( ui_col(1.0, 0.55, 0.45); );
+function ui_c_ok() ( ui_col(0.55, 0.80, 0.55); );
+
+// ==================================================================== low-level draw / hit helpers
+function ui_dx(x) ( (x - ui_view_x) * ui_s; );
+function ui_dy(y) ( (y - ui_view_y) * ui_s; );
+function ui_rect(x, y, w, h) ( gfx_rect(ui_dx(x), ui_dy(y), max(1, w * ui_s), max(1, h * ui_s)); );
+function ui_frame_rect(x, y, w, h) ( gfx_rect(ui_dx(x), ui_dy(y), w * ui_s, 1); gfx_rect(ui_dx(x), ui_dy(y), 1, h * ui_s); gfx_rect(ui_dx(x + w - 1), ui_dy(y), 1, h * ui_s); gfx_rect(ui_dx(x), ui_dy(y + h - 1), w * ui_s, 1); );
+function ui_lineseg(x0, y0, x1, y1) ( gfx_line(ui_dx(x0), ui_dy(y0), ui_dx(x1), ui_dy(y1)); );
+function ui_font(id, pt) ( gfx_setfont(id, "Arial", floor(max(13, pt) * ui_s + 0.5)); );
+function ui_text(x, y, s) ( gfx_x = ui_dx(x); gfx_y = ui_dy(y); gfx_drawstr(s); );
+function ui_textbox(x, y, w, h, s, flags) ( gfx_x = ui_dx(x); gfx_y = ui_dy(y); gfx_drawstr(s, flags, ui_dx(x + w), ui_dy(y + h)); );
+function ui_hit(x, y, w, h) (
+  ui_view_hit && (ui_clip_bottom <= 0 || (ui_my < ui_clip_bottom && (ui_scroll_max <= 0 || ui_mx < ui_w - 32)))
+  && ui_mx >= x && ui_mx < x + w && ui_my >= y && ui_my < y + h;
+);
+function ui_track_focus(slot, x, y, w, h) (
+  slot === ui_focus_ix && !ui_blocked ? (
+    ui_focus_left = x; ui_focus_right = x + w; ui_focus_top = y; ui_focus_bottom = y + h;
+    ui_focus_found = 1; ui_focus_scrollable = ui_clip_bottom > 0;
+  );
+);
+function ui_round(v) ( v >= 0 ? floor(v + 0.5) : -floor(-v + 0.5); );
+function ui_request_load(path) ( user_load_path(path); );
+
+// ==================================================================== value <-> fraction / stepping
+function ui_val_frac(val, mn, mx, logc) ( logc ? (log(max(0.0000001, val)) - log(mn)) / (log(mx) - log(mn)) : (val - mn) / (mx - mn); );
+function ui_step_apply(val, mn, mx, logc, coarse, fine, shifted, steps) local(s v)
+(
+  s = shifted ? fine : coarse;
+  v = logc ? val * (s ^ steps) : val + s * steps;
+  v < mn ? v = mn; v > mx ? v = mx;
+  v;
+);
+function ui_dest_transform(dest, val) ( (dest == D_SIZE || dest == D_FILL || dest == D_CUT) ? log(max(0.0000001, val)) / log(2) : dest == D_RESO ? 0.5 + 0.9 * val : val; );
+
+// ==================================================================== names / labels (all @init-time constant text)
+function ui_note_name(n) local(nn oct pc s)
+(
+  nn = max(0, min(127, n | 0)); oct = floor(nn / 12) - 1; pc = nn - floor(nn / 12) * 12;
+  pc == 0 ? s = "C" : pc == 1 ? s = "C#" : pc == 2 ? s = "D" : pc == 3 ? s = "D#" : pc == 4 ? s = "E" : pc == 5 ? s = "F"
+  : pc == 6 ? s = "F#" : pc == 7 ? s = "G" : pc == 8 ? s = "G#" : pc == 9 ? s = "A" : pc == 10 ? s = "A#" : s = "B";
+  sprintf(#ui_fv, "%s%d (%d)", s, oct, nn);
+);
+
+function ui_dest_name(d) (
+  d == 0 ? strcpy(#ui_fv, "Position") : d == 1 ? strcpy(#ui_fv, "Scan Speed") : d == 2 ? strcpy(#ui_fv, "Size")
+  : d == 3 ? strcpy(#ui_fv, "Fill") : d == 4 ? strcpy(#ui_fv, "Timing Variation") : d == 5 ? strcpy(#ui_fv, "Position Scatter")
+  : d == 6 ? strcpy(#ui_fv, "Pitch Spread") : d == 7 ? strcpy(#ui_fv, "Shape") : d == 8 ? strcpy(#ui_fv, "Pan")
+  : d == 9 ? strcpy(#ui_fv, "Pan Spread") : d == 10 ? strcpy(#ui_fv, "Source Width") : d == 11 ? strcpy(#ui_fv, "Cutoff")
+  : d == 12 ? strcpy(#ui_fv, "Resonance") : strcpy(#ui_fv, "Voice Pitch");
+);
+function ui_dest_name_short(d) (
+  d == 0 ? strcpy(#ui_fv, "Position") : d == 1 ? strcpy(#ui_fv, "Scan") : d == 2 ? strcpy(#ui_fv, "Size")
+  : d == 3 ? strcpy(#ui_fv, "Fill") : d == 4 ? strcpy(#ui_fv, "Tim.Var") : d == 5 ? strcpy(#ui_fv, "Scatter")
+  : d == 6 ? strcpy(#ui_fv, "Pitch Spr") : d == 7 ? strcpy(#ui_fv, "Shape") : d == 8 ? strcpy(#ui_fv, "Pan")
+  : d == 9 ? strcpy(#ui_fv, "Pan Spr") : d == 10 ? strcpy(#ui_fv, "Width") : d == 11 ? strcpy(#ui_fv, "Cutoff")
+  : d == 12 ? strcpy(#ui_fv, "Reso") : strcpy(#ui_fv, "V.Pitch");
+);
+function ui_src_name(s) (
+  s == 1 ? strcpy(#ui_fv, "Env") : s == 2 ? strcpy(#ui_fv, "LFO 1") : s == 3 ? strcpy(#ui_fv, "LFO 2")
+  : s == 4 ? strcpy(#ui_fv, "Random") : s == 5 ? strcpy(#ui_fv, "Velocity") : s == 6 ? strcpy(#ui_fv, "Pressure")
+  : s == 7 ? strcpy(#ui_fv, "Wheel") : s == 8 ? strcpy(#ui_fv, "Key Track") : s == 9 ? strcpy(#ui_fv, "Body")
+  : s == 10 ? strcpy(#ui_fv, "Motion") : s == 11 ? strcpy(#ui_fv, "Colour") : strcpy(#ui_fv, "Space");
+);
+
+function ui_enum_count(t) ( t == 1 ? 3 : t == 2 ? 11 : t == 3 ? 10 : t == 4 ? 4 : t == 5 ? 3 : t == 6 ? 2 : t == 7 ? 17 : 1; );
+function ui_enum_label(t, i) local()
+(
+  t == 1 ? ( i == 0 ? strcpy(#ui_fv, "Wrap") : i == 1 ? strcpy(#ui_fv, "Reflect") : strcpy(#ui_fv, "End Hold"); )
+  : t == 2 ? (
+    i == 0 ? strcpy(#ui_fv, "1/4 beat") : i == 1 ? strcpy(#ui_fv, "1/2 beat") : i == 2 ? strcpy(#ui_fv, "1 beat")
+    : i == 3 ? strcpy(#ui_fv, "2 beats") : i == 4 ? strcpy(#ui_fv, "4 beats") : i == 5 ? strcpy(#ui_fv, "8 beats")
+    : i == 6 ? strcpy(#ui_fv, "16 beats") : i == 7 ? strcpy(#ui_fv, "32 beats") : i == 8 ? strcpy(#ui_fv, "64 beats")
+    : i == 9 ? strcpy(#ui_fv, "128 beats") : strcpy(#ui_fv, "256 beats");
+  )
+  : t == 3 ? (
+    i == 0 ? strcpy(#ui_fv, "1/16 beat") : i == 1 ? strcpy(#ui_fv, "1/8 beat") : i == 2 ? strcpy(#ui_fv, "1/6 beat")
+    : i == 3 ? strcpy(#ui_fv, "1/4 beat") : i == 4 ? strcpy(#ui_fv, "1/3 beat") : i == 5 ? strcpy(#ui_fv, "1/2 beat")
+    : i == 6 ? strcpy(#ui_fv, "3/4 beat") : i == 7 ? strcpy(#ui_fv, "1 beat") : i == 8 ? strcpy(#ui_fv, "2 beats")
+    : strcpy(#ui_fv, "4 beats");
+  )
+  : t == 4 ? ( i == 0 ? strcpy(#ui_fv, "Continuous") : i == 1 ? strcpy(#ui_fv, "Chromatic") : i == 2 ? strcpy(#ui_fv, "Octaves") : strcpy(#ui_fv, "Open Fifths"); )
+  : t == 5 ? ( i == 0 ? strcpy(#ui_fv, "Sine") : i == 1 ? strcpy(#ui_fv, "Triangle") : strcpy(#ui_fv, "Square"); )
+  : t == 6 ? ( i == 0 ? strcpy(#ui_fv, "Free") : strcpy(#ui_fv, "Transport"); )
+  : t == 7 ? ( i == 0 ? strcpy(#ui_fv, "Omni") : sprintf(#ui_fv, "%d", i); )
+  : strcpy(#ui_fv, "?");
+);
+function ui_pulse_beats_disp(idx) ( idx == 0 ? 1/16 : idx == 1 ? 1/8 : idx == 2 ? 1/6 : idx == 3 ? 0.25 : idx == 4 ? 1/3 : idx == 5 ? 0.5 : idx == 6 ? 0.75 : idx == 7 ? 1 : idx == 8 ? 2 : 4; );
+
+// Native JSFX menus are host-clamped and keyboard-navigable, including tall lists at enlarged UI scales.
+// https://www.reaper.fm/sdk/js/gfx.php (gfx_showmenu, REAPER 4.76+).
+function ui_choose(kind, enumtype, selected, srcid, x, y) local(i n choice patch_before routes_before source_before)
+(
+  n = kind === 1 ? ui_enum_count(enumtype) : kind === 2 ? 12 : 14;
+  strcpy(#ui_menu_text, ""); i = 0;
+  while (i < n) (
+    i > 0 ? strcat(#ui_menu_text, "|");
+    kind === 1 ? ui_enum_label(enumtype, i) : kind === 2 ? ui_src_name(i + 1) : ui_dest_name(i);
+    i === selected ? strcat(#ui_menu_text, "!");
+    kind === 3 && i === D_VPITCH && srcid >= 9 ? strcat(#ui_menu_text, "#");
+    strcat(#ui_menu_text, #ui_fv); i += 1;
+  );
+  gfx_x = min(gfx_w - 1, max(0, ui_dx(x))); gfx_y = min(gfx_h - 1, max(0, ui_dy(y)));
+  patch_before = patch_applied_gen; routes_before = CMD[C_ROUTES_GEN]; source_before = active_gen;
+  // Native menus pump host callbacks: save can reenter @serialize before this call returns.
+  // Release ownership for the modal wait, then reclaim it before any UI mutation resumes.
+  ui_popup_active = 1;
+  atomic_set(transfer_gate, 0);
+  choice = gfx_showmenu(#ui_menu_text);
+  atomic_set(ui_resume_claim, 1); // audio finishes its current transfer but starts no new one
+  while (atomic_setifequal(transfer_gate, 0, 1) != 0) ( 0; );
+  atomic_set(ui_resume_claim, 0);
+  ui_popup_active = 0;
+  // A selection made for an older patch must not mutate a newly adopted patch or route row.
+  patch_before != patch_applied_gen || routes_before != CMD[C_ROUTES_GEN] || source_before != active_gen ? (
+    choice = 0; ui_routes_refresh();
+  );
+  ui_drag_slot = -1; ui_press_slot = -1;
+  choice;
+);
+
+// ==================================================================== value formatting (one sprintf per drawn value)
+function ui_fmt(kind, val) (
+  kind == 0 ? sprintf(#ui_fv, "%.2f", val)
+  : kind == 1 ? sprintf(#ui_fv, "%.0f ms", val)
+  : kind == 2 ? ( val >= 1000 ? sprintf(#ui_fv, "%.2f kHz", val / 1000) : sprintf(#ui_fv, "%.0f Hz", val); )
+  : kind == 3 ? sprintf(#ui_fv, "%.0f %%", val * 100)
+  : kind == 4 ? sprintf(#ui_fv, "%+.0f %%", val * 100)
+  : kind == 5 ? sprintf(#ui_fv, "%+d st", val | 0)
+  : kind == 6 ? sprintf(#ui_fv, "%+.1f st", val)
+  : kind == 7 ? sprintf(#ui_fv, "%+d c", val | 0)
+  : kind == 8 ? sprintf(#ui_fv, "%+.1f dB", val)
+  : kind == 9 ? ui_note_name(val)
+  : kind == 10 ? sprintf(#ui_fv, "Q %.2f", 0.5 + 0.9 * val)
+  : kind == 11 ? ( val >= 1000 ? sprintf(#ui_fv, "%.2f s", val / 1000) : sprintf(#ui_fv, "%.0f ms", val); )
+  : kind == 12 ? sprintf(#ui_fv, "%.3f Hz", val)
+  : kind == 13 ? sprintf(#ui_fv, "%.2f src s/s", val)
+  : kind == 14 ? sprintf(#ui_fv, "%d", val | 0)
+  : sprintf(#ui_fv, "%.2f", val);
+);
+
+// ==================================================================== interaction plumbing
+function ui_is_dclick(slot) local(r)
+(
+  r = (time_precise() - ui_click_time < 0.45) && ui_click_slot == slot;
+  ui_click_time = time_precise(); ui_click_slot = slot;
+  r;
+);
+function ui_focus_ring(x, y, w, h) ( ui_c_accent(); ui_frame_rect(x, y, w, h); );
+function ui_sethint(label) ( ui_hover_active = 1; strcpy(#ui_hint, label); );
+
+// ==================================================================== generic field widgets
+// Numeric field: drag (up/right = increase), wheel, dbl-click reset, typed entry (Enter), keyboard adjust.
+// Validate in the UI before publishing, so rejected edits keep their previous source/destination/depth.
+function ui_route_write(slot, src, dst, depth) local(i count ok)
+(
+  count = 0; i = 0;
+  while (i < NROUTES) ( i != slot && ROUTES_UI[i * 4] > 0 && ROUTES_UI[i * 4 + 1] === dst ? count += 1; i += 1; );
+  ok = src === 0 || (src >= 1 && src <= 12 && dst >= 1 && dst <= 14 && count < 2 && !(src >= 9 && dst === 14));
+  ok ? ui_route_edit(slot, src, dst, depth) : (
+    ui_warn_flash_t = time_precise();
+    src >= 9 && dst === 14 ? strcpy(#ui_warn_msg, "Macros cannot change Voice Pitch.") : strcpy(#ui_warn_msg, "Two routes per destination.");
+  );
+  ok;
+);
+function ui_route_first_free() local(r f) ( f = -1; r = 0; while (r < NROUTES && f < 0) ( ROUTES_UI[r * 4] === 0 ? f = r; r += 1; ); f; );
+function ui_route_create(src, dst) local(slot)
+(
+  slot = ui_route_first_free();
+  slot >= 0 ? ( ui_route_write(slot, src, dst, 0.5); ui_pending_slot = slot; ui_pending_src = src; ui_pending_dst = dst; ui_pending_check = 8; )
+  : ( ui_warn_flash_t = time_precise(); strcpy(#ui_warn_msg, "No free route slots."); );
+);
+
+function ui_src_matches_selected(dest) local(srcid r found)
+(
+  srcid = ui_ov_source === 1 ? 1 : ui_ov_source === 2 ? 2 : ui_ov_source === 3 ? 3 : ui_ov_source === 4 ? 4 : -1;
+  srcid < 0 ? 0 : (
+    found = 0; r = 0;
+    while (r < NROUTES) ( ROUTES_UI[r * 4] === srcid && ROUTES_UI[r * 4 + 1] === dest + 1 ? found = 1; r += 1; );
+    found;
+  );
+);
+
+function ui_numfield(x, y, w, h, label, val, mn, mx, logc, coarse, fine, deflt, fmtkind, dest, dim) local(myslot hit isfocus isdown shiftheld dx dy steps frac sum spanv basefrac lo hi barh i rr effv eff rowhit clickedout n)
+(
+  myslot = ui_slot; ui_slot += 1; ui_track_focus(myslot, x, y, w, h);
+  ui_touch = 0;
+  hit = !ui_blocked && ui_hit(x, y, w, h);
+  hit ? ui_sethint(label);
+  isfocus = (myslot === ui_focus_ix);
+  isdown = hit && (mouse_cap & 1) && !(ui_lastcap & 1);
+  isdown ? (
+    ui_is_dclick(myslot) ? ( val = deflt; ui_touch = 1; )
+    : ( ui_drag_slot = myslot; ui_drag_val0 = val; ui_drag_mx0 = ui_mx; ui_drag_my0 = ui_my; ui_focus_ix = myslot; );
+  );
+  ui_drag_slot === myslot ? (
+    shiftheld = (mouse_cap & 8) != 0;
+    dx = ui_mx - ui_drag_mx0; dy = ui_drag_my0 - ui_my;
+    steps = ui_round((dx + dy) / 4);
+    steps != 0 ? val = ui_step_apply(ui_drag_val0, mn, mx, logc, coarse, fine, shiftheld, steps);
+    !(mouse_cap & 1) ? ( ui_drag_slot = -1; ui_touch = 1; );
+  );
+  hit && ui_wheel_steps != 0 ? ( val = ui_step_apply(val, mn, mx, logc, coarse, fine, (mouse_cap & 8) != 0, ui_wheel_steps); ui_touch = 1; ui_wheel_steps = 0; );
+  hit && (mouse_cap & 2) && !(ui_lastcap & 2) && dest >= 0 ? (
+    n = ui_choose(2, 0, -1, 0, x, y + h);
+    n > 0 ? ( ui_route_create(n, dest + 1); ui_undo_pending = 1; );
+  );
+  isfocus && !ui_blocked && !ui_edit_active ? (
+    ui_key_left ? ( val = ui_step_apply(val, mn, mx, logc, coarse, fine, ui_key_shift, -1); ui_touch = 1; ui_key_left = 0; );
+    ui_key_right ? ( val = ui_step_apply(val, mn, mx, logc, coarse, fine, ui_key_shift, 1); ui_touch = 1; ui_key_right = 0; );
+    ui_key_up ? ( val = ui_step_apply(val, mn, mx, logc, coarse, fine, ui_key_shift, 1); ui_touch = 1; ui_key_up = 0; );
+    ui_key_down ? ( val = ui_step_apply(val, mn, mx, logc, coarse, fine, ui_key_shift, -1); ui_touch = 1; ui_key_down = 0; );
+    ui_key_enter ? ( ui_edit_active = 1; ui_edit_owner = myslot; ui_edit_selected = 1; ui_edit_commit = 0; sprintf(#ui_edit_text, "%.4f", val); ui_key_enter = 0; );
+  );
+  // edit commit (Enter typed above, or clicked from an active edit) handled centrally at frame top for this slot
+  ui_edit_active && ui_edit_owner === myslot && ui_edit_commit ? ( match("%f", #ui_edit_text, val) ? 0 : 0; (fmtkind === 5 || fmtkind === 7 || fmtkind === 9 || fmtkind === 14) ? val = ui_round(val); val < mn ? val = mn; val > mx ? val = mx; ui_touch = 1; ui_edit_active = 0; ui_edit_commit = 0; );
+  ui_edit_active && ui_edit_owner === myslot && !hit && (mouse_cap & 1) && !(ui_lastcap & 1) ? ( ui_edit_active = 0; );
+  // chrome
+  dim ? ui_col(0.145, 0.148, 0.158) : (hit ? ui_c_fieldhover() : ui_c_field());
+  ui_rect(x, y, w, h);
+  (dest >= 0 && ui_ov_source >= 1 && ui_ov_source <= 5 && ui_src_matches_selected(dest)) ? ( ui_c_mod(); ui_frame_rect(x, y, w, h); ) : isfocus && !ui_blocked ? ui_focus_ring(x, y, w, h);
+  ui_c_dim(); ui_font(2, 11); ui_text(x + 6, y + 3, label);
+  // base bar
+  frac = ui_val_frac(val, mn, mx, logc); frac < 0 ? frac = 0; frac > 1 ? frac = 1;
+  barh = 3; dim ? ui_col(0.4, 0.35, 0.25) : ui_c_accent(); ui_rect(x + 2, y + h - barh - 2, (w - 4) * frac, barh);
+  dest >= 0 ? (
+    sum = 0; i = 0;
+    while (i < NROUTES) ( ROUTES_UI[i * 4 + 1] === dest + 1 ? sum += abs(ROUTES_UI[i * 4 + 2]); i += 1; );
+    spanv = DSPAN[dest * 4 + 2] / max(0.000001, DSPAN[dest * 4 + 1] - DSPAN[dest * 4]);
+    sum > 0.0005 ? (
+      lo = max(0, frac - sum * spanv); hi = min(1, frac + sum * spanv);
+      ui_c_mod(); ui_rect(x + 2 + (w - 4) * lo, y + h - barh - 6, (w - 4) * max(0, hi - lo), 2);
+    );
+    ui_sel_voice >= 0 && VOICES[ui_sel_voice * VSTRIDE + V_ST] > 0 ? (
+      effv = VOICES[ui_sel_voice * VSTRIDE + V_CF + dest];
+      eff = (effv - DSPAN[dest * 4]) / max(0.0001, DSPAN[dest * 4 + 1] - DSPAN[dest * 4]); eff < 0 ? eff = 0; eff > 1 ? eff = 1;
+      ui_c_mod(); ui_rect(x + 2 + (w - 4) * eff, y + h - barh - 7, 1, barh + 5);
+    );
+  );
+  ui_edit_active && ui_edit_owner === myslot ? (
+    ui_col(1, 1, 1); ui_font(3, 15); ui_textbox(x + 6, y + 15, w - 12, 16, #ui_edit_text, 0);
+  ) : (
+    ui_fmt(fmtkind, val);
+    dim ? ui_c_dim() : ui_c_text(); ui_font(3, 15); ui_textbox(x + 6, y + 15, w - 12, 16, #ui_fv, 0);
+  );
+  val;
+);
+
+function ui_togglefield(x, y, w, h, label, val, lbl0, lbl1, deflt, dim) local(myslot hit isdown isfocus)
+(
+  myslot = ui_slot; ui_slot += 1; ui_track_focus(myslot, x, y, w, h);
+  ui_touch = 0;
+  hit = !ui_blocked && ui_hit(x, y, w, h);
+  hit ? ui_sethint(label);
+  isfocus = (myslot === ui_focus_ix);
+  isdown = hit && (mouse_cap & 1) && !(ui_lastcap & 1);
+  isdown ? (
+    ui_is_dclick(myslot) ? val = deflt : ( val = val > 0.5 ? 0 : 1; ui_focus_ix = myslot; );
+    ui_touch = 1;
+  );
+  isfocus && !ui_blocked && !ui_edit_active && ui_key_enter ? ( val = val > 0.5 ? 0 : 1; ui_touch = 1; ui_key_enter = 0; );
+  val > 0.5 ? (dim ? ui_col(0.35, 0.30, 0.20) : ui_c_accent()) : (dim ? ui_col(0.145, 0.148, 0.158) : ui_c_field());
+  ui_rect(x, y, w, h);
+  isfocus && !ui_blocked ? ui_focus_ring(x, y, w, h);
+  h < 32 || strlen(label) == 0 ? (
+    val > 0.5 ? ui_col(0.08, 0.08, 0.08) : ui_c_text(); ui_font(3, 13);
+    ui_textbox(x, y, w, h, val > 0.5 ? lbl1 : lbl0, 1 | 4);
+  ) : (
+    val > 0.5 ? ui_col(0.08, 0.08, 0.08) : ui_c_dim(); ui_font(2, 13); ui_text(x + 6, y + 3, label);
+    val > 0.5 ? ui_col(0.08, 0.08, 0.08) : ui_col(0.95, 0.95, 0.93); ui_font(3, 14);
+    ui_textbox(x + 6, y + 16, w - 12, 16, val > 0.5 ? lbl1 : lbl0, 0);
+  );
+  val;
+);
+
+function ui_enumfield(x, y, w, h, label, val, enumtype, deflt, dim) local(myslot hit isdown isfocus n i rowhit clickedout)
+(
+  myslot = ui_slot; ui_slot += 1; ui_track_focus(myslot, x, y, w, h);
+  ui_touch = 0;
+  n = ui_enum_count(enumtype);
+  hit = !ui_blocked && ui_hit(x, y, w, h);
+  hit ? ui_sethint(label);
+  isfocus = (myslot === ui_focus_ix);
+  isdown = hit && (mouse_cap & 1) && !(ui_lastcap & 1);
+  isdown ? ui_focus_ix = myslot;
+  // Left click opens the list (owner ruling, 2026-09-18). It used to only take focus, so a field that
+  // draws a dropdown chevron did nothing under the button everyone reaches for first, and looked as dead
+  // as the unbound sliders did. Right click and Enter still open it. `deflt` is kept for the signature
+  // and for callers' documentation: double-click-to-default is unreachable now, because the first click
+  // raises a modal menu that swallows the second.
+  isdown || (hit && (mouse_cap & 2) && !(ui_lastcap & 2)) || (isfocus && !ui_blocked && !ui_edit_active && ui_key_enter) ? (
+    i = ui_choose(1, enumtype, val + 0, 0, x, y + h);
+    i > 0 ? ( val = i - 1; ui_touch = 1; ); ui_key_enter = 0;
+  );
+  isfocus && !ui_blocked && !ui_edit_active ? (
+    ui_key_left ? ( val = (val - 1 + n) % n; ui_touch = 1; ui_key_left = 0; );
+    ui_key_right ? ( val = (val + 1) % n; ui_touch = 1; ui_key_right = 0; );
+  );
+  dim ? ui_col(0.145, 0.148, 0.158) : (hit ? ui_c_fieldhover() : ui_c_field());
+  ui_rect(x, y, w, h);
+  isfocus && !ui_blocked ? ui_focus_ring(x, y, w, h);
+  ui_c_dim(); ui_font(2, 11); ui_text(x + 6, y + 3, label);
+  ui_enum_label(enumtype, val);
+  dim ? ui_c_dim() : ui_c_text(); ui_font(3, 14); ui_textbox(x + 6, y + 16, w - 20, 16, #ui_fv, 0);
+  ui_c_dim(); ui_font(3, 12); ui_textbox(x, y + 16, w - 6, 16, "v", 2);
+  val;
+);
+
+function ui_button(x, y, w, h, label) local(myslot hit clicked)
+(
+  myslot = ui_slot; ui_slot += 1; ui_track_focus(myslot, x, y, w, h);
+  hit = !ui_blocked && ui_hit(x, y, w, h);
+  hit ? ui_sethint(label);
+  clicked = hit && !(mouse_cap & 1) && (ui_lastcap & 1) && ui_press_slot === myslot;
+  hit && (mouse_cap & 1) && !(ui_lastcap & 1) ? ( ui_press_slot = myslot; ui_focus_ix = myslot; );
+  myslot === ui_focus_ix && !ui_blocked && !ui_edit_active && ui_key_enter ? ( clicked = 1; ui_key_enter = 0; ui_key_space = 0; );
+  hit ? ui_c_fieldhover() : ui_c_field();
+  ui_rect(x, y, w, h);
+  myslot === ui_focus_ix && !ui_blocked ? ui_focus_ring(x, y, w, h);
+  ui_c_text(); ui_font(3, 13); ui_textbox(x, y, w, h, label, 1 | 4);
+  clicked;
+);
+
+function ui_rowbutton(x, y, w, h, label) local(clicked hit)
+(
+  clicked = ui_button(x, y, w, h, "");
+  hit = !ui_blocked && ui_hit(x, y, w, h);
+  hit && (mouse_cap & 1) && !(ui_lastcap & 1) ? ( clicked = 1; ui_press_slot = -1; );
+  ui_c_text(); ui_font(3, 13); ui_textbox(x + 8, y + 8, w - 16, h - 8, label, 0);
+  clicked;
+);
+
+function ui_minitext(x, y, w, h, label) local(myslot hit clicked)
+(
+  myslot = ui_slot; ui_slot += 1; ui_track_focus(myslot, x, y, w, h);
+  hit = !ui_blocked && ui_hit(x, y, w, h);
+  clicked = hit && !(mouse_cap & 1) && (ui_lastcap & 1) && ui_press_slot === myslot;
+  hit && (mouse_cap & 1) && !(ui_lastcap & 1) ? ( ui_press_slot = myslot; ui_focus_ix = myslot; );
+  myslot === ui_focus_ix && !ui_blocked && !ui_edit_active && ui_key_enter ? ( clicked = 1; ui_key_enter = 0; ui_key_space = 0; );
+  hit ? ui_c_mod() : ui_c_dim();
+  ui_font(2, 11); ui_textbox(x, y, w, h, label, 1 | 4);
+  clicked;
+);
+
+// route source-of-truth helpers (UI copy only)
+
+
+// does the currently selected motion source (Env/LFO1/LFO2/Random/MIDI's 4 sources) route to this dest?
+
+
+// ==================================================================== assignment list (routes from one source)
+function ui_draw_assign_list(x, y, w, srcid, rowh) local(r count)
+(
+  count = 0; r = 0;
+  while (r < NROUTES) ( ROUTES_UI[r * 4] === srcid ? count += 1; r += 1; );
+  sprintf(#ui_fv, "%d assignment%s", count, count === 1 ? "" : "s");
+  ui_c_dim(); ui_font(2, 13); ui_text(x, y, #ui_fv);
+  ui_button(x, y + 22, min(w, 160), 32, "Edit routes") ? ( ui_overlay = 6; ui_route_scroll = 0; );
+);
+
+// ==================================================================== HEADER
+function ui_is_modified() local(base i r ne)
+(
+  factory_origin > 0 && factory_origin <= NFACTORY ? (
+    base = FT_PARAMS + (factory_origin - 1) * 64; ne = 0;
+    // Skip Polyphony (index 1) and MIDI Channel (index 2) for the same reason patch_apply_staged()
+    // no longer writes them: they are the player's performance setup, not part of the sound. Every
+    // factory row stores 8 / Omni, so counting them here would light this dot permanently, on every
+    // preset, for anyone who has set either -- reporting an edit that the preset did not make.
+    i = 0; while (i < 59) ( i == 1 || i == 2 ? 0 : ( abs(slider(i + 1) - base[i]) > 0.0005 ? ne = 1; ); i += 1; );
+    abs(preset_trim - base[59]) > 0.0005 ? ne = 1;
+    r = 0; while (r < NROUTES) (
+      (ROUTES_UI[r * 4] != FT_ROUTES[(factory_origin - 1) * 36 + r * 3] || ROUTES_UI[r * 4 + 1] != FT_ROUTES[(factory_origin - 1) * 36 + r * 3 + 1] || abs(ROUTES_UI[r * 4 + 2] - FT_ROUTES[(factory_origin - 1) * 36 + r * 3 + 2]) > 0.0005) ? ne = 1;
+      r += 1;
+    );
+    ne;
+  ) : 0;
+);
+
+function ui_draw_header(x0, y0, w) local(px m modified base i r bank_ok nv)
+(
+  ui_c_text(); ui_font(1, 20); ui_text(x0, y0 + 12, "SHIRO");
+  bank_ok = meta_get(active_bank, M_STATUS) === 3;
+  px = x0 + 94;
+  ui_button(px, y0 + 8, 280, 32, "") ? ( ui_overlay = 1; strcpy(#ui_search, ""); );
+  ui_c_dim(); ui_font(2, 11); ui_text(px + 8, y0 + 11, "Preset");
+  !bank_ok ? strcpy(#ui_fv, "Empty") : factory_origin <= 0 ? strcpy(#ui_fv, "User") : (
+    strcpy(#ui_fv, FS_PRESET_CAT + factory_origin - 1); strcat(#ui_fv, " . "); r = strlen(#ui_fv);
+    strcat(#ui_fv, FS_PRESET_NAME + factory_origin - 1);
+  );
+  ui_c_text(); ui_font(3, 14); ui_textbox(px + 8, y0 + 22, 240, 16, #ui_fv, 0);
+  ui_button(px + 300, y0 + 8, 32, 32, "<") ? ( factory_origin > 1 ? factory_load_preset(factory_origin - 2); );
+  ui_button(px + 336, y0 + 8, 32, 32, ">") ? ( factory_origin >= 1 && factory_origin < NFACTORY ? factory_load_preset(factory_origin); );
+  modified = ui_is_modified();
+  modified ? ( ui_c_accent(); gfx_circle(ui_dx(px + 380), ui_dy(y0 + 24), 4 * ui_s, 1, 1); );
+  nv = ui_numfield(x0 + w - 188, y0 + 8, 136, 32, "Output", slider(1), -60, 6, 0, 1, 0.1, -12, 8, -1, 0);
+  nv != slider(1) ? ( slider(1) = nv; slider_automate(slider(1)); ); ui_touch ? slider_automate(slider(1), 1);
+  ui_button(x0 + w - 40, y0 + 8, 32, 32, "menu") ? ( ui_overlay = ui_overlay === 4 ? 0 : 4; );
+);
+
+
+
+// ==================================================================== SOURCE ROW
+function ui_error_text(code)
+(
+  code == SE_OPEN ? strcpy(#ui_msg, "Could not open the file.")
+  : code == SE_CHANNELS ? strcpy(#ui_msg, "Multichannel files are not supported: export a mono or stereo file.")
+  : code == SE_TOOLONG ? strcpy(#ui_msg, "Render an excerpt of 12 seconds or less in REAPER.")
+  : code == SE_TOOSHORT ? strcpy(#ui_msg, "The recording is shorter than 20 ms.")
+  : code == SE_NONFINITE ? strcpy(#ui_msg, "The file contains non-finite samples.")
+  : code == SE_NOBANK ? strcpy(#ui_msg, "Busy: a source is still being replaced. Try again in a moment.")
+  : code == SE_READ ? strcpy(#ui_msg, "The file could not be read completely.")
+  : code == SE_BUSY ? strcpy(#ui_msg, "Busy: a source is being loaded. Try again in a moment.")
+  : strcpy(#ui_msg, "");
+);
+
+function ui_draw_source(x0, y0, w) local(m nv)
+(
+  m = meta_ptr(active_bank);
+  ui_button(x0, y0 + 4, 260, 32, "") ? ( ui_overlay = 2; strcpy(#ui_search, ""); );
+  ui_c_dim(); ui_font(2, 11); ui_text(x0 + 8, y0 + 7, "Source");
+  meta_get(active_bank, M_STATUS) === 3 ? strcpy(#ui_fv, active_bank ? #src_name1 : #src_name0) : strcpy(#ui_fv, "(none)");
+  ui_c_text(); ui_font(3, 14); ui_textbox(x0 + 8, y0 + 18, 244, 16, #ui_fv, 0);
+  nv = ui_numfield(x0 + 268, y0 + 4, 90, 32, "Root", slider(6), 0, 127, 0, 1, 1, 60, 9, -1, 0);
+  nv != slider(6) ? ( slider(6) = nv; slider_automate(slider(6)); ); ui_touch ? slider_automate(slider(6), 1);
+  nv = ui_numfield(x0 + 366, y0 + 4, 90, 32, "Fine", slider(7), -100, 100, 0, 5, 1, 0, 7, -1, 0);
+  nv != slider(7) ? ( slider(7) = nv; slider_automate(slider(7)); ); ui_touch ? slider_automate(slider(7), 1);
+  ui_c_dim(); ui_font(2, 12);
+  stg_status === SS_ERROR ? ( ui_error_text(stg_err); ui_c_warn(); ui_textbox(x0, y0 + 12, w, 16, #ui_msg, 2); )
+  : stg_status >= SS_PYR1 && stg_status <= SS_OVERVIEW ? ( strcpy(#ui_fv2, "preparing source..."); ui_c_warn(); ui_textbox(x0, y0 + 12, w, 16, #ui_fv2, 2); )
+  : stg_status === SS_PENDING ? ( ui_button(x0 + w - 200, y0 + 4, 200, 32, "pending . apply now") ? atomic_set(CMD[C_APPLY], 1); )
+  : meta_get(active_bank, M_STATUS) === 3 ? ( strcpy(#ui_fv2, meta_get(active_bank, M_FACTORY) > 0 ? "ready . embedded" : "ready . embedded"); ui_c_ok(); ui_textbox(x0, y0 + 12, w, 16, #ui_fv2, 2); )
+  : ( strcpy(#ui_fv2, "Drop a WAV, choose a factory source or load a file"); ui_c_dim(); ui_textbox(x0, y0 + 12, w, 16, #ui_fv2, 2); );
+);
+
+// ==================================================================== WAVEFORM
+function ui_xof(f, frames, wx, ww) ( wx + (f / max(1, frames) - ui_wave_scroll) * ui_wave_zoom * ww; );
+
+function ui_draw_waveform(x0, y0, w, h) local(m fw ov i c mn mx wx wy ww wh sw x1 x2 hx1 hx2 down v vr k rec ph life lvl st sel g0 g1 cnt take start extent dir col ex ey px py posn frac)
+(
+  wx = x0; wy = y0; ww = w; wh = h - 32;
+  ui_c_field(); ui_rect(wx, wy, ww, wh);
+  m = meta_ptr(active_bank); fw = m[M_FRAMES];
+  meta_get(active_bank, M_STATUS) === 3 && fw > 0 ? (
+    ov = ovw_ptr(active_bank);
+    ui_col(0.20, 0.24, 0.30);
+    x1 = ui_xof(reg_start_fr, fw, wx, ww); x2 = ui_xof(reg_end_fr, fw, wx, ww);
+    ui_rect(max(wx, x1), wy, min(wx + ww, x2) - max(wx, x1), wh);
+    ui_col(0.55, 0.75, 0.9); i = 0;
+    while (i < ww) (
+      frac = (i / ww) / ui_wave_zoom + ui_wave_scroll; frac < 0 ? frac = 0; frac > 1 ? frac = 1;
+      c = floor(frac * 8192); c > 8191 ? c = 8191;
+      mn = ov[2 * c]; mx = ov[2 * c + 1];
+      ui_lineseg(wx + i, wy + wh / 2 - mx * wh / 2, wx + i, wy + wh / 2 - mn * wh / 2);
+      i += 1;
+    );
+    // region handles
+    ui_c_accent(); ui_rect(x1 - 1, wy, 2, wh); ui_rect(x2 - 1, wy, 2, wh);
+    // position marker
+    posn = pb_pos; px = ui_xof(reg_start_fr + posn * reg_len_fr, fw, wx, ww);
+    ui_col(0.95, 0.85, 0.55); ui_rect(px - 1, wy, 2, wh);
+    // scan-centre ticks per active voice + grain spans (selected voice priority, cap 48)
+    ui_sel_voice = -1; v = 0;
+    while (v < NVOICES) ( VOICES[v * VSTRIDE + V_ST] > 0 && (ui_sel_voice < 0 || VOICES[v * VSTRIDE + V_AGE] > VOICES[ui_sel_voice * VSTRIDE + V_AGE]) ? ui_sel_voice = v; v += 1; );
+    v = 0;
+    while (v < NVOICES) (
+      st = VOICES[v * VSTRIDE + V_ST];
+      st > 0 ? (
+        ex = ui_xof(reg_start_fr + VOICES[v * VSTRIDE + V_ECENTRE] * reg_len_fr, fw, wx, ww);
+        ui_c_mod(); ui_rect(ex - 1, wy, 2, 5); ui_rect(ex - 1, wy + wh - 5, 2, 5);
+      );
+      v += 1;
+    );
+    cnt = 0; v = 0; sel = ui_sel_voice;
+    while (v < NVOICES && cnt < 48) (
+      VOICES[v * VSTRIDE + V_ST] > 0 ? (
+        take = v === sel ? 12 : 6; k = 0;
+        while (k < take && k < NSLOTS && cnt < 48) (
+          rec = GRAINS + (v * NSLOTS + k) * GSTRIDE;
+          rec[G_ST] === 1 ? (
+            lvl = rec[G_LVL]; g0 = (2 ^ lvl) * 0.5;
+            start = rec[G_PH] * g0; life = max(0, rec[G_LIFE]); dir = rec[G_INC] < 0 ? -1 : 1;
+            extent = abs(rec[G_INC]) * g0 * max(1, life);
+            ex = ui_xof(start, fw, wx, ww); ey = ui_xof(start + dir * extent, fw, wx, ww);
+            k === 0 && v === sel ? ui_col(0.98, 0.92, 0.65) : ui_c_mod();
+            ui_lineseg(min(ex, ey), wy + wh - 8 - (v % 4) * 3, max(ex, ey), wy + wh - 8 - (v % 4) * 3);
+            cnt += 1;
+          );
+          k += 1;
+        );
+      );
+      v += 1;
+    );
+    // A full 32-pixel strip remains separate from the waveform edit targets.
+    sw = max(32, ww - 132);
+    ui_c_line(); ui_rect(wx, wy + wh, sw, 32);
+    ui_c_dim(); ui_rect(wx + ui_wave_scroll * sw, wy + wh + 10, sw / ui_wave_zoom, 12);
+    ui_button(wx + ww - 124, wy + wh, 32, 32, "-") ? ui_wave_zoom = max(1, ui_wave_zoom / 2);
+    ui_button(wx + ww - 88, wy + wh, 32, 32, "+") ? ui_wave_zoom = min(16, ui_wave_zoom * 2);
+    ui_button(wx + ww - 52, wy + wh, 52, 32, "Fit") ? ( ui_wave_zoom = 1; ui_wave_scroll = 0; );
+    ui_wave_scroll = max(0, min(1 - 1 / ui_wave_zoom, ui_wave_scroll));
+    // dragging: handles / position marker / scroll strip
+    down = (mouse_cap & 1) && !(ui_lastcap & 1) && !ui_blocked && ui_view_hit && (ui_clip_bottom <= 0 || ui_my < ui_clip_bottom);
+    down && abs(ui_mx - x1) < 16 && ui_my >= wy && ui_my < wy + wh ? ui_wave_drag = 1;
+    down && abs(ui_mx - x2) < 16 && ui_my >= wy && ui_my < wy + wh && ui_wave_drag != 1 ? ui_wave_drag = 2;
+    down && abs(ui_mx - px) < 16 && ui_my >= wy && ui_my < wy + wh && ui_wave_drag < 1 ? ui_wave_drag = 3;   // marker drag only inside the waveform
+    down && ui_wave_drag < 1 && ui_mx > wx && ui_mx < wx + ww && ui_my >= wy && ui_my < wy + wh && (mouse_cap & 16) ? ( ui_wave_drag = 4; ui_drag_mx0 = ui_mx; );
+    down && ui_wave_drag < 1 && ui_mx > wx && ui_mx < wx + sw && ui_my >= wy + wh && ui_my < wy + wh + 32 ? ( ui_wave_drag = 5; ui_drag_mx0 = ui_mx; );
+    // Latch a grab anchor. Expanding a hit band must not move the sound on mouse-down.
+    down && ui_wave_drag > 0 && ui_wave_drag < 5 ? (
+      ui_drag_mx0 = ui_mx;
+      ui_drag_val0 = ui_wave_drag === 2 ? slider(11) : ui_wave_drag === 3 ? slider(12) : slider(10);
+    );
+    frac = (ui_mx - ui_drag_mx0) / (ui_wave_zoom * ww) * ((mouse_cap & 8) ? 0.1 : 1);
+    ui_wave_drag === 1 && (mouse_cap & 1) ? ( slider(10) = max(0, min(1, ui_drag_val0 + frac)); slider_automate(slider(10)); );
+    ui_wave_drag === 2 && (mouse_cap & 1) ? ( slider(11) = max(0, min(1 - slider(10), ui_drag_val0 + frac)); slider_automate(slider(11)); );
+    ui_wave_drag === 3 && (mouse_cap & 1) ? ( slider(12) = max(0, min(1, ui_drag_val0 + (reg_len_fr > 0 ? frac * fw / reg_len_fr : 0))); slider_automate(slider(12)); );
+    ui_wave_drag === 4 && (mouse_cap & 1) ? ( slider(10) = max(0, min(1 - slider(11), ui_drag_val0 + frac)); slider_automate(slider(10)); );
+    ui_wave_drag === 5 && (mouse_cap & 1) ? ( ui_wave_scroll = max(0, min(1 - 1 / ui_wave_zoom, ui_wave_scroll + (ui_mx - ui_drag_mx0) / sw / ui_wave_zoom)); ui_drag_mx0 = ui_mx; );
+    !(mouse_cap & 1) ? ( ui_wave_drag > 0 && ui_wave_drag < 5 ? slider_automate(ui_wave_drag === 2 ? slider(11) : ui_wave_drag === 3 ? slider(12) : slider(10), 1); ui_wave_drag = 0; );
+  ) : ( ui_c_dim(); ui_font(3, 14); ui_textbox(wx, wy, ww, wh, "Drop a WAV, choose a factory source or load a file", 1 | 4); );
+  !ui_blocked && ui_mx > wx && ui_mx < wx + ww && ui_my >= wy && ui_my < wy + wh && ui_wheel_steps != 0 ? (
+    ui_wave_zoom = max(1, min(16, ui_wave_zoom * (1 + 0.15 * ui_wheel_steps))); ui_wheel_steps = 0;
+    ui_wave_scroll = max(0, min(1 - 1 / ui_wave_zoom, ui_wave_scroll));
+  );
+);
+
+// ==================================================================== SCAN ROW
+function ui_draw_scan(x0, y0, w) local(nv sync sc)
+(
+  sc = min(1, w / 780);
+  nv = ui_numfield(x0, y0, 150 * sc, 32, "Position", slider(12), 0, 1, 0, 0.05, 0.005, 0, 3, D_POS, 0);
+  nv != slider(12) ? ( slider(12) = nv; slider_automate(slider(12)); ); ui_touch ? slider_automate(slider(12), 1);
+  sync = slider(15) > 0.5;
+  nv = ui_numfield(x0 + 158 * sc, y0, 150 * sc, 32, "Scan Speed", slider(13), -4, 4, 0, 0.1, 0.01, 1, 13, D_SCAN, sync);
+  abs(nv) < 0.03 ? nv = 0 : abs(nv - 1) < 0.03 ? nv = 1 : abs(nv + 1) < 0.03 ? nv = -1;
+  nv != slider(13) ? ( slider(13) = nv; slider_automate(slider(13)); ); ui_touch ? slider_automate(slider(13), 1);
+  nv = ui_enumfield(x0 + 316 * sc, y0, 150 * sc, 32, "Scan Loop", slider(14), 1, 1, 0);
+  nv != slider(14) ? ( slider(14) = nv; slider_automate(slider(14)); ); ui_touch ? slider_automate(slider(14), 1);
+  nv = ui_togglefield(x0 + 474 * sc, y0, 50 * sc, 32, "Sync", slider(15), "Free", "Sync", 0, 0);
+  nv != slider(15) ? ( slider(15) = nv; slider_automate(slider(15)); ); ui_touch ? slider_automate(slider(15), 1);
+  nv = ui_enumfield(x0 + 532 * sc, y0, 150 * sc, 32, "Scan Division", slider(16), 2, 6, !sync);
+  nv != slider(16) ? ( slider(16) = nv; slider_automate(slider(16)); ); ui_touch ? slider_automate(slider(16), 1);
+  nv = ui_togglefield(x0 + 690 * sc, y0, 90 * sc, 32, "Freeze", slider(17), "Off", "On", 0, 0);
+  nv != slider(17) ? ( slider(17) = nv; slider_automate(slider(17)); ); ui_touch ? slider_automate(slider(17), 1);
+);
+
+// ==================================================================== GRAINS + NOTE cards
+function ui_draw_grains(x0, y0, w, h) local(nv pulse rate ov capped colw colw3)
+(
+  ui_c_panel(); ui_rect(x0, y0, w, h);
+  ui_c_text(); ui_font(2, 12); ui_text(x0 + 8, y0 + 1, "GRAINS");
+  pulse = slider(20) > 0.5;
+  nv = ui_togglefield(x0 + 74, y0, 80, 32, "", slider(20), "Free", "Pulse", 0, 0);
+  nv != slider(20) ? ( slider(20) = nv; slider_automate(slider(20)); ); ui_touch ? slider_automate(slider(20), 1);
+  colw = (w - 8) / 2; colw3 = (w - 16) / 3;
+  nv = ui_numfield(x0, y0 + 34, colw, 32, "Size", slider(18), 8, 500, 1, 1.1, 1.01, 80, 1, D_SIZE, 0);
+  nv != slider(18) ? ( slider(18) = nv; slider_automate(slider(18)); ); ui_touch ? slider_automate(slider(18), 1);
+  !pulse ? (
+    nv = ui_numfield(x0 + colw + 8, y0 + 34, colw, 32, "Fill", slider(19), 0.25, 8, 1, 1.1, 1.01, 4, 0, D_FILL, 0);
+    nv != slider(19) ? ( slider(19) = nv; slider_automate(slider(19)); ); ui_touch ? slider_automate(slider(19), 1);
+  ) : (
+    nv = ui_enumfield(x0 + colw + 8, y0 + 34, colw, 32, "Pulse Division", slider(21), 3, 3, 0);
+    nv != slider(21) ? ( slider(21) = nv; slider_automate(slider(21)); ); ui_touch ? slider_automate(slider(21), 1);
+  );
+  nv = ui_numfield(x0, y0 + 66, colw, 32, "Position Scatter", slider(23), 0, 1, 0, 0.05, 0.005, 0.08, 3, D_SCAT, 0);
+  nv != slider(23) ? ( slider(23) = nv; slider_automate(slider(23)); ); ui_touch ? slider_automate(slider(23), 1);
+  nv = ui_numfield(x0 + colw + 8, y0 + 66, colw, 32, "Timing Variation", slider(22), 0, 0.8, 0, 0.05, 0.005, 0.15, 3, D_TVAR, pulse);
+  nv != slider(22) ? ( slider(22) = nv; slider_automate(slider(22)); ); ui_touch ? slider_automate(slider(22), 1);
+  nv = ui_numfield(x0, y0 + 98, colw, 32, "Window Shape", slider(27), 0, 1, 0, 0.05, 0.005, 0, 3, D_SHAPE, 0);
+  nv != slider(27) ? ( slider(27) = nv; slider_automate(slider(27)); ); ui_touch ? slider_automate(slider(27), 1);
+  nv = ui_numfield(x0 + colw + 8, y0 + 98, colw, 32, "Reverse Probability", slider(24), 0, 1, 0, 0.05, 0.005, 0, 3, -1, 0);
+  nv != slider(24) ? ( slider(24) = nv; slider_automate(slider(24)); ); ui_touch ? slider_automate(slider(24), 1);
+  nv = ui_numfield(x0, y0 + 130, colw3, 32, "Pan", slider(29), -1, 1, 0, 0.05, 0.005, 0, 4, D_PAN, 0);
+  nv != slider(29) ? ( slider(29) = nv; slider_automate(slider(29)); ); ui_touch ? slider_automate(slider(29), 1);
+  nv = ui_numfield(x0 + colw3 + 8, y0 + 130, colw3, 32, "Pan Spread", slider(30), 0, 1, 0, 0.05, 0.005, 0.25, 3, D_PSPREAD, 0);
+  nv != slider(30) ? ( slider(30) = nv; slider_automate(slider(30)); ); ui_touch ? slider_automate(slider(30), 1);
+  nv = ui_numfield(x0 + 2 * (colw3 + 8), y0 + 130, colw3, 32, "Source Width", slider(31), 0, 1, 0, 0.05, 0.005, 1, 3, D_WIDTH, 0);
+  nv != slider(31) ? ( slider(31) = nv; slider_automate(slider(31)); ); ui_touch ? slider_automate(slider(31), 1);
+  !pulse ? ( rate = min(200, pb_fill / (pb_size * 0.001)); capped = rate >= 199.9; ov = rate * pb_size * 0.001; )
+  : ( rate = 1 / max(0.005, ui_pulse_beats_disp(pb_pulsediv) * 60 / max(1, cur_tempo)); capped = 0; ov = rate * pb_size * 0.001; );
+  sprintf(#ui_fv2, "base rate %.0f/s . overlap %.1f%s", rate, ov, capped ? "  capped" : "");
+  capped ? ui_c_warn() : ui_c_dim(); ui_font(2, 10); ui_textbox(x0 + 8, y0 + h - 18, w - 16, 16, #ui_fv2, 0);
+);
+
+function ui_draw_ampenv_mini(x0, y0, w, h) local(myslot hit a d s r tot ax ay bx by cx cy dx dy px)
+(
+  myslot = ui_slot; ui_slot += 1; ui_track_focus(myslot, x, y, w, h);
+  hit = !ui_blocked && ui_hit(x0, y0, w, h);
+  hit ? ui_sethint("Amp envelope . click to edit");
+  hit ? ui_c_fieldhover() : ui_c_field(); ui_rect(x0, y0, w, h);
+  hit && (mouse_cap & 1) && !(ui_lastcap & 1) ? ( ui_ov_source = 7; ui_drawer = 1; ui_focus_ix = myslot; );
+  ui_c_dim(); ui_font(2, 11); ui_text(x0 + 6, y0 + 2, "Amp envelope");
+  a = slider(32); d = slider(33); s = slider(34); r = slider(35); tot = max(1, a + d + r);
+  px = x0 + 4; ax = px; ay = y0 + h - 2;
+  bx = px + w * 0.3 * a / tot; by = y0 + 4;
+  cx = bx + w * 0.3 * d / tot; cy = y0 + 4 + (1 - s) * (h - 8);
+  dx = x0 + w - 6; dy = cy;
+  ui_c_accent();
+  ui_lineseg(ax, ay, bx, by); ui_lineseg(bx, by, cx, cy); ui_lineseg(cx, cy, dx, dy); ui_lineseg(dx, dy, x0 + w - 2, y0 + h - 2);
+);
+
+function ui_draw_note(x0, y0, w, h) local(nv colw filton)
+(
+  ui_c_panel(); ui_rect(x0, y0, w, h);
+  ui_c_text(); ui_font(2, 12); ui_text(x0 + 8, y0 + 1, "NOTE");
+  ui_draw_ampenv_mini(x0 + 70, y0, w - 78, 32);
+  colw = (w - 8) / 2;
+  nv = ui_numfield(x0, y0 + 36, colw, 32, "Attack Focus", slider(28), 0, 1, 0, 0.05, 0.005, 0.8, 3, -1, 0);
+  nv != slider(28) ? ( slider(28) = nv; slider_automate(slider(28)); ); ui_touch ? slider_automate(slider(28), 1);
+  nv = ui_numfield(x0 + colw + 8, y0 + 36, colw, 32, "Transpose", slider(8), -24, 24, 0, 1, 1, 0, 5, -1, 0);
+  nv != slider(8) ? ( slider(8) = nv; slider_automate(slider(8)); ); ui_touch ? slider_automate(slider(8), 1);
+  nv = ui_togglefield(x0, y0 + 70, colw, 32, "Keyboard Track", slider(9), "Off", "On", 1, 0);
+  nv != slider(9) ? ( slider(9) = nv; slider_automate(slider(9)); ); ui_touch ? slider_automate(slider(9), 1);
+  nv = ui_numfield(x0 + colw + 8, y0 + 70, colw, 32, "Pitch Spread", slider(25), 0, 24, 0, 1, 0.1, 0, 6, D_PSPR, 0);
+  nv != slider(25) ? ( slider(25) = nv; slider_automate(slider(25)); ); ui_touch ? slider_automate(slider(25), 1);
+  nv = ui_enumfield(x0, y0 + 104, colw, 32, "Pitch Set", slider(26), 4, 0, 0);
+  nv != slider(26) ? ( slider(26) = nv; slider_automate(slider(26)); ); ui_touch ? slider_automate(slider(26), 1);
+  filton = slider(36) > 0.5;
+  nv = ui_togglefield(x0 + colw + 8, y0 + 104, colw, 32, "Filter Enable", slider(36), "Off", "On", 1, 0);
+  nv != slider(36) ? ( slider(36) = nv; slider_automate(slider(36)); ); ui_touch ? slider_automate(slider(36), 1);
+  nv = ui_numfield(x0, y0 + 138, colw, 32, "Cutoff", slider(37), 30, 18000, 1, 1.1, 1.01, 10000, 2, D_CUT, !filton);
+  nv != slider(37) ? ( slider(37) = nv; slider_automate(slider(37)); ); ui_touch ? slider_automate(slider(37), 1);
+  nv = ui_numfield(x0 + colw + 8, y0 + 138, colw, 32, "Resonance", slider(38), 0, 1, 0, 0.05, 0.005, 0.15, 10, D_RESO, !filton);
+  nv != slider(38) ? ( slider(38) = nv; slider_automate(slider(38)); ); ui_touch ? slider_automate(slider(38), 1);
+  (TELE[T_PITCHCLAMP] > ui_pt_pitch) ? ( ui_c_warn(); ui_font(2, 9); ui_textbox(x0, y0 + 1, w - 4, 10, "Pitch limit", 2); );
+);
+
+
+
+// ==================================================================== MOTION ROW + DETAIL DRAWER
+function ui_draw_motion(x0, y0, w) local(nv i lbl bw gap)
+(
+  bw = 85; gap = 8;
+  i = 1; while (i <= 6) (
+    i === 1 ? strcpy(#ui_fv, "Env") : i === 2 ? strcpy(#ui_fv, "LFO 1") : i === 3 ? strcpy(#ui_fv, "LFO 2") : i === 4 ? strcpy(#ui_fv, "Random") : i === 5 ? strcpy(#ui_fv, "MIDI") : strcpy(#ui_fv, "Preset");
+    ui_button(x0 + (i - 1) * (bw + gap), y0, bw, 32, #ui_fv) ? ( ui_ov_source = i; ui_drawer = 1; );
+    ui_ov_source === i ? ( ui_c_mod(); ui_rect(x0 + (i - 1) * (bw + gap) + 4, y0 + 28, bw - 8, 3); );
+    i += 1;
+  );
+  ui_button(x0 + 6 * (bw + gap), y0, 96, 32, "Routes") ? ( ui_overlay = 6; ui_route_scroll = 0; );
+  ui_button(x0 + w - 100, y0, 100, 32, ui_drawer ? "details ^" : "details v") ? ui_drawer = !ui_drawer;
+);
+
+function ui_draw_env_adsr_row(x0, y0, w) local(nv colw)
+(
+  colw = (w - 24) / 4;
+  nv = ui_numfield(x0, y0, colw, 32, "Attack", slider(39), 0, 10000, 0, 50, 5, 250, 1, -1, 0);
+  nv != slider(39) ? ( slider(39) = nv; slider_automate(slider(39)); ); ui_touch ? slider_automate(slider(39), 1);
+  nv = ui_numfield(x0 + colw + 8, y0, colw, 32, "Decay", slider(40), 5, 20000, 1, 1.15, 1.02, 2000, 11, -1, 0);
+  nv != slider(40) ? ( slider(40) = nv; slider_automate(slider(40)); ); ui_touch ? slider_automate(slider(40), 1);
+  nv = ui_numfield(x0 + 2 * (colw + 8), y0, colw, 32, "Sustain", slider(41), 0, 1, 0, 0.05, 0.005, 0.4, 3, -1, 0);
+  nv != slider(41) ? ( slider(41) = nv; slider_automate(slider(41)); ); ui_touch ? slider_automate(slider(41), 1);
+  nv = ui_numfield(x0 + 3 * (colw + 8), y0, colw, 32, "Release", slider(42), 5, 12000, 1, 1.15, 1.02, 1500, 11, -1, 0);
+  nv != slider(42) ? ( slider(42) = nv; slider_automate(slider(42)); ); ui_touch ? slider_automate(slider(42), 1);
+);
+
+function ui_draw_lfo_row(x0, y0, w, isL1) local(nv colw sync ph)
+(
+  colw = (w - 32) / 5;
+  nv = ui_enumfield(x0, y0, colw, 32, "Wave", isL1 ? slider(43) : slider(48), 5, isL1 ? 0 : 1, 0);
+  isL1 ? ( nv != slider(43) ? ( slider(43) = nv; slider_automate(slider(43)); ); ui_touch ? slider_automate(slider(43), 1); )
+  : ( nv != slider(48) ? ( slider(48) = nv; slider_automate(slider(48)); ); ui_touch ? slider_automate(slider(48), 1); );
+  sync = (isL1 ? slider(45) : slider(50)) > 0.5;
+  nv = ui_numfield(x0 + colw + 8, y0, colw, 32, "Rate", isL1 ? slider(44) : slider(49), 0.01, 20, 1, 1.1, 1.01, isL1 ? 0.12 : 0.037, 12, -1, sync);
+  isL1 ? ( nv != slider(44) ? ( slider(44) = nv; slider_automate(slider(44)); ); ui_touch ? slider_automate(slider(44), 1); )
+  : ( nv != slider(49) ? ( slider(49) = nv; slider_automate(slider(49)); ); ui_touch ? slider_automate(slider(49), 1); );
+  nv = ui_togglefield(x0 + 2 * (colw + 8), y0, colw, 32, "Sync", isL1 ? slider(45) : slider(50), "Free", "Sync", 0, 0);
+  isL1 ? ( nv != slider(45) ? ( slider(45) = nv; slider_automate(slider(45)); ); ui_touch ? slider_automate(slider(45), 1); )
+  : ( nv != slider(50) ? ( slider(50) = nv; slider_automate(slider(50)); ); ui_touch ? slider_automate(slider(50), 1); );
+  nv = ui_enumfield(x0 + 3 * (colw + 8), y0, colw, 32, "Division", isL1 ? slider(46) : slider(51), 2, 6, !sync);
+  isL1 ? ( nv != slider(46) ? ( slider(46) = nv; slider_automate(slider(46)); ); ui_touch ? slider_automate(slider(46), 1); )
+  : ( nv != slider(51) ? ( slider(51) = nv; slider_automate(slider(51)); ); ui_touch ? slider_automate(slider(51), 1); );
+  nv = ui_enumfield(x0 + 4 * (colw + 8), y0, colw, 32, "Reset", isL1 ? slider(47) : slider(52), 6, 0, 0);
+  isL1 ? ( nv != slider(47) ? ( slider(47) = nv; slider_automate(slider(47)); ); ui_touch ? slider_automate(slider(47), 1); )
+  : ( nv != slider(52) ? ( slider(52) = nv; slider_automate(slider(52)); ); ui_touch ? slider_automate(slider(52), 1); );
+  ph = isL1 ? lfo1_ph : lfo2_ph;
+  ui_c_mod(); gfx_circle(ui_dx(x0 + w - 12), ui_dy(y0 - 8 + 10 * sin(2 * $pi * ph)), 3 * ui_s, 1, 1);
+);
+
+function ui_draw_random_row(x0, y0, w) local(nv colw)
+(
+  colw = (w - 8) / 2;
+  nv = ui_numfield(x0, y0, colw, 32, "Rate", slider(53), 0.02, 10, 1, 1.1, 1.01, 0.15, 12, -1, 0);
+  nv != slider(53) ? ( slider(53) = nv; slider_automate(slider(53)); ); ui_touch ? slider_automate(slider(53), 1);
+  nv = ui_numfield(x0 + colw + 8, y0, colw, 32, "Glide", slider(54), 0, 1, 0, 0.05, 0.005, 0.8, 3, -1, 0);
+  nv != slider(54) ? ( slider(54) = nv; slider_automate(slider(54)); ); ui_touch ? slider_automate(slider(54), 1);
+);
+
+function ui_draw_midi_row(x0, y0, w) local(nv colw)
+(
+  colw = (w - 24) / 4;
+  nv = ui_numfield(x0, y0, colw, 32, "Velocity Sens.", slider(5), 0, 1, 0, 0.05, 0.005, 0.7, 3, -1, 0);
+  nv != slider(5) ? ( slider(5) = nv; slider_automate(slider(5)); ); ui_touch ? slider_automate(slider(5), 1);
+  nv = ui_numfield(x0 + colw + 8, y0, colw, 32, "Bend Range", slider(4), 1, 24, 0, 1, 1, 2, 14, -1, 0);
+  nv != slider(4) ? ( slider(4) = nv; slider_automate(slider(4)); ); ui_touch ? slider_automate(slider(4), 1);
+  nv = ui_enumfield(x0 + 2 * (colw + 8), y0, colw, 32, "MIDI Channel", slider(3), 7, 0, 0);
+  nv != slider(3) ? ( slider(3) = nv; slider_automate(slider(3)); ); ui_touch ? slider_automate(slider(3), 1);
+  nv = ui_numfield(x0 + 3 * (colw + 8), y0, colw, 32, "Polyphony", slider(2), 1, 8, 0, 1, 1, 8, 14, -1, 0);
+  nv != slider(2) ? ( slider(2) = nv; slider_automate(slider(2)); ); ui_touch ? slider_automate(slider(2), 1);
+);
+
+function ui_draw_preset_details(x0, y0, w) local(nv colw)
+(
+  colw = (w - 8) / 2;
+  nv = ui_numfield(x0, y0, colw, 32, "Preset Trim", preset_trim + 0, -24, 12, 0, 1, 0.1, 0, 8, -1, 0);
+  nv != preset_trim ? preset_trim = nv; ui_touch ? ui_undo_pending = 1;
+  // Variation Seed, with prev/next steppers (owner ruling, 18 September 2026, replacing the
+  // momentary New Variation button removed earlier the same day). Typing the number still works and
+  // is still the only way to jump; these two walk it in ones and ask the audio side to re-articulate
+  // whatever is held, because a seed reaches a voice only at note-on and is otherwise inaudible
+  // until the next note. Same 32 x 32 idiom as the preset steppers in the header.
+  nv = ui_numfield(x0 + colw + 8, y0, colw - 76, 32, "Variation Seed", slider(59), 1, 16777215, 0, 1, 1, 1, 14, -1, 0);
+  nv != slider(59) ? ( slider(59) = nv; slider_automate(slider(59)); ); ui_touch ? slider_automate(slider(59), 1);
+  ui_button(x0 + 2 * colw - 60, y0, 32, 32, "<") ? seed_step(-1);
+  ui_button(x0 + 2 * colw - 24, y0, 32, 32, ">") ? seed_step(1);
+  ui_c_dim(); ui_font(2, 11); ui_text(x0, y0 + 36, "Description");
+  ui_edit_active && ui_edit_owner === -3 ? ( ui_col(1, 1, 1); ui_font(3, 13); ui_textbox(x0, y0 + 48, w, 16, #ui_edit_text, 0); )
+  : ( ui_c_text(); ui_font(3, 13); ui_textbox(x0, y0 + 48, w, 16, #preset_desc, 0);
+      !ui_blocked && ui_hit(x0, y0 + 40, w, 32) && (mouse_cap & 1) && !(ui_lastcap & 1) ? ( ui_edit_active = 1; ui_edit_owner = -3; ui_edit_selected = 1; ui_edit_commit = 0; strcpy(#ui_edit_text, #preset_desc); ); );
+);
+
+function ui_draw_env_adsr_row2(x0, y0, w) local(nv colw)
+(
+  colw = (w - 24) / 4;
+  nv = ui_numfield(x0, y0, colw, 32, "Attack", slider(32), 0, 5000, 0, 25, 5, 5, 1, -1, 0);
+  nv != slider(32) ? ( slider(32) = nv; slider_automate(slider(32)); ); ui_touch ? slider_automate(slider(32), 1);
+  nv = ui_numfield(x0 + colw + 8, y0, colw, 32, "Decay", slider(33), 5, 5000, 1, 1.15, 1.02, 350, 11, -1, 0);
+  nv != slider(33) ? ( slider(33) = nv; slider_automate(slider(33)); ); ui_touch ? slider_automate(slider(33), 1);
+  nv = ui_numfield(x0 + 2 * (colw + 8), y0, colw, 32, "Sustain", slider(34), 0, 1, 0, 0.05, 0.005, 0.7, 3, -1, 0);
+  nv != slider(34) ? ( slider(34) = nv; slider_automate(slider(34)); ); ui_touch ? slider_automate(slider(34), 1);
+  nv = ui_numfield(x0 + 3 * (colw + 8), y0, colw, 32, "Release", slider(35), 5, 12000, 1, 1.15, 1.02, 800, 11, -1, 0);
+  nv != slider(35) ? ( slider(35) = nv; slider_automate(slider(35)); ); ui_touch ? slider_automate(slider(35), 1);
+);
+
+function ui_draw_drawer(x0, y0, w, h) local(rowh)
+(
+  ui_c_panel(); ui_rect(x0, y0, w, h);
+  rowh = 26;
+  ui_ov_source === 1 ? ( ui_draw_env_adsr_row(x0 + 8, y0 + 8, w * 0.62); ui_draw_assign_list(x0 + 8 + w * 0.64, y0 + 8, w * 0.34, 1, rowh); )
+  : ui_ov_source === 2 ? ( ui_draw_lfo_row(x0 + 8, y0 + 8, w * 0.62, 1); ui_draw_assign_list(x0 + 8 + w * 0.64, y0 + 8, w * 0.34, 2, rowh); )
+  : ui_ov_source === 3 ? ( ui_draw_lfo_row(x0 + 8, y0 + 8, w * 0.62, 0); ui_draw_assign_list(x0 + 8 + w * 0.64, y0 + 8, w * 0.34, 3, rowh); )
+  : ui_ov_source === 4 ? ( ui_draw_random_row(x0 + 8, y0 + 8, w * 0.62); ui_draw_assign_list(x0 + 8 + w * 0.64, y0 + 8, w * 0.34, 4, rowh); )
+  : ui_ov_source === 5 ? (
+      ui_draw_midi_row(x0 + 8, y0 + 8, w * 0.62);
+      ui_c_dim(); ui_font(2, 10); ui_text(x0 + 8, y0 + 44, "Velocity / Pressure / Wheel / Key Track assignments (right-click a field to assign)");
+    )
+  : ui_ov_source === 6 ? ui_draw_preset_details(x0 + 8, y0 + 8, w - 16)
+  : ui_ov_source === 7 ? (
+      ui_c_dim(); ui_font(2, 11); ui_text(x0 + 8, y0 + 6, "Amp envelope");
+      ui_draw_env_adsr_row2(x0 + 8, y0 + 22, w - 16);
+    )
+  : ( ui_c_dim(); ui_font(3, 13); ui_text(x0 + 8, y0 + 8, "Select a motion source above."); );
+);
+
+
+
+// ==================================================================== MACROS
+function ui_draw_macros(x0, y0, w, h) local(colw nv i j r cnt cy)
+(
+  colw = (w - 24) / 4;
+  i = 0;
+  while (i < 4) (
+    nv = ui_numfield(x0 + i * (colw + 8), y0, colw, 56, i === 0 ? "BODY" : i === 1 ? "MOTION" : i === 2 ? "COLOUR" : "SPACE", slider(55 + i), 0, 1, 0, 0.05, 0.005, 0, 3, -1, 0);
+    nv != slider(55 + i) ? ( slider(55 + i) = nv; slider_automate(slider(55 + i)); ); ui_touch ? slider_automate(slider(55 + i), 1);
+    cy = y0 + 60; cnt = 0; r = 0;
+    while (r < NROUTES) (
+      ROUTES_UI[r * 4] === 9 + i ? (
+        ui_dest_name_short(ROUTES_UI[r * 4 + 1] - 1);
+        ui_c_mod(); ui_font(2, 10); ui_textbox(x0 + i * (colw + 8) + cnt * 60, cy, 58, 14, #ui_fv, 0);
+        cnt += 1;
+      );
+      r += 1;
+    );
+    i += 1;
+  );
+);
+
+// ==================================================================== FOOTER
+function ui_draw_footer(x0, y0, w, h) local(voices grains limitn holdmsL holdmsR pk)
+(
+  voices = TELE[T_VOICES]; grains = TELE[T_GRAINS];
+  sprintf(#ui_fv2, "Voices %d/8 . Grains %d/96", voices, grains);
+  ui_c_dim(); ui_font(2, 12); ui_text(x0, y0 + 14, #ui_fv2);
+  limitn = 0;
+  ui_c_warn(); ui_font(2, 11);
+  TELE[T_DROPS] > ui_pt_drops ? ( ui_text(x0 + 220 + limitn * 44, y0 + 15, "drops"); limitn += 1; );
+  TELE[T_PITCHCLAMP] > ui_pt_pitch ? ( ui_text(x0 + 220 + limitn * 44, y0 + 15, "pitch"); limitn += 1; );
+  TELE[T_RATECAP] > ui_pt_rate ? ( ui_text(x0 + 220 + limitn * 44, y0 + 15, "rate"); limitn += 1; );
+  TELE[T_MIDIOVF] > ui_pt_midi ? ( ui_text(x0 + 220 + limitn * 44, y0 + 15, "MIDI"); limitn += 1; );
+  TELE[T_PROTECT] > ui_pt_protect ? ( ui_text(x0 + 220 + limitn * 44, y0 + 15, "protect"); limitn += 1; );
+  ui_pt_drops = TELE[T_DROPS]; ui_pt_pitch = TELE[T_PITCHCLAMP]; ui_pt_rate = TELE[T_RATECAP]; ui_pt_midi = TELE[T_MIDIOVF]; ui_pt_protect = TELE[T_PROTECT];
+  ui_button(x0 + 430, y0 + 6, 60, 32, "Panic") ? ( atomic_set(CMD[C_PANIC], 1); );
+  ui_hover_active ? ( ui_c_dim(); ui_font(2, 11); ui_textbox(x0 + 500, y0 + 15, w - 500 - 140, 16, #ui_hint, 0); )
+  : time_precise() - ui_warn_flash_t < 1.5 ? ( ui_c_warn(); ui_font(2, 11); ui_textbox(x0 + 500, y0 + 15, w - 500 - 140, 16, #ui_warn_msg, 0); );
+  // output meter
+  pk = max(TELE[T_PEAKL], TELE[T_PEAKR]);
+  pk > ui_meter_hold ? ( ui_meter_hold = pk; ui_meter_hold_t = time_precise(); ) : time_precise() - ui_meter_hold_t > 1.5 ? ui_meter_hold = max(0, ui_meter_hold * 0.9);
+  ui_c_field(); ui_rect(x0 + w - 140, y0 + 8, 120, 20);
+  ui_c_ok(); ui_rect(x0 + w - 138, y0 + 10, 116 * max(0, min(1, ui_meter_hold)), 16);
+  ui_meter_hold > 0.891 ? ( ui_c_warn(); ui_rect(x0 + w - 24, y0 + 10, 2, 16); );
+);
+
+// ==================================================================== OVERLAYS
+
+// Keep native controls in four pages: showing all 59 at once pushes @gfx offscreen on macOS.
+// Visibility is an editor preference only; parameter identities and values never change.
+function ui_host_page(page) local(i last)
+(
+  ui_host_sliders = max(0, min(4, page | 0)); slider_show(-1, 0);
+  ui_host_sliders > 0 ? (
+    i = (ui_host_sliders - 1) * 15; last = min(59, i + 15);
+    while (i < last) ( slider_show(2 ^ i, 1); i += 1; );
+  );
+  ui_overlay = 0; ui_focus_ix = -1;
+);
+
+function ui_draw_host_controls()
+(
+  ui_blocked = 0;
+  ui_button(16, 16, 120, 32, "Custom panel") ? ui_host_page(0);
+  ui_button(148, 16, 100, 32, "Previous") ? ui_host_page(ui_host_sliders <= 1 ? 4 : ui_host_sliders - 1);
+  ui_button(260, 16, 100, 32, "Next") ? ui_host_page(ui_host_sliders >= 4 ? 1 : ui_host_sliders + 1);
+  ui_c_text(); ui_font(3, 13);
+  sprintf(#ui_fv, "REAPER parameters %d-%d of 59", (ui_host_sliders - 1) * 15 + 1, min(59, ui_host_sliders * 15));
+  ui_text(16, 64, #ui_fv);
+);
+
+function ui_scale_pct(k) ( k === 0 ? 100 : k === 1 ? 125 : k === 2 ? 150 : 200; );
+
+function ui_draw_menu() local(x y w h i n by)
+(
+  w = 220; x = ui_w - 16 - w; n = 9; h = n * 32 + 8;
+  // The top margin is given back when the viewport is shorter than the menu, which is what an
+  // enlarged Scale does: at 200 % on a Retina window ui_s is 4, leaving a 218-point viewport
+  // against a 296-point menu, and the 48 points are the difference between the Scale rows being
+  // reachable and not. At a scale that needs no scrolling this is exactly the old y = 48.
+  y = max(0, min(48, ui_view_h - h));
+  ui_c_panel(); ui_rect(x, y, w, h); ui_c_line(); ui_frame_rect(x, y, w, h);
+  i = 0;
+  while (i < n) (
+    by = y + 4 + i * 32;
+    i == 0 ? strcpy(#ui_fv, "Reset sound")
+    : i == 1 ? strcpy(#ui_fv, stg_status === SS_PENDING ? "Apply now" : "(Apply now)")
+    : i == 2 ? strcpy(#ui_fv, (stg_status >= SS_PYR1 && stg_status <= SS_PENDING) ? "Cancel load" : "(Cancel load)")
+    : i == 3 ? ( ui_scale_idx < 3 ? sprintf(#ui_fv, "Scale up (%d%%)", ui_scale_pct(ui_scale_idx + 1)) : strcpy(#ui_fv, "(Scale up)") )
+    : i == 4 ? ( ui_scale_idx > 0 ? sprintf(#ui_fv, "Scale down (%d%%)", ui_scale_pct(ui_scale_idx - 1)) : strcpy(#ui_fv, "(Scale down)") )
+    : i == 5 ? strcpy(#ui_fv, "Diagnostics")
+    : i == 6 ? strcpy(#ui_fv, "Load file...")
+    : i == 7 ? strcpy(#ui_fv, "Host parameters...")
+    : strcpy(#ui_fv, "Close");
+    ui_rowbutton(x, by, w, 32, #ui_fv) ? (
+      i == 0 ? ( reset_sound(); ui_overlay = 0; )
+      : i == 1 ? ( stg_status === SS_PENDING ? ( atomic_set(CMD[C_APPLY], 1); ui_overlay = 0; ); )
+      : i == 2 ? ( (stg_status >= SS_PYR1 && stg_status <= SS_PENDING) ? ( prep_cancel(); ui_overlay = 0; ); )
+      // Scale is two separate rows that clamp at the ends, not one row that cycles (owner FIX,
+      // 18 September 2026): a single cycling item made getting back down a matter of going round,
+      // and above 100 % the row it had to go round with was off-screen.
+      // Each step also asks the viewport to pan fully right and to the top, where the menu lives.
+      // The menu is pinned to the right edge of the LOGICAL canvas (ui_w), which above 100 % is
+      // wider than the visible viewport, so without the pan the menu lands off-screen on the first
+      // step up and the only way back is the scrollbar. 1000000000 is a request, not a position:
+      // ui_frame_impl clamps it to ui_view_maxx on the next frame, the first frame that knows the
+      // new geometry. The literal is spelled out because EEL2 has no scientific notation -- `1e9`
+      // compiles to nothing and takes the whole effect down with it.
+      : i == 3 ? ( ui_scale_idx < 3 ? ( ui_scale_idx += 1; ui_view_x = 1000000000; ui_view_y = 0; ); )
+      : i == 4 ? ( ui_scale_idx > 0 ? ( ui_scale_idx -= 1; ui_view_x = 1000000000; ui_view_y = 0; ); )
+      : i == 5 ? ( ui_overlay = 5; )
+      : i == 6 ? ( ui_overlay = 3; ui_edit_active = 1; ui_edit_owner = -5; ui_edit_selected = 0; ui_edit_commit = 0; strcpy(#ui_edit_text, ""); )
+      : i == 7 ? ui_host_page(1)
+      : ( ui_overlay = 0; );
+    );
+    i += 1;
+  );
+  ui_view_hit && (mouse_cap & 1) && !(ui_lastcap & 1) && !(ui_mx >= x && ui_mx < x + w && ui_my >= y && ui_my < y + h) ? ui_overlay = 0;
+);
+
+function ui_draw_preset_browser() local(x y w h i n by col1 col2 ncat k c found cy rows skipped shown matched selcat hit)
+(
+  w = min(ui_w - 40, 720); h = min(ui_h - 100, 480); x = (ui_w - w) / 2; y = 60;
+  ui_c_panel(); ui_rect(x, y, w, h); ui_c_line(); ui_frame_rect(x, y, w, h);
+  ui_c_text(); ui_font(1, 16); ui_text(x + 12, y + 8, "Preset browser");
+  col1 = x + 12; col2 = x + 190;
+  // categories, in order of first appearance, in string slots UI_CAT_SLOT..+7
+  ncat = 0; k = 0;
+  while (k < NFACTORY && ncat < 8) (
+    found = 0; c = 0; while (c < ncat) ( strcmp(FS_PRESET_CAT + k, UI_CAT_SLOT + c) == 0 ? found = 1; c += 1; );
+    !found ? ( strcpy(UI_CAT_SLOT + ncat, FS_PRESET_CAT + k); ncat += 1; );
+    k += 1;
+  );
+  // category column: "All" then each category; click filters and rewinds the list
+  cy = y + 34; c = -1;
+  while (c < ncat) (
+    c < 0 ? strcpy(#ui_fv, "All presets") : strcpy(#ui_fv, UI_CAT_SLOT + c);
+    ui_rowbutton(col1, cy, 168, 32, #ui_fv) ? ( ui_browser_cat = c; ui_browser_scroll = 0; );
+    c === ui_browser_cat ? ( ui_c_accent(); ui_rect(col1 + 2, cy + 2, 3, 28); );
+    cy += 32; c += 1;
+  );
+  // Search remains in the focus order while its edit is active.
+  ui_rowbutton(col2, y + 32, w - 200, 32, ui_edit_active && ui_edit_owner === -4 ? #ui_edit_text : strlen(#ui_search) ? #ui_search : "Search...") ? (
+    ui_edit_active = 1; ui_edit_owner = -4; ui_edit_selected = 1; ui_edit_commit = 0;
+    strcpy(#ui_edit_text, #ui_search); ui_browser_scroll = 0;
+  );
+  strcpy(#ui_pat, "*"); strcat(#ui_pat, #ui_search); strcat(#ui_pat, "*");
+  NFACTORY === 0 ? ( ui_c_dim(); ui_font(3, 13); ui_text(col2, y + 72, "No factory presets are installed yet."); )
+  : (
+    rows = floor((y + h - 30 - (y + 72)) / 32);
+    // wheel over the list scrolls it
+    !ui_blocked && ui_wheel_steps != 0 && ui_mx >= col2 && ui_mx < x + w - 12 && ui_my >= y + 72 && ui_my < y + h - 30 ? ( ui_browser_scroll = max(0, ui_browser_scroll - ui_wheel_steps); ui_wheel_steps = 0; );
+    n = NFACTORY; by = y + 72; i = 0; skipped = 0; shown = 0; matched = 0;
+    while (i < n) (
+      selcat = ui_browser_cat < 0 || strcmp(FS_PRESET_CAT + i, UI_CAT_SLOT + ui_browser_cat) == 0;
+      selcat && (!strlen(#ui_search) || matchi(#ui_pat, FS_PRESET_NAME + i)) ? (
+        matched += 1; skipped < ui_browser_scroll ? skipped += 1 : shown < rows ? (
+          strcpy(#ui_fv, FS_PRESET_NAME + i);
+          ui_rowbutton(col2, by, x + w - 12 - col2, 32, #ui_fv) ? ( factory_load_preset(i); ui_overlay = 0; );
+          (i + 1) === factory_origin ? ( ui_c_accent(); ui_rect(col2 + 2, by + 2, 3, 28); );
+          by += 32; shown += 1;
+        );
+      );
+      i += 1;
+    );
+  );
+  ui_button(col2, y + h - 44, 64, 32, "Prev") ? ui_browser_scroll = max(0, ui_browser_scroll - rows);
+  ui_button(col2 + 72, y + h - 44, 64, 32, "Next") ? ui_browser_scroll = min(max(0, matched - rows), ui_browser_scroll + rows);
+  ui_button(x + w - 90, y + h - 44, 78, 32, "Close") ? ui_overlay = 0;
+  !ui_blocked && ui_view_hit && (mouse_cap & 1) && !(ui_lastcap & 1) && !(ui_mx >= x && ui_mx < x + w && ui_my >= y && ui_my < y + h) ? ui_overlay = 0;
+);
+
+function ui_draw_source_browser() local(x y w h i by rows last)
+(
+  w = min(ui_w - 40, 640); h = min(ui_h - 40, 500); x = (ui_w - w) / 2; y = 20;
+  ui_c_panel(); ui_rect(x, y, w, h); ui_c_line(); ui_frame_rect(x, y, w, h);
+  ui_c_text(); ui_font(1, 16); ui_text(x + 12, y + 8, "Source browser");
+  rows = max(1, floor((h - 96) / 32)); last = max(0, NASSETS - rows);
+  ui_wheel_steps != 0 && ui_hit(x, y + 36, w, h - 90) ? ( ui_source_scroll -= ui_wheel_steps; ui_wheel_steps = 0; );
+  ui_source_scroll = max(0, min(last, ui_source_scroll));
+  i = ui_source_scroll; by = y + 36;
+  while (i < NASSETS && i < ui_source_scroll + rows) (
+    ui_button(x + 12, by, w - 24, 32, FS_ASSET_NAME + i) ? ( factory_load_source(i); ui_overlay = 0; );
+    by += 32; i += 1;
+  );
+  ui_button(x + 12, y + h - 48, 60, 32, "Prev") ? ui_source_scroll = max(0, ui_source_scroll - rows);
+  ui_button(x + 80, y + h - 48, 60, 32, "Next") ? ui_source_scroll = min(last, ui_source_scroll + rows);
+  ui_button(x + 148, y + h - 48, 150, 32, "Load file...") ? ( ui_overlay = 3; ui_edit_active = 1; ui_edit_owner = -5; ui_edit_selected = 0; ui_edit_commit = 0; strcpy(#ui_edit_text, ""); );
+  ui_button(x + w - 90, y + h - 48, 78, 32, "Close") ? ui_overlay = 0;
+  !ui_blocked && ui_view_hit && (mouse_cap & 1) && !(ui_lastcap & 1) && !ui_hit(x, y, w, h) ? ui_overlay = 0;
+);
+
+// One compact list exposes every route, including MIDI and the four macros; no new modulation sources.
+function ui_draw_routes() local(x y w h rows i by src dst dep nv chosen maxscroll)
+(
+  w = min(ui_w - 40, 720); h = min(ui_h - 40, 560); x = (ui_w - w) / 2; y = 20;
+  ui_c_panel(); ui_rect(x, y, w, h); ui_c_line(); ui_frame_rect(x, y, w, h);
+  ui_c_text(); ui_font(1, 16); ui_text(x + 12, y + 8, "Modulation routes");
+  rows = max(1, floor((h - 96) / 40)); maxscroll = max(0, NROUTES - rows);
+  ui_wheel_steps != 0 && ui_hit(x, y + 36, w - 160, h - 90) ? ( ui_route_scroll -= ui_wheel_steps; ui_wheel_steps = 0; );
+  ui_route_scroll = max(0, min(maxscroll, ui_route_scroll));
+  i = ui_route_scroll; by = y + 36;
+  while (i < NROUTES && i < ui_route_scroll + rows) (
+    src = ROUTES_UI[i * 4]; dst = ROUTES_UI[i * 4 + 1]; dep = ROUTES_UI[i * 4 + 2];
+    src > 0 ? ui_src_name(src) : strcpy(#ui_fv, "+ Source");
+    ui_button(x + 12, by, 140, 32, #ui_fv) ? (
+      chosen = ui_choose(2, 0, src - 1, 0, x + 12, by + 32);
+      chosen > 0 ? ( dst <= 0 || (dst === 14 && chosen >= 9) ? dst = 1; ui_route_write(i, chosen, dst, dep); ui_undo_pending = 1; );
+    );
+    src > 0 ? (
+      ui_dest_name(dst - 1);
+      ui_button(x + 160, by, w - 340, 32, #ui_fv) ? (
+        chosen = ui_choose(3, 0, dst - 1, src + 0, x + 160, by + 32);
+        chosen > 0 ? ( ui_route_write(i, src, chosen, dep); ui_undo_pending = 1; );
+      );
+      nv = ui_numfield(x + w - 172, by, 108, 32, "Depth", dep + 0, -1, 1, 0, 0.05, 0.005, 0, 4, -1, 0);
+      nv != dep ? ui_route_write(i, src, dst, nv); ui_touch ? ui_undo_pending = 1;
+      ui_button(x + w - 56, by, 40, 32, "X") ? ( ui_route_write(i, 0, 0, 0); ui_undo_pending = 1; );
+    );
+    by += 40; i += 1;
+  );
+  ui_button(x + 12, y + h - 48, 72, 32, "Prev") ? ui_route_scroll = max(0, ui_route_scroll - rows);
+  ui_button(x + 92, y + h - 48, 72, 32, "Next") ? ui_route_scroll = min(maxscroll, ui_route_scroll + rows);
+  ui_button(x + w - 90, y + h - 48, 78, 32, "Close") ? ( ui_overlay = 0; ui_edit_active = 0; );
+  ui_view_hit && (mouse_cap & 1) && !(ui_lastcap & 1) && !ui_hit(x, y, w, h) ? ( ui_overlay = 0; ui_edit_active = 0; );
+);
+
+function ui_draw_path_entry() local(x y w h)
+(
+  w = 520; h = 100; x = (ui_w - w) / 2; y = 200;
+  ui_c_panel(); ui_rect(x, y, w, h); ui_c_line(); ui_frame_rect(x, y, w, h);
+  ui_c_text(); ui_font(1, 15); ui_text(x + 12, y + 8, "Load file (absolute path)");
+  ui_c_field(); ui_rect(x + 12, y + 36, w - 24, 24);
+  ui_col(1, 1, 1); ui_font(3, 13); ui_textbox(x + 18, y + 40, w - 36, 18, #ui_edit_text, 0);
+  ui_button(x + w - 90, y + h - 44, 78, 32, "Load") ? ( strcpy(#ui_path, #ui_edit_text); strlen(#ui_path) ? ui_request_load(#ui_path); ui_overlay = 0; ui_edit_active = 0; );
+  ui_c_dim(); ui_font(2, 10); ui_text(x + 12, y + h - 16, "Enter loads. Click outside cancels.");
+  ui_view_hit && (mouse_cap & 1) && !(ui_lastcap & 1) && !(ui_mx >= x && ui_mx < x + w && ui_my >= y && ui_my < y + h) ? ( ui_overlay = 0; ui_edit_active = 0; );
+);
+
+function ui_draw_diagnostics() local(x y w h i by)
+(
+  w = min(ui_w - 40, 620); h = min(ui_h - 140, 420); x = (ui_w - w) / 2; y = 60;
+  ui_c_panel(); ui_rect(x, y, w, h); ui_c_line(); ui_frame_rect(x, y, w, h);
+  ui_c_text(); ui_font(1, 15); ui_text(x + 12, y + 8, "Diagnostics");
+  ui_togglefield(x + w - 140, y + 4, 120, 32, "Timing", CMD[C_DIAG] + 0, "Off", "On", 0, 0) != CMD[C_DIAG] ? atomic_set(CMD[C_DIAG], CMD[C_DIAG] > 0.5 ? 0 : 1);
+  by = y + 40; ui_c_dim(); ui_font(2, 12);
+  sprintf(#ui_fv2, "bank %d  gen %d  arena_ok %d  rate_ok %d  err %d  blocks %d", active_bank, active_gen, arena_ok, supported_rate, err_state, TELE[T_BLOCKS]);
+  ui_text(x + 12, by, #ui_fv2); by += 18;
+  sprintf(#ui_fv2, "voices %d  grains %d  drops %d  pitchclamp %d  ratecap %d  midiovf %d  protect %d", TELE[T_VOICES], TELE[T_GRAINS], TELE[T_DROPS], TELE[T_PITCHCLAMP], TELE[T_RATECAP], TELE[T_MIDIOVF], TELE[T_PROTECT]);
+  ui_text(x + 12, by, #ui_fv2); by += 18;
+  sprintf(#ui_fv2, "block time last %.4f ms  max %.4f ms", TELE[T_BLOCKTIME] * 1000, TELE[T_BLOCKTIME_MAX] * 1000);
+  ui_text(x + 12, by, #ui_fv2); by += 18;
+  sprintf(#ui_fv2, "stg_status %d  stg_err %d  stg_frames %d  srate %d  tempo %.1f", stg_status, stg_err, stg_frames, srate, cur_tempo);
+  ui_text(x + 12, by, #ui_fv2); by += 24;
+  ui_button(x + 12, by, 120, 32, "Reset counters") ? ( memset(TELE, 0, 64); TELE[T_BLOCKTIME_MAX] = 0; );
+  ui_button(x + w - 90, y + h - 44, 78, 32, "Close") ? ui_overlay = 0;
+  !ui_blocked && ui_view_hit && (mouse_cap & 1) && !(ui_lastcap & 1) && !(ui_mx >= x && ui_mx < x + w && ui_my >= y && ui_my < y + h) ? ui_overlay = 0;
+);
+
+// ==================================================================== keyboard input
+// Process every text event in queue order; UTF-8 is stored in EEL2 strings, with a byte-bounded edit buffer.
+function ui_edit_codepoint(cp) local(n)
+(
+  ui_edit_selected ? ( strcpy(#ui_edit_text, ""); ui_edit_selected = 0; );
+  strcpy(#ui_edit_tmp, "");
+  cp < 128 ? sprintf(#ui_edit_tmp, "%c", cp)
+  : cp < 2048 ? sprintf(#ui_edit_tmp, "%c%c", 192 | (cp >> 6), 128 | (cp & 63))
+  : cp < 65536 ? sprintf(#ui_edit_tmp, "%c%c%c", 224 | (cp >> 12), 128 | ((cp >> 6) & 63), 128 | (cp & 63))
+  : sprintf(#ui_edit_tmp, "%c%c%c%c", 240 | (cp >> 18), 128 | ((cp >> 12) & 63), 128 | ((cp >> 6) & 63), 128 | (cp & 63));
+  n = ui_edit_owner === -5 ? 4096 : ui_edit_owner === -3 ? 512 : 128;
+  strlen(#ui_edit_text) + strlen(#ui_edit_tmp) <= n ? strcat(#ui_edit_text, #ui_edit_tmp);
+);
+function ui_edit_key(c) local(n cp)
+(
+  c === 1 ? ui_edit_selected = 1
+  : c === 8 ? (
+    ui_edit_selected ? ( strcpy(#ui_edit_text, ""); ui_edit_selected = 0; ) : (
+      n = strlen(#ui_edit_text); n > 0 ? (
+        n -= 1; while (n > 0 && (str_getchar(#ui_edit_text, n) & 192) === 128) ( n -= 1; );
+        strcpy_substr(#ui_edit_tmp, #ui_edit_text, 0, n); strcpy(#ui_edit_text, #ui_edit_tmp);
+      );
+    );
+  )
+  : c === 13 ? ui_edit_commit = 1
+  : c === 27 ? ( ui_edit_active = 0; ui_edit_commit = 0; )
+  : c === 22 ? ( ui_warn_flash_t = time_precise(); strcpy(#ui_warn_msg, "Clipboard unavailable in JSFX: type a path or drop the WAV."); )
+  : c >= 32 && c < 127 ? ui_edit_codepoint(c)
+  : (c >> 24) === 'u' ? ( cp = c & 16777215; cp <= 1114111 ? ui_edit_codepoint(cp); );
+);
+function ui_read_keys() local(c n)
+(
+  ui_key_tab = 0; ui_key_shifttab = 0; ui_key_left = 0; ui_key_right = 0; ui_key_up = 0; ui_key_down = 0;
+  ui_key_enter = 0; ui_key_space = 0; ui_key_shift = (mouse_cap & 8) != 0;
+  c = gfx_getchar(); n = 0;
+  while (c > 0 && n < 4096) (
+    ui_edit_active ? ui_edit_key(c)
+    : c === 9 ? ( ui_key_shift ? ui_key_shifttab = 1 : ui_key_tab = 1; )
+    : c === 'left' ? ui_key_left = 1
+    : c === 'rght' ? ui_key_right = 1
+    : c === 'up' ? ui_key_up = 1
+    : c === 'down' ? ui_key_down = 1
+    : c === 13 ? ui_key_enter = 1
+    : c === 27 ? ( ui_overlay = 0; ui_focus_ix = -1; );
+    n += 1; c = gfx_getchar();
+  );
+);
+function ui_service_edit() (
+  ui_edit_active && ui_edit_commit ? (
+    ui_edit_owner === -3 ? ( strcpy(#preset_desc, #ui_edit_text); ui_undo_pending = 1; ui_edit_active = 0; ui_edit_commit = 0; )
+    : ui_edit_owner === -4 ? ( strcpy(#ui_search, #ui_edit_text); ui_browser_scroll = 0; ui_edit_active = 0; ui_edit_commit = 0; )
+    : ui_edit_owner === -5 ? ( strcpy(#ui_path, #ui_edit_text); strlen(#ui_path) ? ui_request_load(#ui_path); ui_edit_active = 0; ui_overlay = 0; ui_edit_commit = 0; );
+  );
+);
+
+// Viewport bars only appear when the host area is smaller than the minimum logical canvas.
+// They reserve 32 logical pixels and never write a sound parameter or host undo point.
+function ui_draw_viewport() local(down track thumb span)
+(
+  down = (mouse_cap & 1) && !(ui_lastcap & 1);
+  down && ui_phys_my >= ui_view_h && ui_view_maxx > 0 ? ui_view_drag = 1;
+  down && ui_phys_mx >= ui_view_w && ui_view_maxy > 0 ? ui_view_drag = 2;
+  ui_view_maxx > 0 ? (
+    track = ui_view_w; thumb = max(32, track * ui_view_w / ui_w); span = max(1, track - thumb);
+    ui_c_field(); gfx_rect(0, ui_view_h * ui_s, ui_phys_w * ui_s, 32 * ui_s);
+    ui_c_dim(); gfx_rect(ui_view_x / ui_view_maxx * span * ui_s, (ui_view_h + 8) * ui_s, thumb * ui_s, 16 * ui_s);
+    ui_view_drag === 1 && (mouse_cap & 1) ? ui_view_x = max(0, min(ui_view_maxx, (ui_phys_mx - thumb / 2) / span * ui_view_maxx));
+  );
+  ui_view_maxy > 0 ? (
+    track = ui_view_h; thumb = max(32, track * ui_view_h / ui_h); span = max(1, track - thumb);
+    ui_c_field(); gfx_rect(ui_view_w * ui_s, 0, 32 * ui_s, ui_phys_h * ui_s);
+    ui_c_dim(); gfx_rect((ui_view_w + 8) * ui_s, ui_view_y / ui_view_maxy * span * ui_s, 16 * ui_s, thumb * ui_s);
+    ui_view_drag === 2 && (mouse_cap & 1) ? ui_view_y = max(0, min(ui_view_maxy, (ui_phys_my - thumb / 2) / span * ui_view_maxy));
+  );
+  !(mouse_cap & 1) ? ui_view_drag = 0;
+);
+
+// ==================================================================== top-level frame
+function ui_frame_impl() local(n dropped OY LWv wave_h card_h drawer_h y_header y_source y_wave y_scan y_cards y_motion y_drawer y_macros y_footer content_h)
+(
+  // mandatory first: idle servicing (also runs with the editor closed under gfx_idle)
+  stg_status >= SS_PYR1 && stg_status <= SS_OVERVIEW && !stg_sync ? prep_step();   // never while the audio thread runs a synchronous load
+  stg_status === SS_PENDING && src_committed_flag ? ( src_committed_flag = 0; stg_status = SS_IDLE; );
+  gfx_ext_flags & 2 ? 0 : (
+    n = 0; dropped = 0;
+    while (gfx_getdropfile(n, #dropfile)) ( n === 0 ? ( strcpy(#ui_path, #dropfile); dropped = 1; ); n += 1; );
+    gfx_getdropfile(-1);
+    dropped && !match("@fx:*", #ui_path) ? ui_request_load(#ui_path);
+
+    CMD[C_ROUTES_GEN] != ui_routes_gen_seen ? ui_routes_refresh();
+    ui_pending_check > 0 ? ( ui_pending_check -= 1; ui_pending_check === 0 ? ( (ROUTES_UI[ui_pending_slot * 4] != ui_pending_src || ROUTES_UI[ui_pending_slot * 4 + 1] != ui_pending_dst) ? ( ui_warn_flash_t = time_precise(); strcpy(#ui_warn_msg, "Two routes per destination."); ); ); );
+
+    ui_zoom = ui_host_sliders > 0 ? 1 : ui_scale_idx === 0 ? 1 : ui_scale_idx === 1 ? 1.25 : ui_scale_idx === 2 ? 1.5 : 2;
+    ui_s = ui_zoom * max(1, gfx_ext_retina);
+    ui_phys_w = gfx_w / ui_s; ui_phys_h = gfx_h / ui_s;
+    ui_min_w = ui_host_sliders > 0 ? 380 : 800; ui_min_h = ui_host_sliders > 0 ? 96 : 600;
+    ui_view_w = ui_phys_w; ui_view_h = ui_phys_h;
+    ui_view_w < ui_min_w ? ui_view_h -= 32;
+    ui_view_h < ui_min_h ? ui_view_w -= 32;
+    ui_view_w < ui_min_w && ui_view_h === ui_phys_h ? ui_view_h -= 32;
+    ui_view_w = max(32, ui_view_w); ui_view_h = max(32, ui_view_h);
+    ui_w = max(ui_min_w, ui_view_w); ui_h = max(ui_min_h, ui_view_h);
+    ui_view_maxx = max(0, ui_w - ui_view_w); ui_view_maxy = max(0, ui_h - ui_view_h);
+    ui_view_x = max(0, min(ui_view_maxx, ui_view_x)); ui_view_y = max(0, min(ui_view_maxy, ui_view_y));
+    ui_phys_mx = mouse_x / ui_s; ui_phys_my = mouse_y / ui_s;
+    ui_view_hit = ui_phys_mx < ui_view_w && ui_phys_my < ui_view_h;
+    ui_mx = ui_phys_mx + ui_view_x; ui_my = ui_phys_my + ui_view_y;
+    ui_wheel_steps = mouse_wheel > 0 ? floor(mouse_wheel / 120 + 0.5) : mouse_wheel < 0 ? ceil(mouse_wheel / 120 - 0.5) : 0;
+    mouse_wheel = 0; mouse_hwheel = 0;
+
+    ui_reveal_focus = ui_focus_context != ui_overlay;
+    ui_focus_context != ui_overlay ? ( ui_focus_ix = 0; ui_nslots = 0; ui_focus_context = ui_overlay; );
+    ui_read_keys(); ui_reveal_focus = ui_reveal_focus || ui_key_tab || ui_key_shifttab;
+    ui_nslots > 0 ? (
+      ui_key_tab ? ui_focus_ix = ui_focus_ix < 0 ? 0 : (ui_focus_ix + 1) % ui_nslots;
+      ui_key_shifttab ? ui_focus_ix = ui_focus_ix < 0 ? ui_nslots - 1 : (ui_focus_ix - 1 + ui_nslots) % ui_nslots;
+    );
+
+    ui_blocked = ui_overlay > 0 || ui_pop_kind > 0;
+    ui_slot = 0;
+    ui_hover_active = 0; ui_focus_found = 0; ui_focus_top = -1; ui_focus_bottom = -1; ui_clip_bottom = 0;
+
+    card_h = 190; drawer_h = ui_drawer ? 172 : 72;
+    OY = -ui_scroll;
+    y_header = OY + 0; y_source = OY + 48; y_wave = OY + 88; y_scan = OY + 194; y_cards = OY + 194 + 48;
+    y_motion = y_cards + card_h; y_drawer = y_motion + 40;
+    content_h = y_drawer - OY + drawer_h;
+    y_macros = min(content_h, max(0, ui_h - 136)); y_footer = y_macros + 92;
+    ui_scroll_max = max(0, content_h - y_macros);
+    ui_scroll = max(0, min(ui_scroll_max, ui_scroll));
+    LWv = ui_w - (ui_scroll_max > 0 ? 32 : 0);
+
+    gfx_clear = -1; ui_c_bg(); gfx_rect(0, 0, gfx_w, gfx_h);
+
+    ui_host_sliders > 0 ? ui_draw_host_controls() : err_state ? (
+      ui_col(0.92, 0.91, 0.88); ui_font(1, 18); ui_text(16, 12, "SHIRO");
+      ui_button(ui_w - 48, 8, 32, 32, "menu") ? ( ui_overlay = ui_overlay === 4 ? 0 : 4; );
+      ui_c_warn(); ui_rect(0, 48, ui_w, 40);
+      ui_col(0.15, 0.05, 0.05); ui_font(3, 14); ui_textbox(16, 60, ui_w - 32, 20, "State could not be restored; the instrument is silent.", 4);
+    ) : (
+      ui_blocked = ui_overlay > 0; ui_clip_bottom = y_macros;
+      ui_draw_header(0, y_header, LWv);
+      ui_draw_source(0, y_source, LWv);
+      ui_draw_waveform(16, y_wave, LWv - 32, 106);
+      ui_draw_scan(16, y_scan, LWv - 32);
+      ui_draw_grains(16, y_cards, (LWv - 32 - 8) / 2, card_h);
+      ui_draw_note(16 + (LWv - 32 - 8) / 2 + 8, y_cards, (LWv - 32 - 8) / 2, card_h);
+      ui_draw_motion(16, y_motion, LWv - 32);
+      ui_draw_drawer(16, y_drawer, LWv - 32, drawer_h);
+      ui_blocked = ui_overlay > 0; ui_clip_bottom = 0;
+      ui_c_bg(); ui_rect(0, y_macros, ui_w, 136);
+      ui_draw_macros(16, y_macros, ui_w - 32, 92);
+      ui_draw_footer(16, y_footer, ui_w - 32, 44);
+
+      content_h > y_macros ? (
+        ui_c_line(); ui_rect(ui_w - 12, 0, 12, y_macros);
+        ui_c_dim(); ui_rect(ui_w - 12, ui_scroll / max(1, content_h - y_macros) * max(1, y_macros - 32), 12, 32);
+        !ui_blocked && ui_view_hit && ui_mx >= ui_w - 32 && ui_my < y_macros && (mouse_cap & 1) ? ui_scroll = max(0, min(content_h - y_macros, (ui_my - 16) / max(1, y_macros - 32) * (content_h - y_macros)));
+        !ui_blocked && ui_view_hit && ui_my < y_macros && ui_wheel_steps != 0 ? ( ui_scroll = max(0, min(content_h - y_macros, ui_scroll - ui_wheel_steps * 20)); ui_wheel_steps = 0; );
+      ) : ui_scroll = 0;
+    );
+
+    // the open overlay is the top layer: its own controls are never gated by ui_blocked (that flag exists to
+    // stop the panel underneath from reacting while it is open)
+    ui_overlay > 0 ? (
+      ui_slot = 0; ui_blocked = 0; ui_clip_bottom = 0;
+      ui_focus_context != ui_overlay ? ( ui_focus_ix = 0; ui_focus_context = ui_overlay; ui_reveal_focus = 1; );
+    );
+    ui_overlay === 1 ? ui_draw_preset_browser()
+    : ui_overlay === 2 ? ui_draw_source_browser()
+    : ui_overlay === 3 ? ui_draw_path_entry()
+    : ui_overlay === 4 ? ui_draw_menu()
+    : ui_overlay === 5 ? ui_draw_diagnostics()
+    : ui_overlay === 6 ? ui_draw_routes();
+
+    ui_service_edit();
+
+    // Reveal keyboard focus in both the working-area scroll and the minimum-size viewport.
+    ui_reveal_focus && ui_focus_found ? (
+      ui_overlay === 0 && ui_focus_scrollable ? (
+        ui_focus_delta = ui_focus_top < 0 ? ui_focus_top : ui_focus_bottom > y_macros ? ui_focus_bottom - y_macros : 0;
+        ui_scroll = max(0, min(ui_scroll_max, ui_scroll + ui_focus_delta));
+        ui_focus_top -= ui_focus_delta; ui_focus_bottom -= ui_focus_delta;
+      );
+      ui_focus_left < ui_view_x ? ui_view_x = ui_focus_left
+      : ui_focus_right > ui_view_x + ui_view_w ? ui_view_x = ui_focus_right - ui_view_w;
+      ui_focus_top < ui_view_y ? ui_view_y = ui_focus_top
+      : ui_focus_bottom > ui_view_y + ui_view_h ? ui_view_y = ui_focus_bottom - ui_view_h;
+      ui_view_x = max(0, min(ui_view_maxx, ui_view_x)); ui_view_y = max(0, min(ui_view_maxy, ui_view_y));
+    );
+    ui_draw_viewport();
+    ui_nslots = ui_slot;
+    ui_lastcap = mouse_cap;
+  );
+  ui_frames += 1;
+);
+
+// A missed UI frame is preferable to racing a source/patch/routes adoption on the audio thread.
+function ui_frame() (
+  !ui_popup_active && atomic_setifequal(transfer_gate, 0, 1) === 0 ? (
+    ui_frame_impl(); atomic_set(transfer_gate, 0);
+    // Host undo may request serialization. Never notify it while owning the transfer gate.
+    ui_undo_pending ? ( ui_undo_pending = 0; sliderchange(-1); );
+  );
+);

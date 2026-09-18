@@ -1,0 +1,1247 @@
+// Shiro engine: arena map, PRNG, windows, source banks, grains, voices, envelopes, filter, scheduler,
+// modulation, MIDI queue and output stage. Functions only (imported into Shiro.jsfx). Copyright (c) 2026
+// Michele Ibba. Licence: see Shiro.jsfx.
+//
+// Every function here runs on the audio thread unless its name starts with ui_/prep_ (UI thread) or
+// st_ (serialize). Audio functions never allocate, never touch files or strings, never wait.
+@init
+
+// ---------------------------------------------------------------- constants
+NVOICES = 8; NSLOTS = 12; NGRAINS = 96;
+NFR_MAX = 576000;            // 12 s at 48 kHz
+GUARD = 16;                  // mirrored guard frames at both ends of every level
+NLEVELS = 4;
+GAIN_NOMINAL = 5;            // per-grain gain calibration (+14 dB): a peak-normalised sustained source at Fill >= 1,
+                             // velocity 100 and the default Output (-12 dB) lands near the factory target (-20 LUFS);
+                             // measured 2026-09-09 on the 100-preset bank (median -34.8 LUFS without it)
+WIN_N = 2048;                // window table length (plus closing zero)
+NSHAPES = 33;                // Shape tables 0..32 (Shape = k/32)
+COLOUR_CUTOFF_EXPANSION = 1.3; // expand Colour -> log-cutoff travel around the immutable factory route anchor
+COLOUR_Q_LIFT = 0.12;        // gentle extra Q at maximum Colour travel; final Q remains clamped to 1.4
+IDLE_EPS = 0.000000000001;   // engine_quiescent(): output-stage recursions settled below this magnitude (1e-12; EEL2 has no scientific notation)
+IDLE_EPS_GAIN = 0.000000001; // engine_quiescent(): out_gain within this of out_gain_t (1e-9)
+MAXBLOCK = 16384;            // frames of host block held in OUT
+SEG_MAX = 128;               // frames per render segment (>= tick_samples at 96 kHz)
+MIDIQ_N = 1024;
+NROUTES = 12; NDEST = 14;
+TRACE_N = 1024;               // event trace ring entries
+TR_NOTEON = 1; TR_NOTEOFF = 2; TR_BIRTH = 3; TR_DROP = 4; TR_STEAL = 5; TR_RETRIG = 6; TR_RETIRE = 7; TR_START = 8;
+ARENA_TOTAL = 12582912;
+BUCKET_BANKS = 10944000; BUCKET_GUARDS = 131072; BUCKET_STATE = 524288; BUCKET_SCRATCH = 524288;
+
+// grain record fields (stride 32)
+G_ST = 0; G_VOICE = 1; G_LVL = 2; G_PH = 3; G_INC = 4; G_LO = 5; G_HI = 6; G_WPH = 7; G_WINC = 8; G_WTAB = 9;
+G_FAST = 10; G_FPH = 11; G_FINC1 = 12; G_FINC2 = 13; G_FBLEND = 14; G_GLL = 15; G_GLR = 16; G_GRL = 17; G_GRR = 18;
+G_RATIO = 19; G_XF = 20; G_XFPOS = 21; G_XFINC = 22; G_PH2 = 23; G_INC2 = 24; G_LO2 = 25; G_HI2 = 26;
+G_GEN = 27; G_LIFE = 28; G_WLEN = 29; G_DIR = 30; G_PF = 31;
+GSTRIDE = 32;
+
+// voice record fields (stride 128)
+V_ST = 0; V_CH = 1; V_NOTE = 2; V_VEL = 3; V_AGE = 4; V_GATE = 5; V_SUST = 6; V_PEND = 7; V_PNOTE = 8; V_PVEL = 9; V_PCH = 10;
+V_FADE = 11; V_FSTEP = 12; V_AENV = 13; V_ASTAGE = 14; V_ACOEF = 15; V_ATGT = 16; V_MENV = 17; V_MSTAGE = 18; V_MCOEF = 19; V_MTGT = 20;
+V_LATT = 21; V_LDEC = 22; V_LSUS = 23; V_LREL = 24; V_LMATT = 25; V_LMDEC = 26; V_LMSUS = 27; V_LMREL = 28;
+V_Q = 29; V_CENTRE = 30; V_ECENTRE = 31; V_BASEPOS = 32; V_FROZEN = 33; V_FRZC = 34; V_D01FADE = 35; V_D01HOLD = 36;
+V_NEXT = 37; V_FIRSTDL = 38; V_ANCHOR = 39; V_PULSEK = 40; V_RNG0 = 41; V_RNG1 = 42; V_RNG2 = 43; V_RNG3 = 44;
+V_NGR = 45; V_OCC = 46; V_PRESS = 47; V_POLYP = 48; V_BEND = 49; V_GAIN = 50; V_GAINT = 51; V_CUT = 52; V_QS = 53;
+V_IC1L = 54; V_IC2L = 55; V_IC1R = 56; V_IC2R = 57; V_FILTMIX = 58; V_D14 = 59; V_SILENT = 60; V_FIRSTDONE = 61; V_KEYTRK = 62;
+V_STARTSMP = 67; V_RELSMP = 68; V_LASTRATE = 69;
+V_CF = 72;      // 72..85: effective destination values D01..D14 (index V_CF + d, d = 0..13)
+V_CFS = 88;     // 88..101: smoothed values for birth-latched and continuous destinations
+V_WHEEL = 105; V_EXPR = 106; V_STOLEN = 107;
+// Held-key snapshot taken when a same-source programme change arms: the lanes are faded and
+// retired before the patch commits, so the keys still down have to survive outside the voice
+// records to be re-articulated afterwards. Four words per held key, at most NVOICES of them.
+RT_CH = 0; RT_NOTE = 1; RT_VEL = 2; RT_SUST = 3; RT_STRIDE = 4;
+VSTRIDE = 128;
+
+// destination indices (0-based; D01 = 0)
+D_POS = 0; D_SCAN = 1; D_SIZE = 2; D_FILL = 3; D_TVAR = 4; D_SCAT = 5; D_PSPR = 6; D_SHAPE = 7; D_PAN = 8; D_PSPREAD = 9; D_WIDTH = 10; D_CUT = 11; D_RESO = 12; D_VPITCH = 13;
+
+// route record (stride 4)
+R_SRC = 0; R_DST = 1; R_DEPTH = 2; R_DEPTHS = 3;
+// route sources: 0 none, 1 env, 2 lfo1, 3 lfo2, 4 random, 5 velocity, 6 pressure, 7 wheel, 8 keytrack, 9..12 macros
+
+// bank metadata fields
+M_STATUS = 0;   // 0 empty, 1 preparing, 2 ready (pending), 3 active
+M_FRAMES = 1; M_CH = 2; M_ROOT = 3; M_FINE = 4; M_GAIN = 5; M_ORIGRATE = 6; M_ORIGBITS = 7; M_GEN = 8; M_PEAK = 9; M_PYRTAG = 10; M_MONO = 11;
+M_DURSEC = 12; M_FACTORY = 13; M_PROVENANCE = 14;
+
+// telemetry fields
+T_VOICES = 0; T_GRAINS = 1; T_DROPS = 2; T_PITCHCLAMP = 3; T_RATECAP = 4; T_MIDIOVF = 5; T_PROTECT = 6; T_FIRSTWAIT = 7;
+T_GRAINS_HW = 8; T_BLOCKS = 9; T_BLOCKTIME = 10; T_BLOCKTIME_MAX = 11; T_NOTEON = 12; T_NOTEOFF = 13; T_STEALS = 14; T_RETRIG = 15;
+T_BIRTHS = 16; T_TEMPOFB = 17; T_UNSUPPORTED_RATE = 18; T_BLOCKTOOBIG = 19; T_LEVELXF = 20; T_OVERLOAD = 21; T_MIDIBAD = 22; T_ERR = 23;
+T_SMP = 24; T_ACTIVE_BANK = 25; T_GEN = 26; T_TICKS = 27; T_LASTNOTE = 28; T_PEAKL = 29; T_PEAKR = 30; T_STATE = 31; T_PREPEAK = 32;   // T_PREPEAK: largest |sample| before the protection stage (calibration reads it)
+T_STARTS = 33;   // transport starts seen (the control grid realigns on each)
+
+function tele_inc(f) ( TELE[f] += 1; );
+// a host API or automation can deliver out-of-range values (measured: TrackFX_SetParam accepts ln-domain values beyond the range); NaN reads fall to lo
+function clampf(v, lo, hi) ( v < lo ? lo : v > hi ? hi : v == v ? v : lo; );
+function trace_add(kind, v, at, val) local(e) ( e = (trace_head % TRACE_N) * 4; TRACE[e] = kind; TRACE[e + 1] = v; TRACE[e + 2] = at; TRACE[e + 3] = val; trace_head += 1; );
+
+// ---------------------------------------------------------------- arena
+function alloc(n) ( mp_ptr += n; mp_ptr - n; );
+
+function arena_setup() local(b l frames)
+(
+  mp_ptr = 0;
+  HDR = alloc(64);                                 // small header: array bases must never be slot 0
+  BANKBASE = HDR; CANONBASE = HDR + 2; LVLOFF = HDR + 8; bank_owner = HDR + 16; LVLRIGHTOFF = HDR + 20;
+  b = 0;
+  while (b < 2) (
+    BANKBASE[b] = mp_ptr;
+    CANONBASE[b] = mp_ptr; mp_ptr += 2 * NFR_MAX;
+    l = 0;
+    while (l < NLEVELS) (
+      LVLOFF[b * 4 + l] = mp_ptr - BANKBASE[b];
+      frames = ceil(NFR_MAX * 2 / (2 ^ l));
+      mp_ptr += frames + 2 * GUARD;
+      LVLRIGHTOFF[b * 4 + l] = mp_ptr - BANKBASE[b];
+      mp_ptr += frames + 2 * GUARD;
+      l += 1;
+    );
+    b += 1;
+  );
+  arena_banks_end = mp_ptr;                        // canonical interleaved PCM plus twofold planar levels, 512 guards
+  OVERVIEW0 = alloc(16384); OVERVIEW1 = alloc(16384);
+  META0 = alloc(64); META1 = alloc(64);
+  arena_guards_end = mp_ptr;
+  arena_state_start = BUCKET_BANKS + BUCKET_GUARDS;
+  mp_ptr = arena_state_start;
+  WINTAB = alloc(NSHAPES * (WIN_N + 1));
+  WINE = alloc(NSHAPES);
+  HANN = alloc(WIN_N + 1);
+  HB = alloc(80);
+  GRAINS = alloc(NGRAINS * GSTRIDE);
+  VOICES = alloc(NVOICES * VSTRIDE);
+  RETRIG = alloc(NVOICES * RT_STRIDE);          // held keys carried across a programme change
+  ROUTES = alloc(NROUTES * 4);
+  MIDIQ = alloc(MIDIQ_N * 4);
+  CHCTL = alloc(16 * 8);                           // per channel: bend, wheel, channel pressure, expression, sustain
+  VBUF = alloc(NVOICES * 2 * SEG_MAX);
+  OUT = alloc(2 * MAXBLOCK);
+  TELE = alloc(256);
+  DSPAN = alloc(NDEST * 4);
+  PSET = alloc(64);
+  CMD = alloc(32);                                 // UI -> audio command mailbox (see shiro_state)
+  ROUTES_UI = alloc(NROUTES * 4);                  // UI-owned edit copy of the route table
+  SERIAL_PARAMS = alloc(64); SERIAL_LIMITS = alloc(128); // lifecycle snapshot and fixed physical bounds
+  PATCHSTG = alloc(128);                           // staged full-patch transaction (59 params, trim, seed, origin)
+  TRACE = alloc(TRACE_N * 4);                      // event trace ring: kind, voice, sample, value
+  FT_PARAMS = alloc(100 * 64);                     // factory preset table: 59 params + trim + seed + asset + flags
+  FT_ROUTES = alloc(100 * 36);                     // factory routes: 12 x (src, dst, depth)
+  FT_ASSETS = alloc(32 * 16);                      // factory source table: root, fine, tuned, frames, channels, role
+  COEF_UP = alloc(1537); COEF_HALF = alloc(513); COEF_QUARTER = alloc(1025);
+  COEF_SINC = alloc(8193 * 8); COEF_GUARD = alloc(25); GUARD_STATE = alloc(20);
+  RABUF = alloc(43142); RACOEF = alloc(132); HOSTOUT = alloc(2 * MAXBLOCK);
+  arena_state_end = mp_ptr;
+  SCRATCH = arena_state_start + BUCKET_STATE + 512; // 65536-slot boundary for preparation FFT pages
+  arena_ok = (__memtop() >= ARENA_TOTAL) && (arena_guards_end <= arena_state_start) && (arena_state_end <= SCRATCH) && (SCRATCH + BUCKET_SCRATCH <= ARENA_TOTAL);
+  arena_ok;
+);
+
+function canonical_ptr(b) ( CANONBASE[b]; );
+function level_frames(fr, l) ( ceil(fr * 2 / (2 ^ l)); );
+function lvl_ptr(b, l) ( BANKBASE[b] + LVLOFF[b * 4 + l] + GUARD; );
+function lvl_right_ptr(b, l) ( BANKBASE[b] + LVLRIGHTOFF[b * 4 + l] + GUARD; );
+function meta_ptr(b) ( b ? META1 : META0; );
+function ovw_ptr(b) ( b ? OVERVIEW1 : OVERVIEW0; );
+function meta_get(b, f) local(m) ( m = meta_ptr(b); m[f]; );
+function meta_set(b, f, v) local(m) ( m = meta_ptr(b); m[f] = v; );
+
+// ---------------------------------------------------------------- PRNG (Park-Miller, exact in doubles)
+function rng_next(state) ( state = (state * 16807) % 2147483647; state; );
+function rng_u(state) ( (state - 1) / 2147483646; );
+function rng_seed(seed, note, ch, k) local(s)
+(
+  s = ((seed * 131 + note * 7 + ch + 1) * 4 + k) % 2147483646 + 1;
+  s = rng_next(s); s = rng_next(s); s = rng_next(s);
+  s;
+);
+
+// ---------------------------------------------------------------- window tables
+function win_shape_value(shape, x) local(t hann soft pluck)
+(
+  hann = 0.5 - 0.5 * cos(2 * $pi * x);
+  soft = x < 0.25 ? 0.5 - 0.5 * cos($pi * x / 0.25) : x > 0.75 ? 0.5 - 0.5 * cos($pi * (1 - x) / 0.25) : 1;
+  pluck = x < 0.1 ? 0.5 - 0.5 * cos($pi * x / 0.1) : 0.5 + 0.5 * cos($pi * (x - 0.1) / 0.9);
+  shape <= 0.5 ? ( t = shape * 2; (1 - t) * hann + t * soft; ) : ( t = shape * 2 - 1; (1 - t) * soft + t * pluck; );
+);
+
+function windows_build() local(k i tab e v)
+(
+  k = 0;
+  while (k < NSHAPES) (
+    tab = WINTAB + k * (WIN_N + 1); e = 0; i = 0;
+    while (i < WIN_N) ( v = win_shape_value(k / 32, i / WIN_N); tab[i] = v; e += v * v; i += 1; );
+    tab[WIN_N] = 0; tab[0] = 0;
+    WINE[k] = e / WIN_N;
+    k += 1;
+  );
+  i = 0; while (i <= WIN_N) ( HANN[i] = 0.5 - 0.5 * cos(2 * $pi * i / WIN_N); i += 1; ); HANN[WIN_N] = 0; HANN[0] = 0;
+  hann_energy = WINE[0];
+);
+
+// ---------------------------------------------------------------- destination domains (min, max, span)
+function dest_set(d, mn, mx, span) ( DSPAN[d * 4] = mn; DSPAN[d * 4 + 1] = mx; DSPAN[d * 4 + 2] = span; );
+function dest_setup()
+(
+  dest_set(D_POS, 0, 1, 1); dest_set(D_SCAN, -4, 4, 4);
+  dest_set(D_SIZE, log(8) / log(2), log(500) / log(2), log(500 / 8) / log(2));
+  dest_set(D_FILL, -2, 3, 5); dest_set(D_TVAR, 0, 0.8, 0.8); dest_set(D_SCAT, 0, 1, 1); dest_set(D_PSPR, 0, 24, 24);
+  dest_set(D_SHAPE, 0, 1, 1); dest_set(D_PAN, -1, 1, 1); dest_set(D_PSPREAD, 0, 1, 1); dest_set(D_WIDTH, 0, 1, 1);
+  dest_set(D_CUT, log(30) / log(2), log(18000) / log(2), log(600) / log(2));
+  dest_set(D_RESO, 0.5, 1.4, 0.9); dest_set(D_VPITCH, -12, 12, 12);
+);
+
+// ---------------------------------------------------------------- rate-dependent constants
+function rate_setup()
+(
+  tick_samples = max(1, floor(core_rate / 1000 + 0.5));
+  tick_seconds = tick_samples / core_rate;
+  step_scale = 48000 / core_rate;
+  smooth_5ms = 1 - exp(-tick_seconds / 0.005);
+  smooth_10ms = 1 - exp(-tick_seconds / 0.010);
+  smooth_50ms = 1 - exp(-tick_seconds / 0.050);
+  fade2ms_step = 1 / max(1, 0.002 * core_rate);
+  fade5ms_step = 1 / max(1, 0.005 * core_rate);
+  fade50ms_step = tick_samples / max(1, 0.050 * core_rate);
+  min_interval = ceil(0.005 * core_rate);
+  first_cooldown = ceil(0.002 * core_rate);
+  dc_r = 1 - 2 * $pi * 10 / core_rate;
+  bend_coef = 1 - exp(-1 / (0.002 * core_rate));
+  gain_coef = 1 - exp(-1 / (0.010 * core_rate));
+  supported_rate = (abs(srate - 44100) < 1) || (abs(srate - 48000) < 1) || (abs(srate - 96000) < 1);
+  xf_step = 1 / max(1, 0.003 * core_rate);
+);
+
+// ---------------------------------------------------------------- region geometry (active bank)
+function region_update() local(fr)
+(
+  fr = meta_get(active_bank, M_FRAMES);
+  fr > 0 ? (
+    reg_len_fr = max(960, min(fr, floor(pb_rlen * fr + 0.5)));
+    reg_start_fr = min(fr - reg_len_fr, floor(pb_rstart * fr + 0.5));
+    reg_start_fr < 0 ? reg_start_fr = 0;
+    reg_end_fr = reg_start_fr + reg_len_fr;
+    reg_seconds = reg_len_fr / 48000;
+  ) : ( reg_len_fr = 0; reg_start_fr = 0; reg_end_fr = 0; reg_seconds = 0; );
+);
+
+function pulse_beats(idx) ( idx == 0 ? 1/16 : idx == 1 ? 1/8 : idx == 2 ? 1/6 : idx == 3 ? 0.25 : idx == 4 ? 1/3 : idx == 5 ? 0.5 : idx == 6 ? 0.75 : idx == 7 ? 1 : idx == 8 ? 2 : 4; );
+function division_beats(idx) ( idx == 0 ? 0.25 : idx == 1 ? 0.5 : idx == 2 ? 1 : idx == 3 ? 2 : idx == 4 ? 4 : idx == 5 ? 8 : idx == 6 ? 16 : idx == 7 ? 32 : idx == 8 ? 64 : idx == 9 ? 128 : 256; );
+
+// soft saturation (EEL2 has no tanh)
+function sat(x) ( 1 - 2 / (exp(2 * x) + 1); );
+
+// ---------------------------------------------------------------- envelopes
+function env_stage_coef(samples) ( 1 - exp(-6.9078 / max(1, samples)); );
+
+function voice_set_attack(v) local(rec att)
+(
+  rec = VOICES + v * VSTRIDE;
+  att = max(1, rec[V_LATT]);
+  rec[V_ASTAGE] = 1; rec[V_ATGT] = 1;
+  rec[V_ACOEF] = (1 - rec[V_AENV]) / att;
+);
+
+function voice_env_release(v) local(rec)
+(
+  rec = VOICES + v * VSTRIDE;
+  rec[V_ASTAGE] = 4; rec[V_ATGT] = -0.005;
+  rec[V_ACOEF] = 1 - exp(-log((rec[V_AENV] + 0.005) / 0.005) / max(1, rec[V_LREL]));
+  rec[V_MSTAGE] = 4; rec[V_MTGT] = -0.005;
+  rec[V_MCOEF] = 1 - exp(-log((rec[V_MENV] + 0.005) / 0.005) / max(1, rec[V_LMREL] / tick_samples));
+  rec[V_RELSMP] = smp;
+);
+
+function voice_menv_tick(v) local(rec s)
+(
+  rec = VOICES + v * VSTRIDE; s = rec[V_MSTAGE];
+  s == 1 ? (
+    rec[V_MENV] += rec[V_MCOEF];
+    rec[V_MENV] >= 1 ? ( rec[V_MENV] = 1; rec[V_MSTAGE] = 2; rec[V_MTGT] = rec[V_LMSUS]; rec[V_MCOEF] = env_stage_coef(rec[V_LMDEC] / tick_samples); );
+  ) : s == 2 ? (
+    rec[V_MENV] += (rec[V_MTGT] - rec[V_MENV]) * rec[V_MCOEF];
+    abs(rec[V_MENV] - rec[V_MTGT]) < 0.0005 ? ( rec[V_MENV] = rec[V_MTGT]; rec[V_MSTAGE] = 3; );
+  ) : s == 4 ? (
+    rec[V_MENV] += (rec[V_MTGT] - rec[V_MENV]) * rec[V_MCOEF];
+    rec[V_MENV] <= 0 ? ( rec[V_MENV] = 0; rec[V_MSTAGE] = 0; );
+  );
+  rec[V_MENV];
+);
+
+// ---------------------------------------------------------------- grains
+function voice_clear_grains(v) local(k)
+(
+  k = 0; while (k < NSLOTS) ( GRAINS[(v * NSLOTS + k) * GSTRIDE + G_ST] = 0; k += 1; );
+  VOICES[v * VSTRIDE + V_NGR] = 0;
+);
+
+// Clamp the combined latched transposition and live pitch factor, preserving the raw
+// transposition so an inward bend from beyond the limit recovers the correct pitch.
+function grain_effective_step(ratio, pf) local(step lo hi)
+(
+  step = ratio * pf; lo = step_scale / 8; hi = step_scale * 8;
+  step < lo ? ( step = lo; tele_inc(T_PITCHCLAMP); )
+  : step > hi ? ( step = hi; tele_inc(T_PITCHCLAMP); );
+  step;
+);
+
+function level_for_step(step) local(a) ( a = abs(step); a <= 1.25 ? 0 : a <= 2.5 ? 1 : a <= 5 ? 2 : 3; );
+
+// pitch-set quantisation of a uniform draw u in [-1,1] with spread s semitones
+function pitch_disp(set, u, s) local(n lim c cand)
+(
+  set == 0 ? u * s :
+  set == 1 ? ( lim = floor(s); cand = 2 * lim + 1; c = floor((u + 1) * 0.5 * cand); c >= cand ? c = cand - 1; c - lim; ) :
+  set == 2 ? ( lim = floor(s / 12); cand = 2 * lim + 1; c = floor((u + 1) * 0.5 * cand); c >= cand ? c = cand - 1; (c - lim) * 12; ) :
+  (
+    n = 0; PSET[n] = 0; n += 1;
+    s >= 7 ? ( PSET[n] = 7; n += 1; PSET[n] = -7; n += 1; );
+    s >= 12 ? ( PSET[n] = 12; n += 1; PSET[n] = -12; n += 1; );
+    s >= 19 ? ( PSET[n] = 19; n += 1; PSET[n] = -19; n += 1; );
+    s >= 24 ? ( PSET[n] = 24; n += 1; PSET[n] = -24; n += 1; );
+    c = floor((u + 1) * 0.5 * n); c >= n ? c = n - 1; PSET[c];
+  );
+);
+
+// birth of one grain for voice v. Returns the slot index (0..11) or -1 when the lane is full (the birth is dropped).
+function grain_birth(v, first) local(vr k rec found cfs size_ms fill shape scat pspr pan pspread width focus u0 u1 u2 u3 semis ratio lvl lf T_smp pos_n pos_fr rate ov O gcorr g0 p th cw ew w disp rev dir bstart bend_pf)
+(
+  vr = VOICES + v * VSTRIDE;
+  found = -1; k = 0;
+  while (k < NSLOTS && found < 0) ( GRAINS[(v * NSLOTS + k) * GSTRIDE + G_ST] == 0 ? found = k; k += 1; );
+  // random draws are consumed whether or not the birth is admitted
+  vr[V_RNG1] = rng_next(vr[V_RNG1]); u1 = rng_u(vr[V_RNG1]) * 2 - 1;
+  vr[V_RNG2] = rng_next(vr[V_RNG2]); u2 = rng_u(vr[V_RNG2]) * 2 - 1;
+  vr[V_RNG3] = rng_next(vr[V_RNG3]); u3 = rng_u(vr[V_RNG3]) * 2 - 1;
+  vr[V_RNG3] = rng_next(vr[V_RNG3]); u0 = rng_u(vr[V_RNG3]);
+  found < 0 ? ( tele_inc(T_DROPS); trace_add(TR_DROP, v, smp, 0); -1; ) : (
+    rec = GRAINS + (v * NSLOTS + found) * GSTRIDE;
+    cfs = vr + V_CFS;
+    size_ms = 2 ^ cfs[D_SIZE]; fill = 2 ^ cfs[D_FILL];
+    shape = cfs[D_SHAPE]; scat = cfs[D_SCAT]; pspr = cfs[D_PSPR]; pan = cfs[D_PAN]; pspread = cfs[D_PSPREAD]; width = cfs[D_WIDTH];
+    focus = first ? pb_focus : 0;
+    pos_n = vr[V_ECENTRE] + scat * (1 - focus) * u1 * 0.5;
+    pos_n < 0 ? pos_n = 0; pos_n > 1 ? pos_n = 1;
+    pos_fr = reg_start_fr + pos_n * reg_len_fr;
+    disp = pitch_disp(pb_pset, u2, pspr * (1 - focus));
+    semis = (pb_keytrack ? vr[V_NOTE] - pb_root : 0) + pb_transpose + pb_fine / 100 + disp;
+    ratio = 2 ^ (semis / 12) * step_scale;
+    rev = u0 < pb_reverse * (1 - focus);
+    dir = rev ? -1 : 1;
+    bend_pf = 2 ^ ((vr[V_BEND] + vr[V_D14]) / 12);
+    lvl = level_for_step(grain_effective_step(ratio, bend_pf));
+    lf = 2 ^ lvl;
+    rec[G_LVL] = lvl; rec[G_RATIO] = ratio; rec[G_DIR] = dir;
+    rec[G_PH] = 2 * pos_fr / lf; rec[G_INC] = 2 * grain_effective_step(ratio, bend_pf) * dir / lf;
+    rec[G_LO] = 2 * reg_start_fr / lf; rec[G_HI] = 2 * reg_end_fr / lf;
+    rec[G_XF] = 0; rec[G_XFPOS] = 0; rec[G_GEN] = active_gen;
+    T_smp = max(2, floor(size_ms * 0.001 * core_rate + 0.5));
+    rec[G_WLEN] = T_smp; rec[G_LIFE] = T_smp;
+    rec[G_WPH] = 0; rec[G_WINC] = WIN_N / T_smp;
+    k = floor(shape * 32 + 0.5); k < 0 ? k = 0; k > 32 ? k = 32;
+    rec[G_WTAB] = WINTAB + k * (WIN_N + 1);
+    first && focus > 0 ? (
+      rec[G_FAST] = 1; rec[G_FBLEND] = focus; rec[G_FPH] = 0;
+      bstart = max(2, min(floor(0.002 * core_rate + 0.5), floor(T_smp / 4)));
+      rec[G_FINC1] = (WIN_N / 2) / bstart; rec[G_FINC2] = (WIN_N / 2) / max(1, T_smp - bstart);
+    ) : ( rec[G_FAST] = 0; rec[G_FBLEND] = 0; );
+    gcorr = sqrt(hann_energy / max(0.000001, WINE[k]));
+    pb_birthmode < 0.5 ? ( rate = min(200, fill / (size_ms * 0.001)); ) : ( rate = vr[V_LASTRATE]; );
+    O = rate * size_ms * 0.001;
+    ov = 0.5 * O + 0.5 * vr[V_OCC];
+    g0 = GAIN_NOMINAL * gcorr / sqrt(max(1, ov));
+    p = pan + pspread * u3; p < -1 ? p = -1; p > 1 ? p = 1;
+    th = (p + 1) * $pi / 4; cw = cos(th); ew = p == 0 ? cw : sin(th); w = width;
+    rec[G_GLL] = g0 * cw * (1 + w) * 0.5; rec[G_GLR] = g0 * cw * (1 - w) * 0.5;
+    rec[G_GRL] = g0 * ew * (1 - w) * 0.5; rec[G_GRR] = g0 * ew * (1 + w) * 0.5;
+    rec[G_VOICE] = v; rec[G_ST] = 1; rec[G_PF] = 0;
+    vr[V_NGR] += 1;
+    tele_inc(T_BIRTHS);
+    trace_add(TR_BIRTH, v, birth_at, pos_fr);
+    found;
+  );
+);
+
+// render one grain into vb (interleaved, n frames); pitch factor ramps pf0 -> pf1 across the segment
+function grain_render_span(rec, vb, n, pf0, pf1, bank) local(baser base2r cp cp2 ph inc dinc wph winc i iend j k ip fr w w0 w1 wi wf lo hi ainc tab base gll glr grl grr sl sr lvl ratio lf sgn fast fph finc1 finc2 fb fw fw0 fw1 fi ff xf xfp xfi ph2 inc2 lo2 hi2 base2 s2l s2r ip2 fr2 lvl2 lf2)
+(
+  lvl = rec[G_LVL]; ratio = rec[G_RATIO]; lf = 2 ^ lvl;
+  base = lvl_ptr(bank, lvl); baser = lvl_right_ptr(bank, lvl);
+  ph = rec[G_PH]; wph = rec[G_WPH]; winc = rec[G_WINC]; tab = rec[G_WTAB];
+  gll = rec[G_GLL]; glr = rec[G_GLR]; grl = rec[G_GRL]; grr = rec[G_GRR];
+  lo = rec[G_LO]; hi = rec[G_HI];
+  sgn = rec[G_INC] < 0 ? -1 : 1;
+  inc = 2 * grain_effective_step(ratio, pf0) / lf * sgn;
+  dinc = (2 * grain_effective_step(ratio, pf1) / lf * sgn - inc) / n;
+  fast = rec[G_FAST]; xf = rec[G_XF];
+  iend = (((WIN_N - wph) / winc) | 0) + 1; iend > n ? iend = n;
+  i = 0;
+  (fast == 0 && xf == 0) ? (
+    while (i < iend) (
+      ainc = abs(inc) * 1.01 + 0.000001;
+      k = inc > 0 ? ((hi - ph) / ainc) : ((ph - lo) / ainc);
+      k |= 0;
+      k < 1 ? (
+        ph >= hi ? ( ph = hi + hi - ph; inc = -inc; dinc = -dinc; ) : ph < lo ? ( ph = lo + lo - ph; inc = -inc; dinc = -dinc; );
+        ph < lo ? ph = lo : ph > hi ? ph = hi;      // bounded arithmetic: a reflection never leaves the region
+        k = 1;
+      );
+      j = i + k; j > iend ? j = iend;
+      while (i < j) (
+        ip = ph | 0; fr = ph - ip;
+        cp=COEF_SINC+floor(fr*8192+.5)*8;
+        wi = wph | 0; wf = wph - wi;
+        mem_get_values(tab + wi, w0, w1);
+        w = w0 + wf * (w1 - w0);
+        sl=mem_multiply_sum(cp,base+ip-3,8) * w;
+        sr=mem_multiply_sum(cp,baser+ip-3,8) * w;
+        vb[2 * i] += sl * gll + sr * glr;
+        vb[2 * i + 1] += sl * grl + sr * grr;
+        ph += inc; inc += dinc; wph += winc; i += 1;
+      );
+    );
+  ) : (
+    fph = rec[G_FPH]; finc1 = rec[G_FINC1]; finc2 = rec[G_FINC2]; fb = rec[G_FBLEND];
+    xfp = rec[G_XFPOS]; xfi = rec[G_XFINC]; ph2 = rec[G_PH2]; lo2 = rec[G_LO2]; hi2 = rec[G_HI2];
+    xf ? ( lvl2 = xf - 1; lf2 = 2 ^ lvl2; base2 = lvl_ptr(bank, lvl2); base2r = lvl_right_ptr(bank, lvl2); inc2 = inc * lf / lf2; ) : ( lvl2 = lvl; lf2 = lf; base2 = base; base2r = baser; inc2 = 0; );
+    while (i < iend) (
+      ip = ph | 0; fr = ph - ip;
+      cp=COEF_SINC+floor(fr*8192+.5)*8;
+      sl=mem_multiply_sum(cp,base+ip-3,8);
+      sr=mem_multiply_sum(cp,baser+ip-3,8);
+      xf ? (
+        ip2 = ph2 | 0; fr2 = ph2 - ip2;
+        cp2=COEF_SINC+floor(fr2*8192+.5)*8;
+        s2l=mem_multiply_sum(cp2,base2+ip2-3,8);
+        s2r=mem_multiply_sum(cp2,base2r+ip2-3,8);
+        sl = sl + (s2l - sl) * xfp; sr = sr + (s2r - sr) * xfp;
+        xfp += xfi; xfp > 1 ? xfp = 1;
+        ph2 += inc2; inc2 += dinc * lf / lf2;
+        ph2 >= hi2 ? ( ph2 = hi2 + hi2 - ph2; inc2 = -inc2; ) : ph2 < lo2 ? ( ph2 = lo2 + lo2 - ph2; inc2 = -inc2; );
+        ph2 < lo2 ? ph2 = lo2 : ph2 > hi2 ? ph2 = hi2;
+      );
+      wi = wph | 0; wf = wph - wi;
+      mem_get_values(tab + wi, w0, w1);
+      w = w0 + wf * (w1 - w0);
+      fast ? (
+        fi = fph | 0; ff = fph - fi; fi >= WIN_N ? ( fi = WIN_N; ff = 0; );
+        mem_get_values(HANN + fi, fw0, fw1);
+        fw = fw0 + ff * (fw1 - fw0);
+        w = w + fb * (fw - w);
+        fph += fph < WIN_N / 2 ? finc1 : finc2;
+      );
+      sl *= w; sr *= w;
+      vb[2 * i] += sl * gll + sr * glr;
+      vb[2 * i + 1] += sl * grl + sr * grr;
+      ph += inc; inc += dinc; wph += winc; i += 1;
+      ph >= hi ? ( ph = hi + hi - ph; inc = -inc; dinc = -dinc; ) : ph < lo ? ( ph = lo + lo - ph; inc = -inc; dinc = -dinc; );
+      ph < lo ? ph = lo : ph > hi ? ph = hi;
+    );
+    rec[G_FPH] = fph;
+    xf ? (
+      xfp >= 1 ? ( rec[G_LVL] = lvl2; rec[G_LO] = lo2; rec[G_HI] = hi2; rec[G_XF] = 0; rec[G_XFPOS] = 0; ph = ph2; inc = inc2; )
+      : ( rec[G_XFPOS] = xfp; rec[G_PH2] = ph2; rec[G_INC2] = inc2; );
+    );
+  );
+  rec[G_PH] = ph; rec[G_INC] = inc; rec[G_WPH] = wph;
+  rec[G_LIFE] -= n;
+  wph >= WIN_N ? ( rec[G_ST] = 0; VOICES[rec[G_VOICE] * VSTRIDE + V_NGR] -= 1; );
+);
+
+// Change representation without changing canonical source position or direction.
+function grain_move_level(rec, level) local(scale)
+(
+  scale = (2 ^ rec[G_LVL]) / (2 ^ level);
+  rec[G_PH] *= scale; rec[G_INC] *= scale;
+  rec[G_LO] *= scale; rec[G_HI] *= scale; rec[G_LVL] = level;
+  rec[G_XF] = 0; rec[G_XFPOS] = 0;
+);
+
+// Predict the old level's last safe sample from this span's actual pitch ramp.
+// An upward transition never leaves a nonzero old-level contribution past its
+// safe threshold. A reversed transition swaps the endpoints to preserve its mix.
+function grain_prepare_level(rec, pf0, pf1, n) local(s0 s1 old target limit scale deadline tmp lvl2)
+(
+  s0 = grain_effective_step(rec[G_RATIO], pf0);
+  s1 = grain_effective_step(rec[G_RATIO], pf1);
+  old = rec[G_LVL]; target = level_for_step(max(s0, s1));
+  rec[G_XF] && target == old ? (
+    lvl2 = rec[G_XF] - 1;
+    tmp = rec[G_PH]; rec[G_PH] = rec[G_PH2]; rec[G_PH2] = tmp;
+    tmp = rec[G_LO]; rec[G_LO] = rec[G_LO2]; rec[G_LO2] = tmp;
+    tmp = rec[G_HI]; rec[G_HI] = rec[G_HI2]; rec[G_HI2] = tmp;
+    tmp = rec[G_INC]; rec[G_INC] = rec[G_INC2]; rec[G_INC2] = tmp;
+    rec[G_LVL] = lvl2; rec[G_XF] = old + 1; old = lvl2;
+    rec[G_XFPOS] = 1 - rec[G_XFPOS];
+  );
+  limit = 1.25 * (2 ^ old);
+  old < 3 && s0 > limit ? (
+    // The previous representation is already unsafe: do not fade its alias in.
+    grain_move_level(rec, level_for_step(s0)); old = rec[G_LVL];
+    limit = 1.25 * (2 ^ old); tele_inc(T_LEVELXF);
+  );
+  target != old ? (
+    rec[G_XF] != target + 1 ? (
+      scale = (2 ^ old) / (2 ^ target);
+      rec[G_XF] == 0 ? rec[G_XFPOS] = 0;
+      rec[G_XF] = target + 1;
+      rec[G_PH2] = rec[G_PH] * scale; rec[G_INC2] = rec[G_INC] * scale;
+      rec[G_LO2] = rec[G_LO] * scale; rec[G_HI2] = rec[G_HI] * scale;
+      tele_inc(T_LEVELXF);
+    );
+    rec[G_XFINC] = xf_step;
+    old < 3 && s1 > limit && s1 > s0 ? (
+      deadline = max(1, floor((limit - s0) / (s1 - s0) * n) + 1);
+      rec[G_XFINC] = max(xf_step, (1 - rec[G_XFPOS]) / deadline);
+    );
+  );
+);
+
+function grain_check_level(rec, pf) ( grain_prepare_level(rec, pf, pf, 1); );
+
+// A rising ramp can cross three thresholds: at most four spans, each with no
+// more than two prepared-level reads. Use absolute crossing indices so rounding
+// cannot repeatedly split at the same threshold. Static grains remain one span.
+function grain_render(rec, vb, n, pf0, pf1, bank) local(pos span parts delta level boundary crossing a b ratio)
+(
+  pos = 0; parts = 0; delta = pf1 - pf0; ratio = rec[G_RATIO];
+  while (pos < n && rec[G_ST] == 1 && parts < 4) (
+    span = n - pos;
+    delta > 0 ? (
+      level = 0;
+      loop(3,
+        boundary = 1.25 * (2 ^ level);
+        ratio * pf0 <= boundary && ratio * pf1 > boundary ? (
+          crossing = floor((boundary / ratio - pf0) / delta * n) + 1;
+          crossing > pos && crossing < pos + span ? span = crossing - pos;
+        );
+        level += 1;
+      );
+    );
+    a = pf0 + delta * pos / n; b = pf0 + delta * (pos + span) / n;
+    grain_prepare_level(rec, a, b, span);
+    grain_render_span(rec, vb + 2 * pos, span, a, b, bank);
+    pos += span; parts += 1;
+  );
+);
+
+// ---------------------------------------------------------------- scheduler
+function voice_interval(v) local(vr cfs size_s fill rate base j u iv beats sec)
+(
+  vr = VOICES + v * VSTRIDE; cfs = vr + V_CFS;
+  size_s = (2 ^ cfs[D_SIZE]) * 0.001;
+  pb_birthmode < 0.5 ? (
+    fill = 2 ^ cfs[D_FILL];
+    rate = fill / size_s; rate > 200 ? ( rate = 200; tele_inc(T_RATECAP); );
+    base = core_rate / rate;
+    j = cfs[D_TVAR];
+    vr[V_RNG0] = rng_next(vr[V_RNG0]); u = rng_u(vr[V_RNG0]) * 2 - 1;
+    iv = ceil(base * (1 + j * u));
+    vr[V_LASTRATE] = rate;
+  ) : (
+    beats = pulse_beats(pb_pulsediv);
+    sec = beats * 60 / cur_tempo;
+    iv = floor(sec * core_rate + 0.5);
+    iv < min_interval ? tele_inc(T_RATECAP);
+    vr[V_RNG0] = rng_next(vr[V_RNG0]);
+    vr[V_LASTRATE] = 1 / max(0.005, sec);
+  );
+  iv < min_interval ? iv = min_interval;
+  iv;
+);
+
+// Returns 1 for start/resume, 2 for a playing seek/loop, otherwise 0.
+// Per-instance namespacing keeps each transport clock independent.
+function transport_event(state, position_beats, frames, rate, tempo_value, denominator)
+instance(previous_playing expected_beats previous_bps previous_seconds)
+local(is_playing event tolerance bps)
+(
+  is_playing = state & 1;
+  bps = (tempo_value > 0 ? tempo_value : 120) / 60 * (denominator > 0 ? denominator / 4 : 1);
+  // Host tempo includes master play-rate. Playback seconds have no matching
+  // exposed play-rate variable, so use host beat increments. At a marker, the
+  // slope can change partway through the preceding block. Its maximum error
+  // is bounded by that block duration times the old/new slope difference.
+  // At constant slope retain only one sample of timestamp tolerance.
+  tolerance = previous_seconds * abs(bps - previous_bps)
+    + max(max(bps, previous_bps) / max(1, rate), abs(position_beats) * 0.000000000001);
+  event = is_playing && !previous_playing ? 1
+    : is_playing && previous_playing && abs(position_beats - expected_beats) > tolerance ? 2 : 0;
+  previous_seconds = frames / max(1, rate);
+  expected_beats = position_beats + previous_seconds * bps;
+  previous_bps = bps;
+  previous_playing = is_playing;
+  event;
+);
+
+// ---------------------------------------------------------------- shared modulators (tick)
+function lfo_value(wave, ph) ( wave == 0 ? sin(2 * $pi * ph) : wave == 1 ? (ph < 0.5 ? 4 * ph - 1 : 3 - 4 * ph) : (ph < 0.5 ? 1 : -1); );
+
+function shared_random_reset(seed)
+(
+  rnd_state = rng_seed(seed, 0, 0, 7); rnd_seed_seen = seed;
+  rnd_ph = 0; rnd_prev = 0; rnd_out = 0;
+  rnd_state = rng_next(rnd_state); rnd_target = rng_u(rnd_state) * 2 - 1;
+);
+
+function shared_patch_reset(seed)
+(
+  lfo1_ph = 0; lfo2_ph = 0;
+  lfo1_wave = clampf(slider(43), 0, 2) | 0; lfo2_wave = clampf(slider(48), 0, 2) | 0;
+  lfo1_oldwave = lfo1_wave; lfo2_oldwave = lfo2_wave; lfo1_xf = 0; lfo2_xf = 0;
+  lfo1_out = lfo_value(lfo1_wave, 0); lfo2_out = lfo_value(lfo2_wave, 0);
+  shared_random_reset(seed);
+);
+
+function shared_tick() local(inc1 inc2 rinc w)
+(
+  inc1 = pb_l1sync > 0.5 ? (cur_tempo / 60) * tick_seconds / division_beats(pb_l1div) : pb_l1rate * tick_seconds;
+  inc2 = pb_l2sync > 0.5 ? (cur_tempo / 60) * tick_seconds / division_beats(pb_l2div) : pb_l2rate * tick_seconds;
+  lfo1_ph += inc1; lfo1_ph -= floor(lfo1_ph);
+  lfo2_ph += inc2; lfo2_ph -= floor(lfo2_ph);
+  lfo1_wave != pb_l1wave ? ( lfo1_oldwave = lfo1_wave; lfo1_wave = pb_l1wave; lfo1_xf = 1; );
+  lfo2_wave != pb_l2wave ? ( lfo2_oldwave = lfo2_wave; lfo2_wave = pb_l2wave; lfo2_xf = 1; );
+  lfo1_out = lfo_value(lfo1_wave, lfo1_ph);
+  lfo1_xf > 0 ? ( lfo1_out = lfo1_out + (lfo_value(lfo1_oldwave, lfo1_ph) - lfo1_out) * lfo1_xf; lfo1_xf -= 0.2; );
+  lfo2_out = lfo_value(lfo2_wave, lfo2_ph);
+  lfo2_xf > 0 ? ( lfo2_out = lfo2_out + (lfo_value(lfo2_oldwave, lfo2_ph) - lfo2_out) * lfo2_xf; lfo2_xf -= 0.2; );
+  rinc = pb_rrate * tick_seconds;
+  rnd_ph += rinc;
+  rnd_ph >= 1 ? ( rnd_ph -= floor(rnd_ph); rnd_prev = rnd_out; pb_seed != rnd_seed_seen ? ( rnd_state = rng_seed(pb_seed, 0, 0, 7); rnd_seed_seen = pb_seed; ); rnd_state = rng_next(rnd_state); rnd_target = rng_u(rnd_state) * 2 - 1; );
+  w = pb_rglide > 0.001 ? min(1, rnd_ph / pb_rglide) : 1;
+  rnd_out = rnd_prev + (rnd_target - rnd_prev) * w;
+);
+
+// ---------------------------------------------------------------- routes -> per-voice control frame
+function voice_eval_routes(v, immediate) local(vr cf cfs r rr src dst depth d sv env ch colour_cut_routed)
+(
+  vr = VOICES + v * VSTRIDE; cf = vr + V_CF; cfs = vr + V_CFS; ch = vr[V_CH];
+  // per-channel controller refresh (poly pressure, once received, takes precedence until release)
+  vr[V_WHEEL] = CHCTL[ch * 8 + 1]; vr[V_EXPR] = CHCTL[ch * 8 + 3];
+  vr[V_POLYP] ? 0 : vr[V_PRESS] = CHCTL[ch * 8 + 2];
+  cf[D_POS] = 0;
+  cf[D_SCAN] = pb_scan; cf[D_SIZE] = log(pb_size) / log(2); cf[D_FILL] = log(pb_fill) / log(2); cf[D_TVAR] = pb_timevar;
+  cf[D_SCAT] = pb_scatter; cf[D_PSPR] = pb_pspread; cf[D_SHAPE] = pb_shape; cf[D_PAN] = pb_pan; cf[D_PSPREAD] = pb_panspread;
+  cf[D_WIDTH] = pb_width; cf[D_CUT] = log(pb_cutoff) / log(2); cf[D_RESO] = 0.5 + 0.9 * pb_reso; cf[D_VPITCH] = 0;
+  env = vr[V_MENV]; colour_cut_routed = 0;
+  r = 0;
+  while (r < NROUTES) (
+    rr = ROUTES + r * 4; src = rr[R_SRC]; dst = rr[R_DST];
+    src > 0 && dst > 0 ? (
+      depth = immediate ? rr[R_DEPTH] : rr[R_DEPTHS];
+      sv = src == 1 ? env : src == 2 ? lfo1_out : src == 3 ? lfo2_out : src == 4 ? rnd_out : src == 5 ? vr[V_VEL] : src == 6 ? vr[V_PRESS]
+         : src == 7 ? vr[V_WHEEL] : src == 8 ? vr[V_KEYTRK] : src == 9 ? pb_m1 : src == 10 ? pb_m2 : src == 11 ? pb_m3 : pb_m4;
+      d = dst - 1;
+      // Expand only log-cutoff travel around the preset's immutable route
+      // anchor.  The stored knob value may intentionally sit away from it.
+      src == 11 && d == D_CUT ? (
+        sv = pb_colour_anchor + COLOUR_CUTOFF_EXPANSION * (pb_m3 - pb_colour_anchor);
+        colour_cut_routed = 1;
+      );
+      cf[d] += depth * sv * DSPAN[d * 4 + 2];
+    );
+    r += 1;
+  );
+  // A small, bounded resonance lift makes the moving cutoff speak on harmonically
+  // sparse sources without turning the endpoint into a resonant effect.
+  colour_cut_routed ? cf[D_RESO] += COLOUR_Q_LIFT * abs(pb_m3 - pb_colour_anchor);
+  d = 0;
+  while (d < NDEST) (
+    d == D_POS ? ( cf[d] > 1 ? cf[d] = 1; cf[d] < -1 ? cf[d] = -1; ) : (
+      cf[d] < DSPAN[d * 4] ? cf[d] = DSPAN[d * 4]; cf[d] > DSPAN[d * 4 + 1] ? cf[d] = DSPAN[d * 4 + 1];
+    );
+    d += 1;
+  );
+  d = 0;
+  while (d < NDEST) ( immediate ? cfs[d] = cf[d] : cfs[d] += (cf[d] - cfs[d]) * smooth_5ms; d += 1; );
+  vr[V_GAINT] = ((1 - pb_velsens) + pb_velsens * vr[V_VEL]) * vr[V_EXPR];
+);
+
+// scan progression per tick
+function voice_scan_tick(v) local(vr dq c q mode speed d01 frozen d)
+(
+  vr = VOICES + v * VSTRIDE;
+  frozen = pb_freeze > 0.5;
+  pb_pos != vr[V_BASEPOS] ? (
+    frozen ? 0 : (
+      q = vr[V_Q]; mode = pb_scanloop; d = pb_pos - vr[V_BASEPOS];
+      mode == 1 ? ( c = clampf(1 - abs(1 - q) + d, 0, 1); q = q >= 1 ? 2 - c : c; ) : ( q += d; q < 0 ? q = 0; q > 1 ? q = 1; );
+      vr[V_Q] = q;
+    );
+    vr[V_BASEPOS] = pb_pos;
+  );
+  frozen ? (
+    vr[V_FROZEN] == 0 ? ( vr[V_FROZEN] = 1; vr[V_FRZC] = vr[V_ECENTRE]; vr[V_D01HOLD] = vr[V_CF + D_POS]; );
+    vr[V_ECENTRE] = vr[V_FRZC];
+  ) : (
+    vr[V_FROZEN] ? (
+      vr[V_FROZEN] = 0;
+      q = vr[V_Q]; mode = pb_scanloop;
+      mode == 1 ? ( q = (q >= 1) ? 2 - vr[V_FRZC] : vr[V_FRZC]; ) : q = vr[V_FRZC];
+      vr[V_Q] = q; vr[V_BASEPOS] = pb_pos; vr[V_D01FADE] = 0;
+    );
+    speed = vr[V_CFS + D_SCAN];
+    pb_scansync > 0.5 ? ( dq = (cur_tempo / 60) * tick_seconds / division_beats(pb_scandiv) * (speed > 0 ? 1 : speed < 0 ? -1 : 0); )
+    : ( dq = reg_seconds > 0 ? speed * tick_seconds / reg_seconds : 0; );
+    q = vr[V_Q] + dq; mode = pb_scanloop;
+    mode == 0 ? ( q -= floor(q); c = q; )
+    : mode == 1 ? ( q -= 2 * floor(q / 2); c = 1 - abs(1 - q); )
+    : ( q < 0 ? q = 0; q > 1 ? q = 1; c = q; );
+    vr[V_Q] = q; vr[V_CENTRE] = c;
+    vr[V_D01FADE] < 1 ? ( vr[V_D01FADE] += fade50ms_step; vr[V_D01FADE] > 1 ? vr[V_D01FADE] = 1; );
+    d01 = vr[V_CF + D_POS] * vr[V_D01FADE];
+    c += d01; c < 0 ? c = 0; c > 1 ? c = 1;
+    vr[V_ECENTRE] = c;
+  );
+);
+
+// ---------------------------------------------------------------- voice start / stop
+function voice_start(v, ch, note, vel, at) local(vr)
+(
+  vr = VOICES + v * VSTRIDE;
+  vr[V_ST] = 1; vr[V_CH] = ch; vr[V_NOTE] = note; vr[V_VEL] = vel; vr[V_AGE] = at; vr[V_GATE] = 1; vr[V_SUST] = 0;
+  vr[V_PEND] = 0; vr[V_FADE] = 1; vr[V_FSTEP] = 0; vr[V_STOLEN] = 0;
+  vr[V_STARTSMP] = at; vr[V_ANCHOR] = at; vr[V_PULSEK] = 0;
+  vr[V_LATT] = pb_aatt * 0.001 * core_rate; vr[V_LDEC] = pb_adec * 0.001 * core_rate; vr[V_LSUS] = pb_asus; vr[V_LREL] = pb_arel * 0.001 * core_rate;
+  vr[V_LMATT] = pb_matt * 0.001 * core_rate; vr[V_LMDEC] = pb_mdec * 0.001 * core_rate; vr[V_LMSUS] = pb_msus; vr[V_LMREL] = pb_mrel * 0.001 * core_rate;
+  vr[V_AENV] = 0; voice_set_attack(v);
+  vr[V_MENV] = 0;
+  pb_matt <= 0 ? ( vr[V_MENV] = 1; vr[V_MSTAGE] = 2; vr[V_MTGT] = pb_msus; vr[V_MCOEF] = env_stage_coef(vr[V_LMDEC] / tick_samples); )
+  : ( vr[V_MSTAGE] = 1; vr[V_MCOEF] = 1 / max(1, vr[V_LMATT] / tick_samples); );
+  vr[V_BASEPOS] = pb_pos; vr[V_Q] = pb_pos; vr[V_CENTRE] = pb_pos; vr[V_ECENTRE] = pb_pos; vr[V_FRZC] = pb_pos;
+  vr[V_FROZEN] = pb_freeze > 0.5; vr[V_D01FADE] = 1;
+  vr[V_RNG0] = rng_seed(pb_seed, note, ch, 0); vr[V_RNG1] = rng_seed(pb_seed, note, ch, 1);
+  vr[V_RNG2] = rng_seed(pb_seed, note, ch, 2); vr[V_RNG3] = rng_seed(pb_seed, note, ch, 3);
+  vr[V_NGR] = 0; vr[V_OCC] = 0; vr[V_LASTRATE] = 0;
+  vr[V_PRESS] = CHCTL[ch * 8 + 2]; vr[V_POLYP] = 0; vr[V_WHEEL] = CHCTL[ch * 8 + 1]; vr[V_EXPR] = CHCTL[ch * 8 + 3];
+  vr[V_BEND] = CHCTL[ch * 8] * pb_bend;
+  vr[V_GAIN] = ((1 - pb_velsens) + pb_velsens * vel) * vr[V_EXPR]; vr[V_GAINT] = vr[V_GAIN];
+  vr[V_KEYTRK] = max(-1, min(1, (note - 60) / 60));
+  vr[V_D14] = 0;
+  vr[V_CUT] = log(pb_cutoff) / log(2); vr[V_QS] = 0.5 + 0.9 * pb_reso;
+  vr[V_IC1L] = 0; vr[V_IC2L] = 0; vr[V_IC1R] = 0; vr[V_IC2R] = 0; vr[V_FILTMIX] = pb_filton;
+  vr[V_SILENT] = 0; vr[V_FIRSTDONE] = 0;
+  voice_eval_routes(v, 1);
+  !vr[V_FROZEN] ? vr[V_ECENTRE] = clampf(pb_pos + vr[V_CFS + D_POS], 0, 1);
+  voice_clear_grains(v);
+  vr[V_NEXT] = at;
+  tele_inc(T_NOTEON);
+  TELE[T_LASTNOTE] = note;
+  trace_add(TR_START, v, at, note);
+);
+
+function voice_begin_fade(v, step) local(vr)
+(
+  vr = VOICES + v * VSTRIDE;
+  vr[V_ST] == 1 || vr[V_ST] == 2 ? ( vr[V_ST] = 3; vr[V_FSTEP] = step; );
+);
+
+function voice_retire(v, at) local(vr)
+(
+  vr = VOICES + v * VSTRIDE;
+  vr[V_ST] > 0 ? trace_add(TR_RETIRE, v, at, vr[V_NOTE]);
+  voice_clear_grains(v);
+  vr[V_ST] = 0; vr[V_GATE] = 0; vr[V_SUST] = 0; vr[V_AENV] = 0; vr[V_ASTAGE] = 0; vr[V_MENV] = 0; vr[V_MSTAGE] = 0;
+  vr[V_IC1L] = 0; vr[V_IC2L] = 0; vr[V_IC1R] = 0; vr[V_IC2R] = 0; vr[V_FADE] = 1; vr[V_FSTEP] = 0;
+  vr[V_FIRSTDL] = at + first_cooldown;
+);
+
+function voice_release(v) local(vr)
+(
+  vr = VOICES + v * VSTRIDE;
+  vr[V_ST] == 1 ? ( vr[V_ST] = 2; vr[V_GATE] = 0; vr[V_SUST] = 0; voice_env_release(v); tele_inc(T_NOTEOFF); trace_add(TR_NOTEOFF, v, smp, vr[V_NOTE]); );
+);
+
+// ---------------------------------------------------------------- MIDI event handling (at segment starts)
+function find_lane(ch, note) local(v found vr)
+(
+  found = -1; v = 0;
+  while (v < NVOICES && found < 0) (
+    vr = VOICES + v * VSTRIDE;
+    (vr[V_ST] == 1 || vr[V_ST] == 2) && vr[V_CH] == ch && vr[V_NOTE] == note ? found = v;
+    v += 1;
+  );
+  found;
+);
+
+// ---------------------------------------------------------------- held-key snapshot
+// A programme change fades every lane and waits for the engine to go idle before the patch
+// commits, because patch_apply_staged() rewrites the sliders the running voices read, and a
+// cross-source one also replaces the sample the voices are reading from. That costs the player
+// the chord under their hands. These functions carry the held keys across the gap so the notes
+// can be re-articulated on the new programme and held until their real note-off, whether that
+// comes from a hand or from the sequencer.
+
+function retrig_capture() local(v vr p)
+(
+  retrig_n = 0; v = 0;
+  while (v < NVOICES) (
+    vr = VOICES + v * VSTRIDE;
+    // V_ST==1 only: a lane at 2 is already releasing from a key the player has let go, and
+    // resurrecting it would put back a note nobody is holding.
+    vr[V_ST] == 1 && (vr[V_GATE] || vr[V_SUST]) ? (
+      p = RETRIG + retrig_n * RT_STRIDE;
+      p[RT_CH] = vr[V_CH]; p[RT_NOTE] = vr[V_NOTE]; p[RT_VEL] = vr[V_VEL]; p[RT_SUST] = vr[V_SUST];
+      retrig_n += 1;
+    );
+    v += 1;
+  );
+  retrig_n;
+);
+
+// The key is released inside the fade window. With the pedal UP its note-off has already been and
+// gone, so replaying it would leave a note sounding with nothing left to stop it: drop it. With the
+// pedal DOWN there is still something left to stop it, and note_off() below keeps the live lane
+// sounding for exactly that reason -- so the snapshot has to follow it and carry the key as
+// pedal-held instead of forgetting it. Dropping it there cost the player a note that the pedal was
+// still holding. retrig_drop_sustained() removes it when the pedal comes up and retrig_replay()
+// re-checks the live pedal, so this cannot put back a note nothing is holding.
+function retrig_drop(ch, note) local(i j p held)
+(
+  held = CHCTL[ch * 8 + 4] > 0.5;
+  i = 0; j = 0;
+  while (i < retrig_n) (
+    p = RETRIG + i * RT_STRIDE;
+    p[RT_CH] == ch && p[RT_NOTE] == note ? (
+      held ? ( p[RT_SUST] = 1; i != j ? memcpy(RETRIG + j * RT_STRIDE, p, RT_STRIDE); j += 1; );
+    ) : (
+      i != j ? memcpy(RETRIG + j * RT_STRIDE, p, RT_STRIDE);
+      j += 1;
+    );
+    i += 1;
+  );
+  retrig_n = j;
+);
+
+function retrig_drop_channel(ch) local(i j p)
+(
+  i = 0; j = 0;
+  while (i < retrig_n) (
+    p = RETRIG + i * RT_STRIDE;
+    p[RT_CH] == ch ? 0 : ( i != j ? memcpy(RETRIG + j * RT_STRIDE, p, RT_STRIDE); j += 1; );
+    i += 1;
+  );
+  retrig_n = j;
+);
+
+// The pedal comes up inside the fade window. channel_sustain_off() runs while every lane is at
+// V_ST==3, so it finds nothing to release -- but the snapshot still carries the key, and nothing
+// else will ever stop the note the replay would put back. Drop the pedal-held entries with it.
+function retrig_drop_sustained(ch) local(i j p)
+(
+  i = 0; j = 0;
+  while (i < retrig_n) (
+    p = RETRIG + i * RT_STRIDE;
+    p[RT_CH] == ch && p[RT_SUST] ? 0 : ( i != j ? memcpy(RETRIG + j * RT_STRIDE, p, RT_STRIDE); j += 1; );
+    i += 1;
+  );
+  retrig_n = j;
+);
+
+// The snapshot is taken when the change is armed, but the arm can outlive that block by a long
+// way: a cross-source programme keeps playing for the whole background preparation and only
+// fades once the new bank is ready. A key pressed inside that window is faded with the rest and
+// would otherwise be the one note that does not come back, so note_on() files it here.
+function retrig_add(ch, note, vel) local(i p hit)
+(
+  hit = 0; i = 0;
+  while (i < retrig_n) (
+    p = RETRIG + i * RT_STRIDE;
+    // A key struck again while armed is gated, whatever the entry said before: RT_SUST = 0.
+    p[RT_CH] == ch && p[RT_NOTE] == note ? ( p[RT_VEL] = vel; p[RT_SUST] = 0; hit = 1; );
+    i += 1;
+  );
+  !hit && retrig_n < NVOICES ? (
+    p = RETRIG + retrig_n * RT_STRIDE;
+    p[RT_CH] = ch; p[RT_NOTE] = note; p[RT_VEL] = vel; p[RT_SUST] = 0;
+    retrig_n += 1;
+  );
+);
+
+function retrig_clear() ( retrig_n = 0; retrig_armed = 0; retrig_due = 0; );
+
+function note_on(ch, note, vel, at) local(v vr lane best bestlvl bestage nlanes)
+(
+  nlanes = meta_get(active_bank, M_STATUS) == 3 ? pb_poly : 0;   // Empty state: notes are ignored
+  // Only while a programme change is armed, and only for a note that will actually sound.
+  // retrig_replay() disarms before its own note_on() calls, so the replay never files itself.
+  retrig_armed && nlanes > 0 ? retrig_add(ch, note, vel);
+  lane = find_lane(ch, note);
+  nlanes == 0 ? lane = -2;
+  lane == -2 ? 0 :
+  lane >= 0 ? (
+    vr = VOICES + lane * VSTRIDE;
+    voice_begin_fade(lane, fade2ms_step);
+    vr[V_PEND] = 1; vr[V_PNOTE] = note; vr[V_PVEL] = vel; vr[V_PCH] = ch;
+    tele_inc(T_RETRIG); trace_add(TR_RETRIG, lane, at, note);
+  ) : (
+    best = -1; v = 0;
+    while (v < nlanes && best < 0) ( VOICES[v * VSTRIDE + V_ST] == 0 ? best = v; v += 1; );
+    best >= 0 ? (
+      VOICES[best * VSTRIDE + V_FIRSTDL] > at ? ( tele_inc(T_FIRSTWAIT); voice_start(best, ch, note, vel, VOICES[best * VSTRIDE + V_FIRSTDL]); ) : voice_start(best, ch, note, vel, at);
+    ) : (
+      bestlvl = 10; v = 0;
+      while (v < nlanes) ( vr = VOICES + v * VSTRIDE; vr[V_ST] == 2 && vr[V_AENV] < bestlvl ? ( bestlvl = vr[V_AENV]; best = v; ); v += 1; );
+      best < 0 ? (
+        bestage = -1; v = 0;
+        while (v < nlanes) ( vr = VOICES + v * VSTRIDE; vr[V_ST] == 1 && (bestage < 0 || vr[V_AGE] < bestage) ? ( bestage = vr[V_AGE]; best = v; ); v += 1; );
+      );
+      best < 0 ? (
+        bestlvl = 10; v = 0;
+        while (v < nlanes) ( vr = VOICES + v * VSTRIDE; vr[V_ST] == 3 && vr[V_FADE] < bestlvl ? ( bestlvl = vr[V_FADE]; best = v; ); v += 1; );
+      );
+      best >= 0 ? (
+        vr = VOICES + best * VSTRIDE;
+        voice_begin_fade(best, fade2ms_step);
+        vr[V_PEND] = 1; vr[V_PNOTE] = note; vr[V_PVEL] = vel; vr[V_PCH] = ch; vr[V_STOLEN] = 1;
+        tele_inc(T_STEALS); trace_add(TR_STEAL, best, at, note);
+      );
+    );
+  );
+);
+
+function note_off(ch, note) local(v vr)
+(
+  retrig_drop(ch, note);
+  v = 0;
+  while (v < NVOICES) (
+    vr = VOICES + v * VSTRIDE;
+    vr[V_PEND] && vr[V_PNOTE] == note && vr[V_PCH] == ch ? vr[V_PEND] = 0;
+    vr[V_ST] == 1 && vr[V_CH] == ch && vr[V_NOTE] == note && vr[V_GATE] ? (
+      CHCTL[ch * 8 + 4] > 0.5 ? ( vr[V_SUST] = 1; vr[V_GATE] = 0; ) : voice_release(v);
+    );
+    v += 1;
+  );
+);
+
+function channel_sustain_off(ch) local(v vr)
+(
+  retrig_drop_sustained(ch);
+  v = 0;
+  while (v < NVOICES) ( vr = VOICES + v * VSTRIDE; vr[V_ST] == 1 && vr[V_CH] == ch && vr[V_SUST] ? voice_release(v); v += 1; );
+);
+
+function channel_all_notes_off(ch) local(v vr)
+(
+  retrig_drop_channel(ch);
+  CHCTL[ch * 8 + 4] = 0;
+  v = 0;
+  while (v < NVOICES) ( vr = VOICES + v * VSTRIDE; vr[V_ST] == 1 && vr[V_CH] == ch ? ( vr[V_SUST] = 0; voice_release(v); ); vr[V_PEND] && vr[V_PCH] == ch ? vr[V_PEND] = 0; v += 1; );
+);
+
+function global_fade(step) local(v vr)
+(
+  v = 0;
+  while (v < NVOICES) ( vr = VOICES + v * VSTRIDE; vr[V_PEND] = 0; vr[V_ST] == 1 || vr[V_ST] == 2 ? voice_begin_fade(v, step) : vr[V_ST] == 3 ? ( vr[V_FSTEP] = max(vr[V_FSTEP], step); ); v += 1; );
+);
+
+// Re-articulate the snapshot on the programme that has just committed. Routed through note_on()
+// rather than voice_start() so allocation, the new polyphony limit and the empty-bank guard all
+// behave exactly as they would for a played note.
+function retrig_replay() local(i n started p ch note lane)
+(
+  // Disarm before the first note_on(): an armed note_on() appends to the snapshot, and this loop
+  // is iterating it.
+  retrig_armed = 0;
+  n = retrig_n; started = 0; i = 0;
+  while (i < n) (
+    p = RETRIG + i * RT_STRIDE;
+    ch = p[RT_CH]; note = p[RT_NOTE];
+    // A pedal-held entry is replayed only while the pedal is STILL down. Belt and braces with
+    // retrig_drop_sustained(): any future path that clears CHCTL sustain without going through
+    // channel_sustain_off() would otherwise resurrect a note nothing is holding.
+    // Stop at the live polyphony rather than letting the surplus steal. Every lane is retired at
+    // replay (the commit waited for engine_idle()), so capped this way each note_on() below takes
+    // a free lane and starts immediately -- which is what makes the find_lane() call underneath
+    // exact. Uncapped, the surplus would go down note_on()'s stealing path and leave a lane at
+    // V_ST==3 holding a pending note, invisible to find_lane(), and a pedal-held key would come
+    // back gated with no key-up left to release it. Reachable since presets stopped writing
+    // Polyphony: the player's limit can now be below the number of keys held.
+    p[RT_SUST] && CHCTL[ch * 8 + 4] <= 0.5 ? 0 : started >= pb_poly ? 0 : (
+      note_on(ch, note, p[RT_VEL], smp);
+      started += 1;
+      // A key the pedal is holding must come back pedal-held, not gated: note_on() gates every
+      // lane it starts, and a gated lane is invisible to channel_sustain_off(), so the eventual
+      // pedal-up would never release it.
+      p[RT_SUST] ? (
+        lane = find_lane(ch, note);
+        lane >= 0 ? ( VOICES[lane * VSTRIDE + V_SUST] = 1; VOICES[lane * VSTRIDE + V_GATE] = 0; );
+      );
+    );
+    i += 1;
+  );
+  retrig_clear();
+);
+
+function channel_sound_off(ch) local(v vr)
+(
+  retrig_drop_channel(ch);
+  v = 0;
+  while (v < NVOICES) (
+    vr = VOICES + v * VSTRIDE;
+    vr[V_PEND] && vr[V_PCH] == ch ? vr[V_PEND] = 0;
+    vr[V_CH] == ch ? (
+      vr[V_ST] == 1 || vr[V_ST] == 2 ? voice_begin_fade(v, fade5ms_step)
+      : vr[V_ST] == 3 ? vr[V_FSTEP] = max(vr[V_FSTEP], fade5ms_step);
+    );
+    v += 1;
+  );
+);
+
+function channel_reset_controllers(ch) local(v vr)
+(
+  CHCTL[ch * 8] = 0; CHCTL[ch * 8 + 1] = 0; CHCTL[ch * 8 + 2] = 0; CHCTL[ch * 8 + 3] = 1; CHCTL[ch * 8 + 4] = 0;
+  channel_sustain_off(ch);
+  v = 0; while (v < NVOICES) (
+    vr = VOICES + v * VSTRIDE;
+    vr[V_CH] == ch ? ( vr[V_PRESS] = 0; vr[V_POLYP] = 0; );
+    v += 1;
+  );
+);
+
+function midi_event(st, d1, d2, at) local(ch typ v vr)
+(
+  ch = st & 15; typ = st & 240;
+  typ == 144 && d2 > 0 ? note_on(ch, d1, d2 / 127, at)
+  : (typ == 128 || (typ == 144 && d2 == 0)) ? note_off(ch, d1)
+  : typ == 176 ? (
+    d1 == 64 ? ( CHCTL[ch * 8 + 4] = d2 >= 64; d2 < 64 ? channel_sustain_off(ch); )
+    : d1 == 1 ? CHCTL[ch * 8 + 1] = d2 / 127
+    : d1 == 11 ? CHCTL[ch * 8 + 3] = d2 / 127
+    : d1 == 123 ? channel_all_notes_off(ch)
+    : d1 == 120 ? ( channel_sound_off(ch); channel_reset_controllers(ch); )
+    : d1 == 121 ? channel_reset_controllers(ch);
+  )
+  : typ == 224 ? CHCTL[ch * 8] = ((d2 * 128 + d1) - 8192) / 8192
+  : typ == 208 ? CHCTL[ch * 8 + 2] = d1 / 127
+  : typ == 160 ? (
+    v = find_lane(ch, d1);
+    v >= 0 ? ( vr = VOICES + v * VSTRIDE; vr[V_PRESS] = d2 / 127; vr[V_POLYP] = 1; );
+  );
+);
+
+// ---------------------------------------------------------------- voice segment processing
+// birth inside a segment at frame offset `off`; the newborn is rendered for the rest of the segment
+function grain_birth_at(v, first, off, n, pf0, pf1, bank) local(slot rec vb pfm)
+(
+  birth_at = smp_seg + off;
+  slot = grain_birth(v, first);
+  slot >= 0 ? (
+    rec = GRAINS + (v * NSLOTS + slot) * GSTRIDE; vb = VBUF + v * 2 * SEG_MAX;
+    off < n ? (
+      pfm = pf0 + (pf1 - pf0) * off / n;
+      // Birth uses the pitch at its own offset, not the voice's future endpoint.
+      grain_move_level(rec, level_for_step(grain_effective_step(rec[G_RATIO], pfm)));
+      grain_render(rec, vb + 2 * off, n - off, pfm, pf1, bank);
+    );
+    rec[G_PF] = 1;
+  );
+);
+
+// Renders voice v for n frames starting at absolute sample seg_abs, sums into OUT at frame offset o.
+function voice_segment(v, n, seg_abs, o) local(vr vb k rec pf0 pf1 bend_t i x y env estage ecoef etgt fade fstep gain gaint cutq cut_c g kq a1 a2 a3 da1 da2 da3 ic1l ic2l ic1r ic2r xl xr v1 v2 v3 yl yr fm fmt outp peak bank d14 first_due)
+(
+  vr = VOICES + v * VSTRIDE; vb = VBUF + v * 2 * SEG_MAX; bank = active_bank; smp_seg = seg_abs;
+  memset(vb, 0, 2 * n);
+  bend_t = CHCTL[vr[V_CH] * 8] * pb_bend;
+  d14 = vr[V_CFS + D_VPITCH];
+  pf0 = 2 ^ ((vr[V_BEND] + vr[V_D14]) / 12);
+  vr[V_BEND] += (bend_t - vr[V_BEND]) * (1 - (1 - bend_coef) ^ n);
+  vr[V_D14] += (d14 - vr[V_D14]) * (1 - (1 - bend_coef) ^ n);
+  pf1 = 2 ^ ((vr[V_BEND] + vr[V_D14]) / 12);
+  vr[V_ST] == 1 || (vr[V_ST] == 2 && vr[V_AENV] > 0.0001) ? (
+    while (vr[V_NEXT] < seg_abs + n) (
+      vr[V_NEXT] < seg_abs ? vr[V_NEXT] = seg_abs;
+      first_due = vr[V_FIRSTDONE] == 0;
+      grain_birth_at(v, first_due, vr[V_NEXT] - seg_abs, n, pf0, pf1, bank);
+      first_due ? ( vr[V_FIRSTDONE] = 1; vr[V_FIRSTDL] = vr[V_NEXT] + first_cooldown; );
+      vr[V_NEXT] += voice_interval(v);
+    );
+  );
+  k = 0;
+  while (k < NSLOTS) (
+    rec = GRAINS + (v * NSLOTS + k) * GSTRIDE;
+    rec[G_ST] == 1 && rec[G_PF] == 0 ? grain_render(rec, vb, n, pf0, pf1, bank);
+    rec[G_PF] = 0;
+    k += 1;
+  );
+  vr[V_OCC] += (vr[V_NGR] - vr[V_OCC]) * smooth_50ms;
+  env = vr[V_AENV]; estage = vr[V_ASTAGE]; ecoef = vr[V_ACOEF]; etgt = vr[V_ATGT];
+  fade = vr[V_FADE]; fstep = vr[V_FSTEP];
+  gain = vr[V_GAIN]; gaint = vr[V_GAINT];
+  cutq = vr[V_CFS + D_CUT]; kq = vr[V_CFS + D_RESO];
+  // cutoff (log2 Hz) and Q follow their targets with the declared 5 ms time constant, exact for any segment length
+  cut_c = 1 - (1 - smooth_5ms) ^ (n / tick_samples);
+  // Interpolate coefficients across the segment. Holding the endpoint for a full
+  // control tick creates zipper sidebands even when log-cutoff itself is smoothed.
+  g = tan($pi * min(2 ^ vr[V_CUT], 0.4 * core_rate) / core_rate);
+  a1 = 1 / (1 + g * (g + 1 / vr[V_QS])); a2 = g * a1; a3 = g * a2;
+  vr[V_CUT] += (cutq - vr[V_CUT]) * cut_c; vr[V_QS] += (kq - vr[V_QS]) * cut_c;
+  g = tan($pi * min(2 ^ vr[V_CUT], 0.4 * core_rate) / core_rate); kq = 1 / vr[V_QS];
+  da1 = 1 / (1 + g * (g + kq)); da2 = g * da1; da3 = g * da2;
+  da1 = (da1 - a1) / n; da2 = (da2 - a2) / n; da3 = (da3 - a3) / n;
+  ic1l = vr[V_IC1L]; ic2l = vr[V_IC2L]; ic1r = vr[V_IC1R]; ic2r = vr[V_IC2R];
+  fm = vr[V_FILTMIX]; fmt = pb_filton;
+  outp = OUT + 2 * o; peak = 0; i = 0;
+  while (i < n) (
+    estage == 1 ? ( env += ecoef; env >= 1 ? ( env = 1; estage = 2; etgt = vr[V_LSUS]; ecoef = env_stage_coef(vr[V_LDEC]); ); )
+    : estage == 2 ? ( env += (etgt - env) * ecoef; abs(env - etgt) < 0.00001 ? ( env = etgt; estage = 3; ); )
+    : estage == 4 ? ( env += (etgt - env) * ecoef; env <= 0 ? ( env = 0; estage = 0; ); );
+    gain += (gaint - gain) * gain_coef;
+    fade -= fstep; fade < 0 ? fade = 0;
+    fm += (fmt - fm) * fade5ms_step; fm < 0 ? fm = 0; fm > 1 ? fm = 1;
+    x = env * gain * fade;
+    xl = vb[2 * i] * x; xr = vb[2 * i + 1] * x;
+    a1 += da1; a2 += da2; a3 += da3;
+    fm > 0 ? (
+      v3 = xl - ic2l; v1 = a1 * ic1l + a2 * v3; v2 = ic2l + a2 * ic1l + a3 * v3; ic1l = 2 * v1 - ic1l; ic2l = 2 * v2 - ic2l; yl = v2;
+      v3 = xr - ic2r; v1 = a1 * ic1r + a2 * v3; v2 = ic2r + a2 * ic1r + a3 * v3; ic1r = 2 * v1 - ic1r; ic2r = 2 * v2 - ic2r; yr = v2;
+      fm < 1 ? ( yl = xl + (yl - xl) * fm; yr = xr + (yr - xr) * fm; );
+    ) : ( yl = xl; yr = xr; );
+    outp[2 * i] += yl; outp[2 * i + 1] += yr;
+    y = abs(yl) + abs(yr); y > peak ? peak = y;
+    i += 1;
+  );
+  vr[V_AENV] = env; vr[V_ASTAGE] = estage; vr[V_ACOEF] = ecoef; vr[V_ATGT] = etgt; vr[V_FADE] = fade; vr[V_GAIN] = gain;
+  vr[V_IC1L] = ic1l; vr[V_IC2L] = ic2l; vr[V_IC1R] = ic1r; vr[V_IC2R] = ic2r; vr[V_FILTMIX] = fm;
+  vr[V_ST] == 3 && fade <= 0 ? (
+    voice_retire(v, seg_abs + n);
+    vr[V_PEND] ? ( vr[V_PEND] = 0; voice_start(v, vr[V_PCH], vr[V_PNOTE], vr[V_PVEL], seg_abs + n); );
+  ) : (
+    vr[V_ST] == 2 && estage == 0 ? (
+      peak < 0.00001 ? ( vr[V_SILENT] += n; vr[V_SILENT] > 0.25 * core_rate ? voice_retire(v, seg_abs + n); ) : vr[V_SILENT] = 0;
+    );
+  );
+);
+
+// Fixed causal antialias guard after the summed voices. Histories survive blocks
+// and note/source changes; reset only at lifecycle/rate boundaries with the adapter.
+function guard_reset() ( memset(GUARD_STATE, 0, 20); );
+function guard_process(x, channel) local(sec cb zp y)
+(
+  sec = 0;
+  loop(5,
+    cb = COEF_GUARD + sec * 5; zp = GUARD_STATE + channel * 10 + sec * 2;
+    y = cb[0] * x + zp[0];
+    zp[0] = cb[1] * x - cb[3] * y + zp[1]; zp[1] = cb[2] * x - cb[4] * y;
+    x = y; sec += 1;
+  );
+  x;
+);
+
+// ---------------------------------------------------------------- linear core output stage over a segment
+// Final protection/peak telemetry belongs to the host-rate output after conversion.
+function output_segment(n, o) local(i x y outp)
+(
+  outp = OUT + 2 * o; i = 0;
+  while (i < n) (
+    out_gain += (out_gain_t - out_gain) * gain_coef;
+    x = outp[2 * i]; y = x - dc_x0 + dc_r * dc_y0; dc_x0 = x; dc_y0 = y; y *= out_gain;
+    outp[2 * i] = guard_process(y, 0);
+    x = outp[2 * i + 1]; y = x - dc_x1 + dc_r * dc_y1; dc_x1 = x; dc_y1 = y; y *= out_gain;
+    outp[2 * i + 1] = guard_process(y, 1);
+    i += 1;
+  );
+);
+
+// ---------------------------------------------------------------- control tick
+function control_tick() local(v vr r rr)
+(
+  shared_tick();
+  r = 0; while (r < NROUTES) ( rr = ROUTES + r * 4; rr[R_DEPTHS] += (rr[R_DEPTH] - rr[R_DEPTHS]) * smooth_10ms; r += 1; );
+  v = 0;
+  while (v < NVOICES) (
+    vr = VOICES + v * VSTRIDE;
+    vr[V_ST] > 0 ? ( voice_menv_tick(v); voice_eval_routes(v, 0); voice_scan_tick(v); );
+    v += 1;
+  );
+  tele_inc(T_TICKS);
+);
+
+// ---------------------------------------------------------------- block processing
+function render_block(n, qn) local(pos seg_end next_tick seglen v vr fend event_at)
+(
+  memset(OUT, 0, 2 * n);
+  pos = 0;
+  while (pos < n) (
+    event_at = ra_peek();
+    while (event_at >= 0 && event_at <= pos) (
+      ra_pop(); midi_event(ra_m1, ra_m2, ra_m3, smp + pos);
+      event_at = ra_peek();
+    );
+    tick_phase >= tick_samples ? ( tick_phase -= tick_samples; control_tick(); );
+    seg_end = n;
+    event_at >= 0 && event_at < seg_end ? seg_end = event_at;
+    next_tick = pos + (tick_samples - tick_phase);
+    next_tick < seg_end ? seg_end = next_tick;
+    seg_end > pos + SEG_MAX ? seg_end = pos + SEG_MAX;
+    // a lane fade that completes inside the segment ends the segment there, so its pending note starts on time
+    v = 0;
+    while (v < NVOICES) (
+      vr = VOICES + v * VSTRIDE;
+      vr[V_ST] == 3 && vr[V_FSTEP] > 0 ? ( fend = pos + ceil(vr[V_FADE] / vr[V_FSTEP]); fend > pos && fend < seg_end ? seg_end = fend; );
+      v += 1;
+    );
+    seg_end <= pos ? seg_end = pos + 1;
+    seglen = seg_end - pos;
+    v = 0;
+    while (v < NVOICES) ( VOICES[v * VSTRIDE + V_ST] > 0 ? voice_segment(v, seglen, smp + pos, pos); v += 1; );
+    // Idle quiescence (Shiro.jsfx): OUT is already zeroed above and no lane is active, so the
+    // output-stage recursions have nothing to do; idle_bypass is fixed for the whole block.
+    idle_bypass ? 0 : output_segment(seglen, pos);
+    tick_phase += seglen;
+    pos = seg_end;
+  );
+  // A boundary event belongs to the next core interval. ra_finish() carries it;
+  // never clamp it backwards into the last sample of this block.
+  smp += n;
+  TELE[T_VOICES] = 0; TELE[T_GRAINS] = 0; v = 0;
+  while (v < NVOICES) ( vr = VOICES + v * VSTRIDE; vr[V_ST] > 0 ? ( TELE[T_VOICES] += 1; TELE[T_GRAINS] += vr[V_NGR]; ); v += 1; );
+  TELE[T_GRAINS] > TELE[T_GRAINS_HW] ? TELE[T_GRAINS_HW] = TELE[T_GRAINS];
+  TELE[T_BLOCKS] += 1; TELE[T_SMP] = smp;
+);
+
+function engine_idle() local(v any) ( any = 0; v = 0; while (v < NVOICES) ( VOICES[v * VSTRIDE + V_ST] > 0 ? any = 1; v += 1; ); !any; );
+
+// True only when the engine is idle AND the output-stage recursions have settled to an
+// engineering zero, i.e. output_segment() would provably produce nothing new this block.
+// Chained ternaries rather than && so a sounding voice exits at the first failing test.
+function engine_quiescent() local(v ok i)
+(
+  ok = engine_idle();
+  ok ? (
+    // redundant given engine_idle(): voice_retire() always clears V_NGR; kept as a cheap
+    // standing assertion against a future scheduler that could decouple the two
+    v = 0; ok = 1;
+    while (v < NVOICES) ( VOICES[v * VSTRIDE + V_NGR] != 0 ? ok = 0; v += 1; );
+  );
+  ok ? ok = ra_peek() < 0;
+  ok ? ok = abs(dc_x0) <= IDLE_EPS;
+  ok ? ok = abs(dc_y0) <= IDLE_EPS;
+  ok ? ok = abs(dc_x1) <= IDLE_EPS;
+  ok ? ok = abs(dc_y1) <= IDLE_EPS;
+  ok ? (
+    i = 0;
+    while (i < 20 && ok) ( abs(GUARD_STATE[i]) > IDLE_EPS ? ok = 0; i += 1; );
+  );
+  ok ? ok = abs(out_gain_t - out_gain) <= IDLE_EPS_GAIN;
+  ok;
+);
+
+// Deliberately does NOT clear the retrigger snapshot: src_commit() calls this in the middle of a
+// cross-source programme change, between the fade and the replay. The three hard resets that do
+// need the snapshot gone (rate epoch, state restore, panic) call retrig_clear() themselves.
+function engine_reset_voices() local(v) ( v = 0; while (v < NVOICES) ( voice_retire(v, smp); VOICES[v * VSTRIDE + V_PEND] = 0; VOICES[v * VSTRIDE + V_FIRSTDL] = 0; v += 1; ); );
+
+function engine_init_state() local(ch)
+(
+  smp = 0; tick_phase = 0;
+  memset(GRAINS, 0, NGRAINS * GSTRIDE); memset(VOICES, 0, NVOICES * VSTRIDE); memset(TELE, 0, 256);
+  ch = 0; while (ch < 16) ( CHCTL[ch * 8] = 0; CHCTL[ch * 8 + 1] = 0; CHCTL[ch * 8 + 2] = 0; CHCTL[ch * 8 + 3] = 1; CHCTL[ch * 8 + 4] = 0; ch += 1; );
+  dc_x0 = 0; dc_y0 = 0; dc_x1 = 0; dc_y1 = 0; out_gain = 0.25; out_gain_t = 0.25;
+  lfo1_ph = 0; lfo2_ph = 0; lfo1_wave = 0; lfo2_wave = 1; lfo1_xf = 0; lfo2_xf = 0;
+  rnd_ph = 0; rnd_prev = 0; rnd_target = 0; rnd_out = 0; rnd_state = 12345;
+  cur_tempo = 120; trace_head = 0;
+);

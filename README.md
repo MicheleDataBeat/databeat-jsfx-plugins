@@ -1,6 +1,6 @@
 # DataBeat JSFX Plugins
 
-Seven plug-ins for REAPER, written in JSFX: five instruments, a reverb and a beat replayer. Each is a single text file: no installer,
+Eight plug-ins for REAPER, written in JSFX: six instruments, a reverb and a beat replayer. Each is plain JSFX source: no installer,
 build step, signing or manual compilation. You can read every line of code you run and
 change it during playback. That simplicity and access to the source are why we chose JSFX.
 
@@ -12,16 +12,17 @@ Unlike most hosts, REAPER supports plug-ins that are plain text files. Drop one 
 `Effects` folder to install it. Edit it and press Ctrl+S to recompile it during playback.
 These plug-ins need no notarisation, do not phone home and do not expire.
 
-- **One file per instrument.** Presets, wavetables, graphics and the interface are all
-  inside the `.jsfx` file. Nothing is installed alongside it or written to disk.
-- **No dependencies.** No runtime, DLLs or sample folder to maintain.
-- **Custom interfaces, fixed size.** Each instrument draws its own `@gfx` panel, showing
-  all its controls at once in signal order. Each panel has a size chosen for that
-  instrument rather than being scaled to fit.
+- **Self-contained.** Presets, wavetables, graphics and the interface are all in the
+  plug-in's own source. An instrument that plays recordings ships them beside its source;
+  nothing else is installed or written to disk.
+- **No dependencies.** No runtime or DLLs to install.
+- **Custom interfaces.** Each instrument draws its own `@gfx` panel, showing all its
+  controls at once in signal order. Each panel has a size chosen for that instrument
+  rather than being stretched to fit; one of them, Shiro, also offers fixed text scales.
 - **Audio thread.** No look-ahead, declared PDC latency or memory allocation while
   you play.
-- **Automatable.** Every parameter has a slider beneath the custom panel, so REAPER's
-  automation, modulation and parameter learn work normally.
+- **Automatable.** Every parameter is a host parameter, so REAPER's automation,
+  modulation and parameter learn work normally.
 - **Readable source.** Each file starts with an outline of its contents.
 
 ---
@@ -37,6 +38,7 @@ These plug-ins need no notarisation, do not phone home and do not expire.
 | 🪉 | **Yoshi** | Host-synchronised MIDI arpeggiator | 864 × 422 | MIT |
 | 🍂 | **Momiji** | Algorithmic stereo reverb, 50 presets | 900 × 400 | MIT |
 | 🔁 | **Raja** | Beat replayer: scheduled or hand-played repeats, 20 presets | 980 × 560 | MIT |
+| 🌾 | **Shiro** | Granular instrument: one recording becomes playable, 100 presets | 800 × 600 min | MIT |
 
 ### Haruki — drums
 
@@ -92,6 +94,21 @@ note with triplets, pitch drop and fall, level and fade, a band filter, three ro
 Replace, Repeats Only), twenty presets, no declared latency. A live timeline shows every chance,
 capture and repeat.
 
+### Shiro — granular instrument
+
+Shiro turns a short recording into something you can play. Give it a sound of up to twelve
+seconds, choose where in it to read and how, and every note is built from many small pieces of
+that recording, called grains. Played with a clear first grain it behaves like a keyboard or a
+plucked instrument; slow the reading down and let its motion sources work, and the same note
+unfolds into a texture that keeps changing for as long as you hold it. Eight voices with twelve
+grains each, so a chord never starves one note to feed another. Two LFOs, a random walk, a
+per-note envelope and your MIDI controllers route to fourteen destinations through twelve
+slots, and four macros — BODY, MOTION, COLOUR, SPACE — mean the same thing across the bank. One
+hundred presets on twenty-four CC0 recordings that ship with it. Drop in your own WAV and it is
+prepared once and stored inside the project, so a saved session plays even if the original file
+is gone. All randomness is seeded: a repeated note repeats exactly and a render matches what you
+heard.
+
 ---
 
 ## Install
@@ -112,12 +129,20 @@ directly into `Effects` on macOS:
 cp plugins/*.jsfx ~/Library/Application\ Support/REAPER/Effects/
 ```
 
+Shiro is a folder rather than a single file, because it carries its own recordings, so copy the
+whole `plugins/Shiro` folder across and keep it together — its sources are found relative to
+`Shiro.jsfx`:
+
+```bash
+cp -R plugins/Shiro ~/Library/Application\ Support/REAPER/Effects/
+```
+
 In REAPER, choose **FX → Add → JS** and select the instrument. If it does not appear, use
 **Options → Preferences → Plug-ins → ReaScript/JSFX → Re-scan**.
 
 Place the plug-ins on your tracks as follows:
 
-- **Haruki, Satya, Kozue** are instruments. Put them on a track that receives MIDI.
+- **Haruki, Satya, Kozue, Shiro** are instruments. Put them on a track that receives MIDI.
 - **Satoshi and Yoshi** are MIDI processors. Put them on the track *before* the instrument
   that will make the sound.
 - **Momiji** is an audio effect. Put it on an audio track, or on a send/bus with Mix at 100 %.
@@ -141,16 +166,24 @@ a browser. The HTML file contains every screenshot, so no separate image folder 
 | Yoshi | [Manual](docs/Yoshi/README.md) · [Design notes](docs/Yoshi/DESIGN.md) |
 | Momiji | [Manual](docs/Momiji/MANUAL.md) · [HTML](docs/Momiji/MANUAL.html) |
 | Raja | [Manual](docs/Raja/MANUAL.md) · [HTML](docs/Raja/MANUAL.html) |
+| Shiro | [Manual](docs/Shiro/MANUAL.md) · [HTML](docs/Shiro/MANUAL.html) · [Preset list](docs/Shiro/PRESETS.md) · [Source credits](docs/Shiro/CREDITS.md) |
 
 ---
 
 ## Licences
 
 Each instrument has its own licence, stated in its source file and summarised here.
-Two of the seven use copyleft licences for different reasons.
+Two of the eight use copyleft licences for different reasons.
 The complete licence texts and the file-by-file scope are in [`LICENSE.md`](LICENSE.md).
 
-**Satya, Kozue, Yoshi, Momiji, Raja — MIT.** Copyright © 2026 Michele Ibba. Do what you like.
+**Satya, Kozue, Yoshi, Momiji, Raja, Shiro — MIT.** Copyright © 2026 Michele Ibba. Do what you like.
+
+**Shiro's recordings — CC0-1.0.** The twenty-four factory sources are public-domain recordings
+from the Versilian Studios community libraries, prepared for the instrument. They keep their own
+CC0 terms, which the MIT grant on Shiro's code does not replace, and they can be shared inside a
+project. `plugins/Shiro/Documentation/CREDITS.md` names every recording and its origin, and
+`plugins/Shiro/Licenses/` carries the licence text and where each pool's terms were read.
+Credit is given although CC0 does not require it. Recordings you load yourself stay yours.
 
 **Satoshi — AGPL-3.0-only.** A JSFX adaptation of the author's previous unpublished works.
 Its `@gfx` toolkit and sequencer lane design come from Haruki, which is the same author's own
@@ -197,12 +230,13 @@ Copyright © 2026 Michele Ibba, except where a file names another author.
 
 ```
 README.md      this file
-plugins/       the seven .jsfx files, exactly as installed
+plugins/       the eight plug-ins, exactly as installed: seven .jsfx files and the
+               Shiro folder, which carries its own sources and factory data
 docs/          a folder per instrument
 ```
 
 `plugins/` contains the finished builds, byte-identical to those installed and running in
-REAPER. All seven repository copies have been loaded in REAPER and report their expected
+REAPER. All eight repository copies have been loaded in REAPER and report their expected
 parameter counts.
 
 `docs/` is adapted from each instrument's development repository. The text is the author's,

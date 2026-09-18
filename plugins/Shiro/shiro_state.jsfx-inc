@@ -1,0 +1,389 @@
+// Shiro state: routes, native serialisation (float32 wire), reset sound. @serialize is a lifecycle
+// exception to the audio-thread rules (strings and large memory transfers are allowed there).
+// The entry section owns transfer_gate=3 throughout this call: command adoption and UI
+// preparation cannot replace/reuse the source or change committed patch targets mid-save.
+@init
+STATE_MAGIC = 21576;   // 0x5348 'SH'
+STATE_SCHEMA = 3;
+STATE_PARAMS_END = 21577;
+
+function routes_clear() local(r) ( r = 0; while (r < NROUTES) ( ROUTES[r * 4] = 0; ROUTES[r * 4 + 1] = 0; ROUTES[r * 4 + 2] = 0; ROUTES[r * 4 + 3] = 0; r += 1; ); );
+
+
+// Physical slider values are also stored internally: the host captures its own slider row
+// before calling @serialize, leaving a possible source-adoption window before our gate.
+function state_param_limits_init() ( mem_set_values(SERIAL_LIMITS, -60, 6, 1, 8, 0, 16, 1, 24, 0, 1, 0, 127, -100, 100, -24, 24, 0, 1, 0, 1, 0, 1, 0, 1, -4, 4, 0, 2, 0, 1, 0, 10, 0, 1, 8, 500, 0.25, 8, 0, 1, 0, 9, 0, 0.8, 0, 1, 0, 1, 0, 24, 0, 3, 0, 1, 0, 1, -1, 1, 0, 1, 0, 1, 0, 5000, 5, 5000, 0, 1, 5, 12000, 0, 1, 30, 18000, 0, 1, 0, 10000, 5, 20000, 0, 1, 5, 12000, 0, 2, 0.01, 20, 0, 1, 0, 10, 0, 1, 0, 2, 0.01, 20, 0, 1, 0, 10, 0, 1, 0.02, 10, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 16777215); );
+function state_params_valid() local(i v ok lo hi eps)
+(
+  i=0;ok=1;while(i<59)(v=SERIAL_PARAMS[i];
+    lo=SERIAL_LIMITS[2*i];hi=SERIAL_LIMITS[2*i+1];eps=max(0.0000001,max(abs(lo),abs(hi))*0.0000001);
+    !(v>=lo-eps && v<=hi+eps) ? ok=0 : SERIAL_PARAMS[i]=clampf(v,lo,hi);
+    i+=1;
+  );ok;
+);
+function state_params_apply() local(i)
+(
+  i=0;while(i<59)(slider(i+1)=SERIAL_PARAMS[i];sliderchange(slider(i+1));i+=1;);
+);
+
+// count routes already targeting a destination (1..14)
+function routes_to_dest(dst) local(r n) ( n = 0; r = 0; while (r < NROUTES) ( ROUTES[r * 4 + 1] == dst && ROUTES[r * 4] > 0 ? n += 1; r += 1; ); n; );
+
+// set route slot i (0..11). Rejects a third route on a destination and merges duplicate source/destination pairs. Returns 1 on success.
+function route_set(i, src, dst, depth) local(r rr ok dup)
+(
+  ok = i >= 0 && i < NROUTES && i == (i | 0) && src >= 0 && src <= 12 && src == (src | 0) && dst >= 0 && dst <= NDEST && dst == (dst | 0) && depth == depth;
+  !ok ? 0 : src > 0 && dst > 0 ? (
+    dup = -1; r = 0;
+    while (r < NROUTES) ( r != i && ROUTES[r * 4] == src && ROUTES[r * 4 + 1] == dst ? dup = r; r += 1; );
+    dup >= 0 ? ( ROUTES[dup * 4 + 2] = max(-1, min(1, ROUTES[dup * 4 + 2] + depth)); ROUTES[i * 4] = 0; ROUTES[i * 4 + 1] = 0; ROUTES[i * 4 + 2] = 0; )
+    : (
+      (ROUTES[i * 4 + 1] != dst || ROUTES[i * 4] == 0) && routes_to_dest(dst) >= 2 ? ok = 0
+      : ( ROUTES[i * 4] = src; ROUTES[i * 4 + 1] = dst; ROUTES[i * 4 + 2] = max(-1, min(1, depth)); );
+    );
+  ) : ( ROUTES[i * 4] = 0; ROUTES[i * 4 + 1] = 0; ROUTES[i * 4 + 2] = 0; );
+  ok;
+);
+
+function route_first_free() local(r f) ( f = -1; r = 0; while (r < NROUTES && f < 0) ( ROUTES[r * 4] == 0 ? f = r; r += 1; ); f; );
+
+// ---------------------------------------------------------------- full patch transaction
+// Audio side: write every staged parameter to its slider, notify the host, adopt routes/trim/origin.
+function patch_apply_staged() local(i r)
+(
+  // Polyphony (slider2) and MIDI Channel (slider3) are performance setup, not part of a sound.
+  // The factory table stores whatever they were when each preset was authored -- 8 and Omni for
+  // the whole set -- so writing them here silently took the player's voice limit and channel
+  // filter away on every preset change. The staged values are ignored; the live ones stand.
+  i = 0; while (i < 59) ( i == 1 || i == 2 ? 0 : (slider(i + 1) = PATCHSTG[i]); i += 1; );
+  sliderchange(slider(1)); sliderchange(slider(4)); sliderchange(slider(5)); sliderchange(slider(6)); sliderchange(slider(7)); sliderchange(slider(8)); sliderchange(slider(9)); sliderchange(slider(10));
+  sliderchange(slider(11)); sliderchange(slider(12)); sliderchange(slider(13)); sliderchange(slider(14)); sliderchange(slider(15)); sliderchange(slider(16)); sliderchange(slider(17)); sliderchange(slider(18)); sliderchange(slider(19)); sliderchange(slider(20));
+  sliderchange(slider(21)); sliderchange(slider(22)); sliderchange(slider(23)); sliderchange(slider(24)); sliderchange(slider(25)); sliderchange(slider(26)); sliderchange(slider(27)); sliderchange(slider(28)); sliderchange(slider(29)); sliderchange(slider(30));
+  sliderchange(slider(31)); sliderchange(slider(32)); sliderchange(slider(33)); sliderchange(slider(34)); sliderchange(slider(35)); sliderchange(slider(36)); sliderchange(slider(37)); sliderchange(slider(38)); sliderchange(slider(39)); sliderchange(slider(40));
+  sliderchange(slider(41)); sliderchange(slider(42)); sliderchange(slider(43)); sliderchange(slider(44)); sliderchange(slider(45)); sliderchange(slider(46)); sliderchange(slider(47)); sliderchange(slider(48)); sliderchange(slider(49)); sliderchange(slider(50));
+  sliderchange(slider(51)); sliderchange(slider(52)); sliderchange(slider(53)); sliderchange(slider(54)); sliderchange(slider(55)); sliderchange(slider(56)); sliderchange(slider(57)); sliderchange(slider(58)); sliderchange(slider(59));
+  r = 0; while (r < NROUTES) ( ROUTES[r * 4] = PATCHSTG[PS_ROUTES + r * 3]; ROUTES[r * 4 + 1] = PATCHSTG[PS_ROUTES + r * 3 + 1]; ROUTES[r * 4 + 2] = PATCHSTG[PS_ROUTES + r * 3 + 2]; ROUTES[r * 4 + 3] = ROUTES[r * 4 + 2]; r += 1; );
+  preset_trim = PATCHSTG[PS_TRIM]; factory_origin = PATCHSTG[PS_ORIGIN];
+  shared_patch_reset(clampf(slider(59), 1, 16777215) | 0);
+  CMD[C_PATCH] = 0; CMD[C_PATCH_SAME] = 0; PATCHSTG[PS_VALID] = 0;
+  CMD[C_ROUTES_GEN] += 1;
+  patch_applied_gen += 1;
+);
+
+// UI side: stage the current sliders as the patch (used before editing description/trim), or fill from the factory table
+function patch_stage_from_factory(idx) local(i r base)
+(
+  base = FT_PARAMS + idx * 64;
+  i = 0; while (i < 59) ( PATCHSTG[i] = base[i]; i += 1; );
+  PATCHSTG[PS_TRIM] = base[59]; PATCHSTG[PS_ORIGIN] = idx + 1; PATCHSTG[PS_ASSET] = base[61];
+  r = 0; while (r < 36) ( PATCHSTG[PS_ROUTES + r] = FT_ROUTES[idx * 36 + r]; r += 1; );
+  PATCHSTG[PS_VALID] = 1;
+);
+
+// ---------------------------------------------------------------- factory access (tables filled by shiro_factory.jsfx-inc)
+// FT_ASSETS record: [0] root [1] fine [2] tuned [3] frames [4] channels [5] role [6] reserved; strings: FS_ASSET_NAME + a, FS_ASSET_FILE + a
+FS_PRESET_NAME = 200; FS_PRESET_DESC = 300; FS_PRESET_CAT = 400; FS_ASSET_NAME = 500; FS_ASSET_FILE = 540; FS_ASSET_ID = 580; FS_ASSET_HASH = 620; FS_ASSET_DESC = 660;
+
+// UI side: load factory preset idx (0-based). Stages the patch; starts the source preparation when the asset differs.
+function factory_load_preset(idx) local(a m same)
+(
+  idx >= 0 && idx < NFACTORY ? (
+    prep_cancel();
+    patch_stage_from_factory(idx);
+    a = PATCHSTG[PS_ASSET]; m = meta_ptr(active_bank);
+    same = m[M_STATUS] == 3 && m[M_FACTORY] == a + 1;
+    same ? ( CMD[C_PATCH_SAME] = 1; atomic_set(CMD[C_PATCH], 1); )
+    : (
+      stg_root = FT_ASSETS[a * 16]; stg_fine = FT_ASSETS[a * 16 + 1]; stg_factory = a + 1;
+      strcpy(#stg_name, FS_ASSET_NAME + a);
+      sprintf(#ui_path, "Sources/%s", FS_ASSET_FILE + a);
+      CMD[C_PATCH_SAME] = 0; atomic_set(CMD[C_PATCH], 1);
+      prep_begin(#ui_path);
+    );
+  );
+);
+
+// Lifecycle path (first creation, tests): load a factory preset synchronously, source and patch together.
+function factory_load_preset_sync(idx) local(a err)
+(
+  err = -1;
+  idx >= 0 && idx < NFACTORY ? (
+    patch_stage_from_factory(idx);
+    a = PATCHSTG[PS_ASSET];
+    stg_root = FT_ASSETS[a * 16]; stg_fine = FT_ASSETS[a * 16 + 1]; stg_factory = a + 1;
+    strcpy(#stg_name, FS_ASSET_NAME + a);
+    sprintf(#ui_path, "Sources/%s", FS_ASSET_FILE + a);
+    err = src_load_sync(#ui_path);
+    err == 0 ? patch_apply_staged() : ( PATCHSTG[PS_VALID] = 0; CMD[C_PATCH] = 0; );
+  );
+  err;
+);
+
+// UI side: load factory source a (0-based) keeping the current synthesis settings (root/fine follow the asset)
+function factory_load_source(a)
+(
+  a >= 0 && a < NASSETS ? (
+    PATCHSTG[PS_VALID] = 0; CMD[C_PATCH] = 0;
+    stg_root = FT_ASSETS[a * 16]; stg_fine = FT_ASSETS[a * 16 + 1]; stg_factory = a + 1;
+    strcpy(#stg_name, FS_ASSET_NAME + a);
+    sprintf(#ui_path, "Sources/%s", FS_ASSET_FILE + a);
+    src_root_follow = 1;
+    prep_begin(#ui_path);
+  );
+);
+
+// Seed prev/next (owner ruling, 18 September 2026). The seed reaches a voice only at note-on
+// (rng_seed(pb_seed, note, ch, k) in voice_start), so stepping it under a held chord is silent
+// until the next note is played -- which is no way to hear what a seed did. These ask the audio
+// side to re-articulate whatever is held on the new value; the request is ignored there when
+// nothing is held, so a release tail is never cut for a comparison that cannot happen.
+// The step is +-1, not the hash walk the old New Variation button used, so that prev exactly
+// undoes next: rng_seed multiplies by 131 and runs three LCG steps before a voice sees it, so
+// adjacent seeds are as unrelated as any other pair and nothing is lost by stepping in ones.
+// Clamped at both ends rather than wrapping, like the Scale rows. A step that changes nothing --
+// prev at 1, next at the maximum -- asks for no retrigger: there is nothing new to hear.
+function seed_step(d) local(s) (
+  s = max(1, min(16777215, (clampf(slider(59), 1, 16777215) | 0) + d));
+  s != slider(59) ? (
+    slider(59) = s; sliderchange(slider(59)); slider_automate(slider(59));
+    atomic_set(CMD[C_RESEED], 1);
+  );
+);
+
+// UI side: user file request
+function user_load_path(path) ( PATCHSTG[PS_VALID] = 0; CMD[C_PATCH] = 0; stg_root = 60; stg_fine = 0; stg_factory = 0; strcpy(#stg_name, path); src_root_follow = 0; prep_begin(path); );
+
+// ---------------------------------------------------------------- UI -> audio commands (CMD mailbox)
+// CMD[0] routes_sync (UI edited ROUTES_UI; audio copies 12 records at block start)   CMD[1] panic
+// CMD[2] patch_pending (PATCHSTG holds a full patch; audio applies it at the next source commit or when idle)
+// CMD[3] patch_same_source (1: no source change, apply when idle or on apply-now)   CMD[4] reset_sound request
+// CMD[5] routes_gen (audio increments when the live table changed outside the UI: restore, reset, patch)
+// CMD[6] diag_timing (1: measure block time into TELE)   CMD[7] apply_now request
+// CMD[8] reseed request (the Variation Seed has just been stepped: re-articulate the held keys on it)
+C_ROUTES_SYNC = 0; C_PANIC = 1; C_PATCH = 2; C_PATCH_SAME = 3; C_RESET = 4; C_ROUTES_GEN = 5; C_DIAG = 6; C_APPLY = 7;
+C_RESEED = 8;
+// PATCHSTG layout: [0..58] P001..P059, [59] preset_trim, [60] factory_origin, [61] asset index (-1 keep), [62] valid
+PS_TRIM = 59; PS_ORIGIN = 60; PS_ASSET = 61; PS_VALID = 62; PS_ROUTES = 64;   // [64..99] 12 x (src, dst, depth)
+
+// UI side: edit a route in the UI copy and request a sync (validated by route_set rules on the audio side)
+function ui_route_edit(i, src, dst, depth) ( ROUTES_UI[i * 4] = src; ROUTES_UI[i * 4 + 1] = dst; ROUTES_UI[i * 4 + 2] = depth; atomic_set(CMD[C_ROUTES_SYNC], 1); );
+function ui_routes_refresh() local(r) ( r = 0; while (r < NROUTES * 4) ( ROUTES_UI[r] = ROUTES[r]; r += 1; ); ui_routes_gen_seen = CMD[C_ROUTES_GEN]; );
+
+// audio side: adopt the UI copy (third route to a destination is dropped, duplicates merge), keep smoothed depths
+function routes_adopt_ui() local(r src dst d)
+(
+  r = 0;
+  while (r < NROUTES) (
+    src = ROUTES_UI[r * 4]; dst = ROUTES_UI[r * 4 + 1]; d = ROUTES_UI[r * 4 + 2];
+    (src != ROUTES[r * 4] || dst != ROUTES[r * 4 + 1]) ? ( ROUTES[r * 4] = 0; ROUTES[r * 4 + 1] = 0; ROUTES[r * 4 + 2] = 0; ROUTES[r * 4 + 3] = 0; route_set(r, src, dst, d); )
+    : ( ROUTES[r * 4 + 2] = max(-1, min(1, d)); );
+    r += 1;
+  );
+  r = 0; while (r < NROUTES * 4) ( ROUTES_UI[r] = ROUTES[r]; r += 1; );
+);
+
+// Reset sound: parameter defaults, routes cleared, macros zero, region full, source root/fine from the bank metadata
+// UI publishes the reset; the audio control-transfer phase applies it atomically.
+// MIDI Channel (slider3) is deliberately NOT reset (owner ruling, 2026-09-18): it is routing, not
+// sound, and silently returning a player who has set channel 5 to Omni breaks their rig on a button
+// that promises to reset a sound. Polyphony (slider2) is meant to be reset to 8 by the same ruling --
+// the voice limit is part of how the patch sounds. Narrower than patch_apply_staged(), which leaves
+// both alone: a preset recall is not an explicit reset.
+// Every write below uses the indexed `slider(N)` form, and that is deliberate. A JSFX slider declared
+// with a name does not bind the bare `sliderN` identifier -- that identifier is an ordinary unrelated
+// variable, and sliderchange()/slider_automate() on it do nothing. Written the bare way, this function
+// reset the routes, macros, preset_trim, factory_origin and the shared patch but not one of the 59
+// parameters, which is how it stood until the construct was measured and repaired on 18 September 2026.
+// Keep the indexed form here and in the panel: reads must follow the writes, because the shadow
+// variables the bare form creates are what a UI-only write used to leave behind.
+function reset_sound() ( atomic_set(CMD[C_RESET], 1); );
+function reset_sound_apply() local(m)
+(
+  prep_cancel(); CMD[C_PATCH] = 0; PATCHSTG[PS_VALID] = 0;
+  m = meta_ptr(active_bank);
+  slider(1) = -12; slider(2) = 8; slider(4) = 2; slider(5) = 0.7;
+  slider(6) = m[M_STATUS] == 3 && m[M_FACTORY] > 0 ? m[M_ROOT] : 60; slider(7) = m[M_STATUS] == 3 && m[M_FACTORY] > 0 ? m[M_FINE] : 0;
+  slider(8) = 0; slider(9) = 1; slider(10) = 0; slider(11) = 1; slider(12) = 0; slider(13) = 1; slider(14) = 1; slider(15) = 0; slider(16) = 6; slider(17) = 0;
+  slider(18) = 80; slider(19) = 4; slider(20) = 0; slider(21) = 3; slider(22) = 0.15; slider(23) = 0.08; slider(24) = 0; slider(25) = 0; slider(26) = 0; slider(27) = 0;
+  slider(28) = 0.8; slider(29) = 0; slider(30) = 0.25; slider(31) = 1; slider(32) = 5; slider(33) = 350; slider(34) = 0.7; slider(35) = 800; slider(36) = 1; slider(37) = 10000; slider(38) = 0.15;
+  slider(39) = 250; slider(40) = 2000; slider(41) = 0.4; slider(42) = 1500; slider(43) = 0; slider(44) = 0.12; slider(45) = 0; slider(46) = 6; slider(47) = 0; slider(48) = 1; slider(49) = 0.037; slider(50) = 0; slider(51) = 8; slider(52) = 0;
+  slider(53) = 0.15; slider(54) = 0.8; slider(55) = 0; slider(56) = 0; slider(57) = 0; slider(58) = 0; slider(59) = 1;
+  routes_clear(); memset(ROUTES_UI, 0, NROUTES * 4); CMD[C_ROUTES_SYNC] = 0; CMD[C_ROUTES_GEN] += 1;
+  shared_patch_reset(1);
+  preset_trim = 0; strcpy(#preset_desc, ""); factory_origin = 0;
+  sliderchange(slider(1)); sliderchange(slider(2)); sliderchange(slider(3)); sliderchange(slider(4)); sliderchange(slider(5)); sliderchange(slider(6)); sliderchange(slider(7)); sliderchange(slider(8)); sliderchange(slider(9)); sliderchange(slider(10)); sliderchange(slider(11)); sliderchange(slider(12)); sliderchange(slider(13)); sliderchange(slider(14)); sliderchange(slider(15)); sliderchange(slider(16)); sliderchange(slider(17)); sliderchange(slider(18)); sliderchange(slider(19)); sliderchange(slider(20)); sliderchange(slider(21)); sliderchange(slider(22)); sliderchange(slider(23)); sliderchange(slider(24)); sliderchange(slider(25)); sliderchange(slider(26)); sliderchange(slider(27)); sliderchange(slider(28)); sliderchange(slider(29)); sliderchange(slider(30)); sliderchange(slider(31)); sliderchange(slider(32)); sliderchange(slider(33)); sliderchange(slider(34)); sliderchange(slider(35)); sliderchange(slider(36)); sliderchange(slider(37)); sliderchange(slider(38)); sliderchange(slider(39)); sliderchange(slider(40)); sliderchange(slider(41)); sliderchange(slider(42)); sliderchange(slider(43)); sliderchange(slider(44)); sliderchange(slider(45)); sliderchange(slider(46)); sliderchange(slider(47)); sliderchange(slider(48)); sliderchange(slider(49)); sliderchange(slider(50)); sliderchange(slider(51)); sliderchange(slider(52)); sliderchange(slider(53)); sliderchange(slider(54)); sliderchange(slider(55)); sliderchange(slider(56)); sliderchange(slider(57)); sliderchange(slider(58)); sliderchange(slider(59));
+  sliderchange(-1);
+);
+
+// ---------------------------------------------------------------- serialisation
+// Common header/route/metadata fields retain schema-1 semantics. Schema 3 has an
+// explicit canonical+planar representation; schema 1/2 PCM is never reinterpreted.
+STATE_SOURCE_REPR = 301;
+
+function state_pcm_valid(p, count) local(done n i v ok)
+(
+  done=0;ok=1;
+  while(done<count && ok)(
+    n=min(16384,count-done);i=0;
+    while(i<n)(v=p[done+i];!(v>=-1000000 && v<=1000000) ? ok=0;i+=1;);
+    done+=n;
+  );ok;
+);
+function state_pcm_transfer(p, count, reading) local(n)
+(
+  n=file_mem(0,p,count);
+  !reading || (n==count && state_pcm_valid(p,count));
+);
+function state_legacy_discard(count) local(done n got ok)
+(
+  done=0;ok=1;
+  while(done<count && ok)(
+    n=min(16384,count-done);got=file_mem(0,SCRATCH,n);
+    got!=n || !state_pcm_valid(SCRATCH,n) ? ok=0;
+    done+=n;
+  );ok;
+);
+function state_routes_valid(p) local(r i j count src dst ok)
+(
+  r=0;ok=1;
+  while(r<NROUTES)(
+    i=r*4;src=p[i];dst=p[i+1];
+    !(src>=0 && src<=12 && src==(src|0) && dst>=0 && dst<=NDEST && dst==(dst|0)
+      && p[i+2]>=-1 && p[i+2]<=1) ? ok=0;
+    p[i+3]=p[i+2];r+=1;
+  );
+  i=1;while(i<=NDEST)(count=0;r=0;while(r<NROUTES)(p[r*4]>0 && p[r*4+1]==i ? count+=1;r+=1;);count>2 ? ok=0;i+=1;);
+  ok;
+);
+function state_source_meta_valid(m, schema) local(fr ok)
+(
+  fr=m[M_FRAMES];
+  ok=fr>=960 && fr<=NFR_MAX && fr==(fr|0) && (m[M_CH]==1 || m[M_CH]==2)
+    && m[M_ORIGRATE]>0 && m[M_ORIGRATE]<=1000000
+    && m[M_ORIGBITS]>=0 && m[M_ORIGBITS]<=64
+    && m[M_ROOT]>=0 && m[M_ROOT]<=127 && m[M_FINE]>=-100 && m[M_FINE]<=100
+    && m[M_GAIN]>0 && m[M_GAIN]<=1.0000001 && (m[M_MONO]==0 || m[M_MONO]==1)
+    && m[M_PYRTAG]>=(schema>=3 ? 1 : 0) && m[M_PYRTAG]<=16777215 && m[M_PYRTAG]==(m[M_PYRTAG]|0)
+    && m[M_FACTORY]>=0 && m[M_FACTORY]<=16777215 && m[M_FACTORY]==(m[M_FACTORY]|0)
+    && m[M_PEAK]>=0 && m[M_PEAK]<=1000000;
+  ok;
+);
+function st_serialize() local(reading magic schema r i present b old m frames l ok v n levels param_count end_tag
+  routes_ptr new_trim new_origin new_scale new_drawer new_details repr arrays ident rate channels desc_frames layout
+  expected_frames saved_stg_frames regenerate)
+(
+  reading=file_avail(0)>=0;state_error=0;
+  old=active_bank;b=old;
+  reading ? (
+    state_error=0;prep_cancel();mb_ready=0;CMD[C_PATCH]=0;CMD[C_PATCH_SAME]=0;CMD[C_ROUTES_SYNC]=0;PATCHSTG[PS_VALID]=0;
+    b=meta_get(old,M_STATUS)==3 ? 1-old : 0;
+    bank_owner[b]=1;meta_set(b,M_STATUS,0);memset(meta_ptr(b),0,64);
+  );
+  routes_ptr=reading ? PATCHSTG : ROUTES;
+  magic=reading ? -1 : STATE_MAGIC;file_var(0,magic);
+  schema=reading ? -1 : STATE_SCHEMA;file_var(0,schema);
+  magic!=STATE_MAGIC || (schema!=1 && schema!=2 && schema!=3) ? state_error=1 : (
+    n=file_mem(0,routes_ptr,NROUTES*4);
+    reading && (n!=NROUTES*4 || !state_routes_valid(routes_ptr)) ? state_error=1;
+    new_trim=reading ? 1000000000 : preset_trim;file_var(0,new_trim);
+    new_origin=reading ? -1 : factory_origin;file_var(0,new_origin);
+    new_scale=reading ? -1 : ui_scale_idx;file_var(0,new_scale);
+    new_drawer=reading ? -1 : ui_drawer;file_var(0,new_drawer);
+    new_details=reading ? -1 : ui_details;file_var(0,new_details);
+    reading && !(new_trim>=-120 && new_trim<=120 && new_origin>=0 && new_origin<=16777215
+      && new_origin==(new_origin|0) && new_scale>=0 && new_scale<=32
+      && new_drawer>=0 && new_drawer<=32 && new_details>=0 && new_details<=32) ? state_error=1;
+    file_string(0,reading ? #state_preset_desc : #preset_desc);
+    file_string(0,b ? #src_name1 : #src_name0);file_string(0,b ? #asset_id1 : #asset_id0);
+    file_string(0,b ? #asset_hash1 : #asset_hash0);file_string(0,b ? #stg_path1 : #stg_path0);
+    m=meta_ptr(b);
+    present=reading ? -1 : (m[M_STATUS]==3 ? 1 : 0);file_var(0,present);
+    present!=0 && present!=1 ? state_error=1;
+    present==1 && !state_error ? (
+      v=reading ? -1 : m[M_CH];file_var(0,v);reading ? m[M_CH]=v;
+      frames=reading ? -1 : m[M_FRAMES];file_var(0,frames);reading ? m[M_FRAMES]=frames;
+      v=reading ? -1 : m[M_ORIGRATE];file_var(0,v);reading ? m[M_ORIGRATE]=v;
+      v=reading ? -1 : m[M_ORIGBITS];file_var(0,v);reading ? m[M_ORIGBITS]=v;
+      v=reading ? -1 : m[M_ROOT];file_var(0,v);reading ? m[M_ROOT]=v;
+      v=reading ? 1000000000 : m[M_FINE];file_var(0,v);reading ? m[M_FINE]=v;
+      v=reading ? -1 : m[M_GAIN];file_var(0,v);reading ? m[M_GAIN]=v;
+      v=reading ? -1 : m[M_MONO];file_var(0,v);reading ? m[M_MONO]=v;
+      v=reading ? -1 : m[M_PYRTAG];file_var(0,v);reading ? m[M_PYRTAG]=v;
+      v=reading ? -1 : m[M_FACTORY];file_var(0,v);reading ? m[M_FACTORY]=v;
+      v=reading ? -1 : m[M_PEAK];file_var(0,v);reading ? m[M_PEAK]=v;
+      !state_source_meta_valid(m,schema) ? state_error=1;
+      !state_error ? (
+        schema<3 ? (
+          // Old L0 is unfiltered canonical 48 kHz stereo. Old lower levels are consumed,
+          // validated and discarded in bounded scratch chunks, never copied as new levels.
+          levels=-1;file_var(0,levels);
+          levels!=0 && levels!=1 ? state_error=1 : (
+            !state_pcm_transfer(canonical_ptr(b),frames*2,1) ? state_error=1;
+            l=1;while(l<(levels ? 4 : 1) && !state_error)(
+              !state_legacy_discard((frames>>l)*2) ? state_error=1;l+=1;
+            );
+          );
+          regenerate=1;
+        ) : (
+          repr=reading ? -1 : STATE_SOURCE_REPR;file_var(0,repr);
+          arrays=reading ? -1 : 5;file_var(0,arrays);
+          repr!=STATE_SOURCE_REPR || arrays!=5 ? state_error=1;
+          l=0;while(l<5 && !state_error)(
+            expected_frames=l==0 ? frames : level_frames(frames,l-1);
+            ident=reading ? -1 : l;file_var(0,ident);
+            rate=reading ? -1 : (l==0 ? 48000 : 96000/(2^(l-1)));file_var(0,rate);
+            channels=reading ? -1 : 2;file_var(0,channels);
+            desc_frames=reading ? -1 : expected_frames;file_var(0,desc_frames);
+            layout=reading ? -1 : (l==0 ? 0 : 1);file_var(0,layout);
+            ident!=l || rate!=(l==0 ? 48000 : 96000/(2^(l-1))) || channels!=2
+              || desc_frames!=expected_frames || layout!=(l==0 ? 0 : 1) ? state_error=1 : (
+              l==0 ? (!state_pcm_transfer(canonical_ptr(b),expected_frames*2,reading) ? state_error=1;)
+              : (
+                !state_pcm_transfer(lvl_ptr(b,l-1),expected_frames,reading) ? state_error=1;
+                !state_error && !state_pcm_transfer(lvl_right_ptr(b,l-1),expected_frames,reading) ? state_error=1;
+              );
+            );l+=1;
+          );
+          regenerate=m[M_PYRTAG]!=PYR_TAG;
+        );
+      );
+    );
+    // Tail validation precedes preparation and every live-state publication.
+    schema>=2 && !state_error ? (
+      param_count=reading ? 0 : 59;file_var(0,param_count);
+      param_count!=59 ? state_error=1 : (
+        !reading ? (i=0;while(i<59)(v=slider(i+1);SERIAL_PARAMS[i]=clampf(v==v ? v : 0,SERIAL_LIMITS[2*i],SERIAL_LIMITS[2*i+1]);i+=1;));
+        n=file_mem(0,SERIAL_PARAMS,59);end_tag=reading ? 0 : STATE_PARAMS_END;file_var(0,end_tag);
+        reading && (n!=59 || end_tag!=STATE_PARAMS_END || !state_params_valid()) ? state_error=1;
+      );
+    );
+    reading && !state_error && present==1 ? (
+      saved_stg_frames=stg_frames;stg_frames=frames;
+      regenerate ? (!prep_from_canonical_sync(b,frames) ? state_error=1;)
+      : (l=0;while(l<4)(src_guards(b,l);l+=1;);src_overview(b););
+      stg_frames=saved_stg_frames;
+    );
+    reading && !state_error ? (
+      // Single adoption point. No live source, route or parameter was published before this.
+      memcpy(ROUTES,routes_ptr,NROUTES*4);
+      preset_trim=new_trim;factory_origin=new_origin;ui_scale_idx=new_scale;ui_drawer=new_drawer;ui_details=new_details;
+      strcpy(#preset_desc,#state_preset_desc);
+      schema>=2 ? state_params_apply();
+      retrig_clear();engine_reset_voices();
+      old!=b ? (meta_set(old,M_STATUS,0);bank_owner[old]=0;);
+      present==1 ? (
+        m[M_PYRTAG]=PYR_TAG;m[M_DURSEC]=frames/48000;m[M_PROVENANCE]=m[M_FACTORY]>0;
+        stg_gen+=1;m[M_GEN]=stg_gen;m[M_STATUS]=3;bank_owner[b]=2;active_gen=stg_gen;
+      ) : (m[M_STATUS]=0;bank_owner[b]=0;active_gen=0;);
+      active_bank=b;state_restored=1;restore_pending=1;rate_epoch_reset=1;
+      err_state=0;state_error=0;TELE[T_ERR]=0;
+      shared_patch_reset(clampf(slider(59),1,16777215)|0);CMD[C_ROUTES_GEN]+=1;region_update();
+    );
+  );
+  reading && state_error ? (
+    // The previous committed PCM/metadata survives. Silence prevents mismatched host
+    // parameters from playing it when REAPER does not roll the failed restore back.
+    meta_set(b,M_STATUS,0);bank_owner[b]=0;err_state=1;TELE[T_ERR]=5;
+  );
+  !state_error;
+);

@@ -1,0 +1,3040 @@
+{
+  "generated_by": "tools/prepare_reviewed_sources.py",
+  "generated_date": "2026-09-09",
+  "count": 24,
+  "schema": "shiro-factory-manifest-v1",
+  "total_delivered_bytes": 56942148,
+  "total_delivered_mib": 54.304,
+  "assets": [
+    {
+      "id": "shiro-src-01-cello-section-c1",
+      "candidate_id": "vsco-2-ce-A-007",
+      "role": "A",
+      "instrument": "cello (section)",
+      "display_name": "Cello Section C2",
+      "description": "Cello (section), arco sustain, vibrato",
+      "upstream": {
+        "pool": "vsco-2-ce",
+        "pool_name": "VSCO 2 Community Edition (VSCO-2-CE)",
+        "repo_url": "https://github.com/sgossner/VSCO-2-CE",
+        "repo_path": "Strings/Cello Section/susvib/susvib_C1_v1_1.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Cello%20Section/susvib/susvib_C1_v1_1.wav",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "retrieval_date": "2026-09-08T23:55:16Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner (VSCO-2-CE)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "abdcea431f384e135c469b0f3e4ac2a437f282f521dc5bcbe22abc221536e8de",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/LICENSE",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "quote": "\"CC0 1.0 Universal\\n\\nStatement of Purpose\\n\\nThe laws of most jurisdictions throughout the world automatically confer exclusive Copyright and Related Rights (defined below) upon the creator...\" (root LICENSE, sgossner/VSCO-2-CE, verbatim CC0-1.0 legal code)"
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"Recorded by Sam Gossner & Simon Dalzell; Sample Cutting by Elan Hickler/Soundemote\" (sgossner/VSCO-2-CE README.md, commit 440300901dfe9275fd84e0b7763af1f8443ae62e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 1875,
+          "end_sample_original": 391222,
+          "start_s_before_onset": 0.004989,
+          "onset_sample_original": 2095,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -15.404 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 5.25066444,
+          "factor_db": 14.404,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 24,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 391222
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-01-cello-section-c1.wav",
+        "sha256": "329c6394259366752cd9ae2aa61447c4af706a63090af0ee82555a07f23adb82",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 423780
+      },
+      "root": 36,
+      "fine": -1,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 36; playback correction -1 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 24,
+        "high_midi": 48,
+        "low_name": "C1",
+        "high_name": "C3",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -15.721,
+        "crest_db": 14.721,
+        "noise_floor_dbfs": -125.892,
+        "noise_floor_below_peak_db": 124.892,
+        "dc_offset_pct": 0.00026,
+        "clipping": false,
+        "onset_s": 0.000292,
+        "decay_to_minus40_s": 0.002229,
+        "f0_hz": 32.724,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": 1.1,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 1,
+          "id": "shiro-src-01-cello-section-c1",
+          "candidate_id": "vsco-2-ce-A-007",
+          "root": 36,
+          "fine": -1,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-02-solo-double-bass-c-2",
+      "candidate_id": "vsco-2-ce-A-003",
+      "role": "A",
+      "instrument": "double bass (solo)",
+      "display_name": "Solo Double Bass C#3",
+      "description": "Double bass (solo), arco sustain, non-vibrato",
+      "upstream": {
+        "pool": "vsco-2-ce",
+        "pool_name": "VSCO 2 Community Edition (VSCO-2-CE)",
+        "repo_url": "https://github.com/sgossner/VSCO-2-CE",
+        "repo_path": "Strings/Solo Contrabass/SusNV/BKCtbss_SusNV_C#2_v1_rr1.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Contrabass/SusNV/BKCtbss_SusNV_C%232_v1_rr1.wav",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "retrieval_date": "2026-09-08T23:55:09Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner (VSCO-2-CE)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "2bbc1f013bf4725dc45dde12d1a83c71bf6681920824932059799c1d4c7e1a4b",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/LICENSE",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "quote": "\"CC0 1.0 Universal\\n\\nStatement of Purpose\\n\\nThe laws of most jurisdictions throughout the world automatically confer exclusive Copyright and Related Rights (defined below) upon the creator...\" (root LICENSE, sgossner/VSCO-2-CE, verbatim CC0-1.0 legal code)"
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"Recorded by Sam Gossner & Simon Dalzell; Sample Cutting by Elan Hickler/Soundemote\" (sgossner/VSCO-2-CE README.md, commit 440300901dfe9275fd84e0b7763af1f8443ae62e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 11,
+          "end_sample_original": 290655,
+          "start_s_before_onset": 0.004989,
+          "onset_sample_original": 231,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -30.225 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 28.92181658,
+          "factor_db": 29.225,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 16,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 16,
+        "channels": 2,
+        "frames": 290655
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-02-solo-double-bass-c-2.wav",
+        "sha256": "b5842ca8c0ecd9721df11a61ccc44765a09e8e193e41fbc7a3423549c4fabc1b",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 316348
+      },
+      "root": 49,
+      "fine": -1,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 49; playback correction -1 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 37,
+        "high_midi": 61,
+        "low_name": "C#2",
+        "high_name": "C#4",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -13.862,
+        "crest_db": 12.862,
+        "noise_floor_dbfs": -300.0,
+        "noise_floor_below_peak_db": 299.0,
+        "dc_offset_pct": 0.00081,
+        "clipping": false,
+        "onset_s": 0.0,
+        "decay_to_minus40_s": 0.0105,
+        "f0_hz": 68.852,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": -11.1,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 2,
+          "id": "shiro-src-02-solo-double-bass-c-2",
+          "candidate_id": "vsco-2-ce-A-003",
+          "root": 49,
+          "fine": -1,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-03-viola-section-c2",
+      "candidate_id": "vsco-2-ce-A-009",
+      "role": "A",
+      "instrument": "viola (section)",
+      "display_name": "Viola Section C3",
+      "description": "Viola (section), arco sustain, vibrato",
+      "upstream": {
+        "pool": "vsco-2-ce",
+        "pool_name": "VSCO 2 Community Edition (VSCO-2-CE)",
+        "repo_url": "https://github.com/sgossner/VSCO-2-CE",
+        "repo_path": "Strings/Viola Section/susvib/ViolaEns_susvib_C2_v1_1.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Viola%20Section/susvib/ViolaEns_susvib_C2_v1_1.wav",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "retrieval_date": "2026-09-08T23:55:19Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner (VSCO-2-CE)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "8b4e0e0985d245ac9ddc39cdd06cec5bd74fa80056c074736d6eb38fdccfe636",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/LICENSE",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "quote": "\"CC0 1.0 Universal\\n\\nStatement of Purpose\\n\\nThe laws of most jurisdictions throughout the world automatically confer exclusive Copyright and Related Rights (defined below) upon the creator...\" (root LICENSE, sgossner/VSCO-2-CE, verbatim CC0-1.0 legal code)"
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"Recorded by Sam Gossner & Simon Dalzell; Sample Cutting by Elan Hickler/Soundemote\" (sgossner/VSCO-2-CE README.md, commit 440300901dfe9275fd84e0b7763af1f8443ae62e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 1111,
+          "end_sample_original": 440386,
+          "start_s_before_onset": 0.004989,
+          "onset_sample_original": 1331,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -26.862 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 19.638164,
+          "factor_db": 25.862,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 24,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 440386
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-03-viola-section-c2.wav",
+        "sha256": "e6e920f3182985e499c9c69fdc7fa5d8344a91c8c39a6d0d5e53ee94f79c5de8",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 478123
+      },
+      "root": 48,
+      "fine": 0,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 48; playback correction +0 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 36,
+        "high_midi": 60,
+        "low_name": "C2",
+        "high_name": "C4",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -14.756,
+        "crest_db": 13.756,
+        "noise_floor_dbfs": -70.944,
+        "noise_floor_below_peak_db": 69.944,
+        "dc_offset_pct": 2e-05,
+        "clipping": false,
+        "onset_s": 0.0,
+        "decay_to_minus40_s": 0.348521,
+        "f0_hz": 65.357,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": -1.3,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 3,
+          "id": "shiro-src-03-viola-section-c2",
+          "candidate_id": "vsco-2-ce-A-009",
+          "root": 48,
+          "fine": 0,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-04-solo-violin-c5",
+      "candidate_id": "vsco-2-ce-A-005",
+      "role": "A",
+      "instrument": "violin (solo)",
+      "display_name": "Solo Violin C5",
+      "description": "Violin (solo), arco sustain, vibrato, p",
+      "upstream": {
+        "pool": "vsco-2-ce",
+        "pool_name": "VSCO 2 Community Edition (VSCO-2-CE)",
+        "repo_url": "https://github.com/sgossner/VSCO-2-CE",
+        "repo_path": "Strings/Solo Violin/Arco Vib/LLVln_ArcoVib_C5_p.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Strings/Solo%20Violin/Arco%20Vib/LLVln_ArcoVib_C5_p.wav",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "retrieval_date": "2026-09-08T23:55:12Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner (VSCO-2-CE)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "77a2133b5f97e1ec0edb759c0c552fc3efa7caf4ce1e0a4aa22625cf4c9da130",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/LICENSE",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "quote": "\"CC0 1.0 Universal\\n\\nStatement of Purpose\\n\\nThe laws of most jurisdictions throughout the world automatically confer exclusive Copyright and Related Rights (defined below) upon the creator...\" (root LICENSE, sgossner/VSCO-2-CE, verbatim CC0-1.0 legal code)"
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"Recorded by Sam Gossner & Simon Dalzell; Sample Cutting by Elan Hickler/Soundemote\" (sgossner/VSCO-2-CE README.md, commit 440300901dfe9275fd84e0b7763af1f8443ae62e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 0,
+          "end_sample_original": 529200,
+          "start_s_before_onset": 0.002426,
+          "onset_sample_original": 107,
+          "truncated_at_12s_cap": true,
+          "reached_natural_end": false
+        },
+        {
+          "step": "fade_out",
+          "reason": "cut landed inside sound above -60 dBFS",
+          "length_s": 0.02,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "fade_in",
+          "reason": "excerpt start is inside sound above -60 dBFS",
+          "length_s": 0.004989,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -18.207 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 7.25042836,
+          "factor_db": 17.207,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 16,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 16,
+        "channels": 2,
+        "frames": 624686
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-04-solo-violin-c5.wav",
+        "sha256": "3c41b95e24aac7ec365e3bceadf95f51a77d6175970ab2dfc3f98e5c865bcf60",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 576000
+      },
+      "root": 72,
+      "fine": 1,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 72; playback correction +1 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 60,
+        "high_midi": 84,
+        "low_name": "C4",
+        "high_name": "C6",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -11.789,
+        "crest_db": 10.789,
+        "noise_floor_dbfs": -26.294,
+        "noise_floor_below_peak_db": 25.294,
+        "dc_offset_pct": 0.00372,
+        "clipping": false,
+        "onset_s": 0.0015,
+        "decay_to_minus40_s": 0.209708,
+        "f0_hz": 523.025,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": -0.7,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 4,
+          "id": "shiro-src-04-solo-violin-c5",
+          "candidate_id": "vsco-2-ce-A-005",
+          "root": 72,
+          "fine": 1,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-05-flute-a5",
+      "candidate_id": "vsco-2-ce-B-011",
+      "role": "B",
+      "instrument": "flute",
+      "display_name": "Flute A4",
+      "description": "Flute, sustain, non-vibrato",
+      "upstream": {
+        "pool": "vsco-2-ce",
+        "pool_name": "VSCO 2 Community Edition (VSCO-2-CE)",
+        "repo_url": "https://github.com/sgossner/VSCO-2-CE",
+        "repo_path": "Woodwinds/Flute/susNV/LDFlute_susNV_A3_v1_1.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Flute/susNV/LDFlute_susNV_A3_v1_1.wav",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "retrieval_date": "2026-09-08T23:55:22Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner (VSCO-2-CE)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "6fc8d707afddfaaf3003551b95a83b52f514adbe488bfea1c8c5250080a07278",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/LICENSE",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "quote": "\"CC0 1.0 Universal\\n\\nStatement of Purpose\\n\\nThe laws of most jurisdictions throughout the world automatically confer exclusive Copyright and Related Rights (defined below) upon the creator...\" (root LICENSE, sgossner/VSCO-2-CE, verbatim CC0-1.0 legal code)"
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"Recorded by Sam Gossner & Simon Dalzell; Sample Cutting by Elan Hickler/Soundemote\" (sgossner/VSCO-2-CE README.md, commit 440300901dfe9275fd84e0b7763af1f8443ae62e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 513,
+          "end_sample_original": 450927,
+          "start_s_before_onset": 0.004989,
+          "onset_sample_original": 733,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -28.747 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 24.39868312,
+          "factor_db": 27.747,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 24,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 450927
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-05-flute-a5.wav",
+        "sha256": "3f0110411523718e87d80435e7b81e4e0807ee2e7a58762d9a9649976eeea237",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 490247
+      },
+      "root": 69,
+      "fine": 1,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 69; playback correction +1 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 57,
+        "high_midi": 81,
+        "low_name": "A3",
+        "high_name": "A5",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -10.086,
+        "crest_db": 9.086,
+        "noise_floor_dbfs": -55.209,
+        "noise_floor_below_peak_db": 54.209,
+        "dc_offset_pct": 1e-05,
+        "clipping": false,
+        "onset_s": 0.0,
+        "decay_to_minus40_s": 4.991896,
+        "f0_hz": 219.935,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": -0.5,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 5,
+          "id": "shiro-src-05-flute-a5",
+          "candidate_id": "vsco-2-ce-B-011",
+          "root": 69,
+          "fine": 1,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-06-f-horn-c1",
+      "candidate_id": "vsco-2-ce-B-017",
+      "role": "B",
+      "instrument": "horn (F horn)",
+      "display_name": "F Horn C2",
+      "description": "Horn (F horn), sustain",
+      "upstream": {
+        "pool": "vsco-2-ce",
+        "pool_name": "VSCO 2 Community Edition (VSCO-2-CE)",
+        "repo_url": "https://github.com/sgossner/VSCO-2-CE",
+        "repo_path": "Brass/F Horn/sus/MOHorn_sus_C1_v1_1.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/F%20Horn/sus/MOHorn_sus_C1_v1_1.wav",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "retrieval_date": "2026-09-08T23:55:32Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner (VSCO-2-CE)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "886fd6f490b64f7f2a597f45fe6af01e8c90da9e01d0bf8bdcaceb540a071283",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/LICENSE",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "quote": "\"CC0 1.0 Universal\\n\\nStatement of Purpose\\n\\nThe laws of most jurisdictions throughout the world automatically confer exclusive Copyright and Related Rights (defined below) upon the creator...\" (root LICENSE, sgossner/VSCO-2-CE, verbatim CC0-1.0 legal code)"
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"Recorded by Sam Gossner & Simon Dalzell; Sample Cutting by Elan Hickler/Soundemote\" (sgossner/VSCO-2-CE README.md, commit 440300901dfe9275fd84e0b7763af1f8443ae62e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 0,
+          "end_sample_original": 273453,
+          "start_s_before_onset": 0.001293,
+          "onset_sample_original": 57,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "fade_in",
+          "reason": "excerpt start is inside sound above -60 dBFS",
+          "length_s": 0.004989,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -21.834 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 11.00820808,
+          "factor_db": 20.834,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 16,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 16,
+        "channels": 2,
+        "frames": 273453
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-06-f-horn-c1.wav",
+        "sha256": "7bfeef56d73ecded643c6600b6ae2f0bc662795283e8a943525f3d2477e7d6a2",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 297636
+      },
+      "root": 36,
+      "fine": 3,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 36; playback correction +3 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 24,
+        "high_midi": 48,
+        "low_name": "C1",
+        "high_name": "C3",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -13.265,
+        "crest_db": 12.265,
+        "noise_floor_dbfs": -300.0,
+        "noise_floor_below_peak_db": 299.0,
+        "dc_offset_pct": 8e-05,
+        "clipping": false,
+        "onset_s": 0.001187,
+        "decay_to_minus40_s": 0.042271,
+        "f0_hz": 32.531,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": -9.1,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 6,
+          "id": "shiro-src-06-f-horn-c1",
+          "candidate_id": "vsco-2-ce-B-017",
+          "root": 36,
+          "fine": 3,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-07-oboe-d3",
+      "candidate_id": "vsco-2-ce-B-014",
+      "role": "B",
+      "instrument": "oboe",
+      "display_name": "Oboe D4",
+      "description": "Oboe, sustain",
+      "upstream": {
+        "pool": "vsco-2-ce",
+        "pool_name": "VSCO 2 Community Edition (VSCO-2-CE)",
+        "repo_url": "https://github.com/sgossner/VSCO-2-CE",
+        "repo_path": "Woodwinds/Oboe/Sus/Oboe_Sus_D3_v1_Main.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Woodwinds/Oboe/Sus/Oboe_Sus_D3_v1_Main.wav",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "retrieval_date": "2026-09-08T23:55:27Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner (VSCO-2-CE)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "a9ebaf19502bde43fe8409debddf8d326c0843980598f978e521ce3526750350",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/LICENSE",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "quote": "\"CC0 1.0 Universal\\n\\nStatement of Purpose\\n\\nThe laws of most jurisdictions throughout the world automatically confer exclusive Copyright and Related Rights (defined below) upon the creator...\" (root LICENSE, sgossner/VSCO-2-CE, verbatim CC0-1.0 legal code)"
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"Recorded by Sam Gossner & Simon Dalzell; Sample Cutting by Elan Hickler/Soundemote\" (sgossner/VSCO-2-CE README.md, commit 440300901dfe9275fd84e0b7763af1f8443ae62e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 0,
+          "end_sample_original": 491612,
+          "start_s_before_onset": 0.001633,
+          "onset_sample_original": 72,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "fade_in",
+          "reason": "excerpt start is inside sound above -60 dBFS",
+          "length_s": 0.004989,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -22.159 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 11.42791033,
+          "factor_db": 21.159,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 16,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 16,
+        "channels": 2,
+        "frames": 491612
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-07-oboe-d3.wav",
+        "sha256": "2f6dedda9ae8b5b5e5860ffa639247dad74e2d9e7882dfe1d4b670fe9dc43bc6",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 535088
+      },
+      "root": 62,
+      "fine": 0,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 62; playback correction +0 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 50,
+        "high_midi": 74,
+        "low_name": "D3",
+        "high_name": "D5",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -13.863,
+        "crest_db": 12.863,
+        "noise_floor_dbfs": -65.691,
+        "noise_floor_below_peak_db": 64.691,
+        "dc_offset_pct": 0.00855,
+        "clipping": false,
+        "onset_s": 0.001208,
+        "decay_to_minus40_s": 0.041271,
+        "f0_hz": 146.747,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": -1.0,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 7,
+          "id": "shiro-src-07-oboe-d3",
+          "candidate_id": "vsco-2-ce-B-014",
+          "root": 62,
+          "fine": 0,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-08-trumpet-c3",
+      "candidate_id": "vsco-2-ce-B-021",
+      "role": "B",
+      "instrument": "trumpet",
+      "display_name": "Trumpet C4",
+      "description": "Trumpet, sustain",
+      "upstream": {
+        "pool": "vsco-2-ce",
+        "pool_name": "VSCO 2 Community Edition (VSCO-2-CE)",
+        "repo_url": "https://github.com/sgossner/VSCO-2-CE",
+        "repo_path": "Brass/Trumpet/sus/Sum_SHTrumpet_sus_C3_v1_rr1.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/Brass/Trumpet/sus/Sum_SHTrumpet_sus_C3_v1_rr1.wav",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "retrieval_date": "2026-09-08T23:55:38Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner (VSCO-2-CE)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "fc49adedf0922c42583145eedd7ba4707cf97a92fb446b73bf160003190efebe",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/LICENSE",
+        "commit_sha": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+        "quote": "\"CC0 1.0 Universal\\n\\nStatement of Purpose\\n\\nThe laws of most jurisdictions throughout the world automatically confer exclusive Copyright and Related Rights (defined below) upon the creator...\" (root LICENSE, sgossner/VSCO-2-CE, verbatim CC0-1.0 legal code)"
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"Recorded by Sam Gossner & Simon Dalzell; Sample Cutting by Elan Hickler/Soundemote\" (sgossner/VSCO-2-CE README.md, commit 440300901dfe9275fd84e0b7763af1f8443ae62e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 0,
+          "end_sample_original": 529200,
+          "start_s_before_onset": 0.000272,
+          "onset_sample_original": 12,
+          "truncated_at_12s_cap": true,
+          "reached_natural_end": false
+        },
+        {
+          "step": "fade_out",
+          "reason": "cut landed inside sound above -60 dBFS",
+          "length_s": 0.02,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "fade_in",
+          "reason": "excerpt start is inside sound above -60 dBFS",
+          "length_s": 0.004989,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -24.259 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 14.55229952,
+          "factor_db": 23.259,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 16,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 16,
+        "channels": 2,
+        "frames": 669249
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-08-trumpet-c3.wav",
+        "sha256": "056f94d49072229ebc75acbfb0637a8ed47fc17d783edcec3d79a9f698f930e1",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 576000
+      },
+      "root": 60,
+      "fine": 4,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 60; playback correction +4 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 48,
+        "high_midi": 72,
+        "low_name": "C3",
+        "high_name": "C5",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -13.774,
+        "crest_db": 12.774,
+        "noise_floor_dbfs": -15.154,
+        "noise_floor_below_peak_db": 14.154,
+        "dc_offset_pct": 0.00978,
+        "clipping": false,
+        "onset_s": 0.001437,
+        "decay_to_minus40_s": 0.008292,
+        "f0_hz": 129.57,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": -16.5,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 8,
+          "id": "shiro-src-08-trumpet-c3",
+          "candidate_id": "vsco-2-ce-B-021",
+          "root": 60,
+          "fine": 4,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-09-concert-harp-a6",
+      "candidate_id": "vcsl-C-029",
+      "role": "C",
+      "instrument": "concert harp",
+      "display_name": "Concert Harp A4",
+      "description": "Concert harp, pluck, mf",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Chordophones/Composite Chordophones/Concert Harp/KSHarp_A4_mf1.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Composite%20Chordophones/Concert%20Harp/KSHarp_A4_mf1.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:55:53Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "3665f3975cad4a33f46784aa4f896f4b4319ba2b7831e892d975bc38c9f09f23",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 614,
+          "end_sample_original": 529814,
+          "start_s_before_onset": 0.004989,
+          "onset_sample_original": 834,
+          "truncated_at_12s_cap": true,
+          "reached_natural_end": false
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -15.671 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 5.41454087,
+          "factor_db": 14.671,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 16,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 16,
+        "channels": 2,
+        "frames": 535893
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-09-concert-harp-a6.wav",
+        "sha256": "1c09de891ed47fe043552f2b27db3f6e23942bb4242888a1999003bbd359e1ca",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 576000
+      },
+      "root": 69,
+      "fine": 9,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 69; playback correction +9 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 57,
+        "high_midi": 81,
+        "low_name": "A3",
+        "high_name": "A5",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -32.752,
+        "crest_db": 31.752,
+        "noise_floor_dbfs": -78.492,
+        "noise_floor_below_peak_db": 77.492,
+        "dc_offset_pct": 4e-05,
+        "clipping": false,
+        "onset_s": 0.000417,
+        "decay_to_minus40_s": 0.030042,
+        "f0_hz": 434.954,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": -20.0,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 9,
+          "id": "shiro-src-09-concert-harp-a6",
+          "candidate_id": "vcsl-C-029",
+          "root": 69,
+          "fine": 9,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-10-glockenspiel-c7",
+      "candidate_id": "vcsl-C-042",
+      "role": "C",
+      "instrument": "glockenspiel",
+      "display_name": "Glockenspiel C6",
+      "description": "Glockenspiel, hit, medium",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Idiophones/Struck Idiophones/Glockenspiel/glock_medium_C5_01.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Glockenspiel/glock_medium_C5_01.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:56:14Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "635f898e0bcb6975b96b18efd9c896f6f1b97ff12174a339ada4814e49675660",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 0,
+          "end_sample_original": 317816,
+          "start_s_before_onset": 0.0,
+          "onset_sample_original": 0,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "fade_in",
+          "reason": "excerpt start is inside sound above -60 dBFS",
+          "length_s": 0.004989,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -26.455 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 18.73953426,
+          "factor_db": 25.455,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 16,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 16,
+        "channels": 2,
+        "frames": 317816
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-10-glockenspiel-c7.wav",
+        "sha256": "babbe0f796535ef503f1b65985e8c6c05c6e06dbb4019141add4ced330be8eb3",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 345923
+      },
+      "root": 84,
+      "fine": -12,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 84; playback correction -12 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 72,
+        "high_midi": 96,
+        "low_name": "C5",
+        "high_name": "C7",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -28.675,
+        "crest_db": 27.675,
+        "noise_floor_dbfs": -69.493,
+        "noise_floor_below_peak_db": 68.493,
+        "dc_offset_pct": 0.00012,
+        "clipping": false,
+        "onset_s": 0.001458,
+        "decay_to_minus40_s": 0.018521,
+        "f0_hz": 686.127,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": 469.2,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 10,
+          "id": "shiro-src-10-glockenspiel-c7",
+          "candidate_id": "vcsl-C-042",
+          "root": 84,
+          "fine": -12,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-11-french-harpsichord-c2",
+      "candidate_id": "vcsl-C-026",
+      "role": "C",
+      "instrument": "harpsichord (French)",
+      "display_name": "French Harpsichord C3",
+      "description": "Harpsichord (French), sustain",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Chordophones/Zithers/Harpsichord, French/Sustains/Harpsi2_Normal_C2_rr1_Main.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Harpsichord%2C%20French/Sustains/Harpsi2_Normal_C2_rr1_Main.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:55:48Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "9859e034d9e59dd7f3878e4bd52f05263b2780f5b697c7d87881ad8f880be98f",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 0,
+          "end_sample_original": 568643,
+          "start_s_before_onset": 0.000208,
+          "onset_sample_original": 10,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "fade_in",
+          "reason": "excerpt start is inside sound above -60 dBFS",
+          "length_s": 0.005,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "resample",
+          "from_hz": 48000,
+          "to_hz": 48000,
+          "method": "none (already 48 kHz)"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -14.324 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 4.6367895,
+          "factor_db": 13.324,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 24,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 568643
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-11-french-harpsichord-c2.wav",
+        "sha256": "26298a4ec996c6405df435c325d26e28cbdb3eb7e0722f1d10d169867972853c",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 568643
+      },
+      "root": 48,
+      "fine": 2,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 48; playback correction +2 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 36,
+        "high_midi": 60,
+        "low_name": "C2",
+        "high_name": "C4",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -24.103,
+        "crest_db": 23.103,
+        "noise_floor_dbfs": -85.358,
+        "noise_floor_below_peak_db": 84.358,
+        "dc_offset_pct": 0.00027,
+        "clipping": false,
+        "onset_s": 0.000375,
+        "decay_to_minus40_s": 0.012146,
+        "f0_hz": 65.481,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": 2.0,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 11,
+          "id": "shiro-src-11-french-harpsichord-c2",
+          "candidate_id": "vcsl-C-026",
+          "root": 48,
+          "fine": 2,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-12-kenya-kalimba-f-4",
+      "candidate_id": "vcsl-C-039",
+      "role": "C",
+      "instrument": "kalimba (Kenya)",
+      "display_name": "Kenya Kalimba F#5",
+      "description": "Kalimba (Kenya), pluck",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Idiophones/Plucked Idiophones/Kalimba, Kenya/Mbira6_Normal_MainSpirit_F#4_k14_vl3_rr2.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Plucked%20Idiophones/Kalimba%2C%20Kenya/Mbira6_Normal_MainSpirit_F%234_k14_vl3_rr2.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:56:09Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "534754f601c2a16577bd26e87b8c8241b5d76c53a01ed196e54bf53f22cea7bc",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 0,
+          "end_sample_original": 197864,
+          "start_s_before_onset": 0.001417,
+          "onset_sample_original": 68,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "fade_in",
+          "reason": "excerpt start is inside sound above -60 dBFS",
+          "length_s": 0.005,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "resample",
+          "from_hz": 48000,
+          "to_hz": 48000,
+          "method": "none (already 48 kHz)"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -15.644 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 5.39780167,
+          "factor_db": 14.644,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 24,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 197864
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-12-kenya-kalimba-f-4.wav",
+        "sha256": "b04c13cfd2ad7be34bad354fe24dec86c2bd5751b99570ff4e9f3b21659e4f32",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 197864
+      },
+      "root": 78,
+      "fine": -36,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 78; playback correction -36 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 66,
+        "high_midi": 90,
+        "low_name": "F#4",
+        "high_name": "F#6",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -26.6,
+        "crest_db": 25.6,
+        "noise_floor_dbfs": -91.419,
+        "noise_floor_below_peak_db": 90.419,
+        "dc_offset_pct": 0.00013,
+        "clipping": false,
+        "onset_s": 0.001417,
+        "decay_to_minus40_s": 0.08975,
+        "f0_hz": 377.651,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": 35.5,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 12,
+          "id": "shiro-src-12-kenya-kalimba-f-4",
+          "candidate_id": "vcsl-C-039",
+          "root": 78,
+          "fine": -36,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-13-marimba-c2",
+      "candidate_id": "vcsl-C-031",
+      "role": "C",
+      "instrument": "marimba",
+      "display_name": "Marimba C3",
+      "description": "Marimba, hit, med",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Idiophones/Struck Idiophones/Marimba/Marimba_hit_Outrigger_C2_med_01.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Marimba/Marimba_hit_Outrigger_C2_med_01.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:55:56Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "fd9c329513ed9d54c36174bbe45add471a80ffad411c686428bbf0bbc0121438",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 0,
+          "end_sample_original": 297501,
+          "start_s_before_onset": 0.004875,
+          "onset_sample_original": 215,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "fade_in",
+          "reason": "excerpt start is inside sound above -60 dBFS",
+          "length_s": 0.004989,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -36.007 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 56.28067949,
+          "factor_db": 35.007,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 24,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 297501
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-13-marimba-c2.wav",
+        "sha256": "62968f447d1a12df8dfae5bba902241ad8f4f8ee04dc773eb228727dfc93c305",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 323811
+      },
+      "root": 48,
+      "fine": -2,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 48; playback correction -2 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 36,
+        "high_midi": 60,
+        "low_name": "C2",
+        "high_name": "C4",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -20.475,
+        "crest_db": 19.475,
+        "noise_floor_dbfs": -75.035,
+        "noise_floor_below_peak_db": 74.035,
+        "dc_offset_pct": 0.00215,
+        "clipping": false,
+        "onset_s": 0.003438,
+        "decay_to_minus40_s": 0.012771,
+        "f0_hz": 65.941,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": 14.1,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 13,
+          "id": "shiro-src-13-marimba-c2",
+          "candidate_id": "vcsl-C-031",
+          "root": 48,
+          "fine": -2,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-14-upright-piano-a3",
+      "candidate_id": "vcsl-C-024",
+      "role": "C",
+      "instrument": "upright piano (Knight)",
+      "display_name": "Upright Piano A4",
+      "description": "Upright piano (Knight), sustain (key down)",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Chordophones/Zithers/Upright Piano, Knight/Sustains/Player_vl1_rr1_A3.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Upright%20Piano%2C%20Knight/Sustains/Player_vl1_rr1_A3.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:55:44Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "a00ae1a2b2a78c154b067a9709afc1ce2d3be9f08d9f4ad3c9c869a7db80eb75",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e). Instrument Info.txt credits Simon Dalzell / Ivy Audio; no additional restrictive notice.",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 0,
+          "end_sample_original": 529200,
+          "start_s_before_onset": 0.003356,
+          "onset_sample_original": 148,
+          "truncated_at_12s_cap": true,
+          "reached_natural_end": false
+        },
+        {
+          "step": "fade_in",
+          "reason": "excerpt start is inside sound above -60 dBFS",
+          "length_s": 0.004989,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -20.543 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 9.48738922,
+          "factor_db": 19.543,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 24,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 534034
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-14-upright-piano-a3.wav",
+        "sha256": "345cf53e1d1e41c64759dd3b0b1730e963540bb7a86ec48e16d931bb0030e954",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 576000
+      },
+      "root": 69,
+      "fine": -1,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 69; playback correction -1 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 57,
+        "high_midi": 81,
+        "low_name": "A3",
+        "high_name": "A5",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -24.686,
+        "crest_db": 23.686,
+        "noise_floor_dbfs": -61.088,
+        "noise_floor_below_peak_db": 60.088,
+        "dc_offset_pct": 0.00589,
+        "clipping": false,
+        "onset_s": 0.002271,
+        "decay_to_minus40_s": 0.058521,
+        "f0_hz": 219.982,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": -0.1,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 14,
+          "id": "shiro-src-14-upright-piano-a3",
+          "candidate_id": "vcsl-C-024",
+          "root": 69,
+          "fine": -1,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-15-vibraphone-c5",
+      "candidate_id": "vcsl-C-041",
+      "role": "C",
+      "instrument": "vibraphone",
+      "display_name": "Vibraphone C6",
+      "description": "Vibraphone, hit, hard mallets, no motor/sustain pedal implied",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Idiophones/Struck Idiophones/Vibraphone/Hard Mallets/Vibes_hard_C5_v3_rr1_Main.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Vibraphone/Hard%20Mallets/Vibes_hard_C5_v3_rr1_Main.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:56:12Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "2aa1bde8ca38dcfccb07641d7d8514f3df6e8f523287055f7fdc4b54d8224bdb",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 54,
+          "end_sample_original": 273727,
+          "start_s_before_onset": 0.004989,
+          "onset_sample_original": 274,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -8.065 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 2.25563713,
+          "factor_db": 7.065,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 16,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 16,
+        "channels": 2,
+        "frames": 273727
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-15-vibraphone-c5.wav",
+        "sha256": "9834165f199ff6994663bf651fef679e205f4758b5baf627b497db38555c3e8d",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 297876
+      },
+      "root": 84,
+      "fine": 0,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 84; playback correction +0 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 72,
+        "high_midi": 96,
+        "low_name": "C5",
+        "high_name": "C7",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -20.171,
+        "crest_db": 19.171,
+        "noise_floor_dbfs": -300.0,
+        "noise_floor_below_peak_db": 299.0,
+        "dc_offset_pct": 0.0,
+        "clipping": false,
+        "onset_s": 0.002542,
+        "decay_to_minus40_s": 0.070521,
+        "f0_hz": 522.468,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": -2.6,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 15,
+          "id": "shiro-src-15-vibraphone-c5",
+          "candidate_id": "vcsl-C-041",
+          "root": 84,
+          "fine": 0,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-16-xylophone-c-5",
+      "candidate_id": "vcsl-C-035",
+      "role": "C",
+      "instrument": "xylophone",
+      "display_name": "Xylophone C6",
+      "description": "Xylophone, hit, hard mallets, pp",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Idiophones/Struck Idiophones/Xylophone/Hard Mallets/Xylo_Hard_C5_pp_01_far.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Xylophone/Hard%20Mallets/Xylo_Hard_C5_pp_01_far.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:56:03Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "2ad0d5867480884e52bf75ffa71d73ef5297de1131cc2f015ff7a40c49accede",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 0,
+          "end_sample_original": 88531,
+          "start_s_before_onset": 0.002086,
+          "onset_sample_original": 92,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "fade_in",
+          "reason": "excerpt start is inside sound above -60 dBFS",
+          "length_s": 0.004989,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -8.754 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 2.44172102,
+          "factor_db": 7.754,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 24,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 88531
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-16-xylophone-c-5.wav",
+        "sha256": "0dd0713599d4bd2fe3d0485a4cc8b5fdd4bcc41d180914abd86a758f8a299002",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 96361
+      },
+      "root": 84,
+      "fine": -15,
+      "tuned": true,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 84; playback correction -15 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Natural pitch drift and inharmonicity remain; listening qualification pending.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": 72,
+        "high_midi": 96,
+        "low_name": "C5",
+        "high_name": "C7",
+        "provisional": true,
+        "note": "Provisional: root +-12 semitones (two octaves) for tuned material, per architecture Sec 14.2/14.4. Not verified by preset-level playable range testing; the owner/preset production pass may narrow or widen it."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -27.916,
+        "crest_db": 26.916,
+        "noise_floor_dbfs": -123.536,
+        "noise_floor_below_peak_db": 122.536,
+        "dc_offset_pct": 0.00016,
+        "clipping": false,
+        "onset_s": 0.002104,
+        "decay_to_minus40_s": 0.017063,
+        "f0_hz": 539.555,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": 53.1,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 16,
+          "id": "shiro-src-16-xylophone-c-5",
+          "candidate_id": "vcsl-C-035",
+          "root": 84,
+          "fine": -15,
+          "tuned": true,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-17-anvil",
+      "candidate_id": "vcsl-D-055",
+      "role": "D",
+      "instrument": "anvil",
+      "display_name": "Anvil",
+      "description": "Anvil, hit (variant 2)",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Idiophones/Struck Idiophones/Anvil/Anvil_Hit2_v1_rr1_Mid.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Anvil/Anvil_Hit2_v1_rr1_Mid.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:56:35Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "c9e469180f6e3996df79e6b83d56e8ceaac00a0c183267928c1a24d0d621c526",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 233,
+          "end_sample_original": 69353,
+          "start_s_before_onset": 0.004989,
+          "onset_sample_original": 453,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -37.856 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 69.6299974,
+          "factor_db": 36.856,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 16,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 16,
+        "channels": 2,
+        "frames": 69353
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-17-anvil.wav",
+        "sha256": "75b2d93c11bfc2d56ec7e8c8419ef719538cc61a40c426d1ddd4308e2a76950e",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 75233
+      },
+      "root": 60,
+      "fine": 0,
+      "tuned": false,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 60; playback correction +0 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Unpitched/inharmonic: MIDI 60 is a playback-speed reference, not a measured fundamental.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": null,
+        "high_midi": null,
+        "low_name": null,
+        "high_name": null,
+        "provisional": true,
+        "note": "Not applicable: unpitched material."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -25.198,
+        "crest_db": 24.198,
+        "noise_floor_dbfs": -300.0,
+        "noise_floor_below_peak_db": 299.0,
+        "dc_offset_pct": 0.00105,
+        "clipping": false,
+        "onset_s": 0.0,
+        "decay_to_minus40_s": 0.061146,
+        "f0_hz": 46.108,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": null,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 17,
+          "id": "shiro-src-17-anvil",
+          "candidate_id": "vcsl-D-055",
+          "root": 60,
+          "fine": 0,
+          "tuned": false,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-18-suspended-cymbal",
+      "candidate_id": "vcsl-D-048",
+      "role": "D",
+      "instrument": "suspended cymbal",
+      "display_name": "Suspended Cymbal",
+      "description": "Suspended cymbal, struck, bell, mf",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Idiophones/Struck Idiophones/Suspended Cymbal 1/susCymb1_hit_bell_mf1.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Suspended%20Cymbal%201/susCymb1_hit_bell_mf1.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:56:23Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "5b30beca3342172715025f168966dee94e9c10b53a441aef29a5654423cfbe9d",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 0,
+          "end_sample_original": 319876,
+          "start_s_before_onset": 0.0,
+          "onset_sample_original": 0,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "fade_in",
+          "reason": "excerpt start is inside sound above -60 dBFS",
+          "length_s": 0.004989,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -16.129 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 5.70777548,
+          "factor_db": 15.129,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 16,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 16,
+        "channels": 2,
+        "frames": 319876
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-18-suspended-cymbal.wav",
+        "sha256": "e0cd9435a44b24685f8c33c80133e11799a915df49067daca292101d561f5908",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 348165
+      },
+      "root": 60,
+      "fine": 0,
+      "tuned": false,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 60; playback correction +0 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Unpitched/inharmonic: MIDI 60 is a playback-speed reference, not a measured fundamental.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": null,
+        "high_midi": null,
+        "low_name": null,
+        "high_name": null,
+        "provisional": true,
+        "note": "Not applicable: unpitched material."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -31.837,
+        "crest_db": 30.837,
+        "noise_floor_dbfs": -66.704,
+        "noise_floor_below_peak_db": 65.704,
+        "dc_offset_pct": 0.00111,
+        "clipping": false,
+        "onset_s": 0.000167,
+        "decay_to_minus40_s": 0.017354,
+        "f0_hz": 34.046,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": null,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 18,
+          "id": "shiro-src-18-suspended-cymbal",
+          "candidate_id": "vcsl-D-048",
+          "root": 60,
+          "fine": 0,
+          "tuned": false,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-19-triangle",
+      "candidate_id": "vcsl-D-051",
+      "role": "D",
+      "instrument": "triangle",
+      "display_name": "Triangle",
+      "description": "Triangle, hit, mf",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Idiophones/Struck Idiophones/Triangles/Legacy/3/triangle3_hit_mf.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Triangles/Legacy/3/triangle3_hit_mf.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:56:28Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "a1a8b1ded5e16c696975a5259b567b42a87c6c69543398f7e9a92a22a99025b5",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 1647,
+          "end_sample_original": 137313,
+          "start_s_before_onset": 0.004989,
+          "onset_sample_original": 1867,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -31.975 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 35.37849765,
+          "factor_db": 30.975,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 24,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 137313
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-19-triangle.wav",
+        "sha256": "a4581dfc5b1e91c0ab7509b193504e02a4f785f82f1eae0a86683728f52c6a62",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 147664
+      },
+      "root": 60,
+      "fine": 0,
+      "tuned": false,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 60; playback correction +0 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Unpitched/inharmonic: MIDI 60 is a playback-speed reference, not a measured fundamental.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": null,
+        "high_midi": null,
+        "low_name": null,
+        "high_name": null,
+        "provisional": true,
+        "note": "Not applicable: unpitched material."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -25.149,
+        "crest_db": 24.149,
+        "noise_floor_dbfs": -58.223,
+        "noise_floor_below_peak_db": 57.223,
+        "dc_offset_pct": 0.06922,
+        "clipping": false,
+        "onset_s": 0.0,
+        "decay_to_minus40_s": 0.012896,
+        "f0_hz": 66.941,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": null,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 19,
+          "id": "shiro-src-19-triangle",
+          "candidate_id": "vcsl-D-051",
+          "root": 60,
+          "fine": 0,
+          "tuned": false,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-20-tubular-bells-c3",
+      "candidate_id": "vcsl-D-044",
+      "role": "D",
+      "instrument": "tubular bells",
+      "display_name": "Tubular Bells (inharmonic)",
+      "description": "Tubular bells, hit, f",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Idiophones/Struck Idiophones/Tubular Bells 1/chimes_C3_f_rr1.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Tubular%20Bells%201/chimes_C3_f_rr1.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:56:17Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "76d51955e61e70e7a6b46a05865cd0f06f4948aaab97b1925f0f06f193f717f5",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 0,
+          "end_sample_original": 500798,
+          "start_s_before_onset": 0.0,
+          "onset_sample_original": 0,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "fade_out",
+          "reason": "cut landed inside sound above -60 dBFS",
+          "length_s": 0.02,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "fade_in",
+          "reason": "excerpt start is inside sound above -60 dBFS",
+          "length_s": 0.004989,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -8.633 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 2.40786257,
+          "factor_db": 7.633,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 24,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 500798
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-20-tubular-bells-c3.wav",
+        "sha256": "703f30a6635aeeacb153eb93600c138907adad86246714b4fcfeb6fdcd0cce58",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 545087
+      },
+      "root": 60,
+      "fine": 0,
+      "tuned": false,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 60; playback correction +0 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Unpitched/inharmonic: MIDI 60 is a playback-speed reference, not a measured fundamental.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": null,
+        "high_midi": null,
+        "low_name": null,
+        "high_name": null,
+        "provisional": true,
+        "note": "Not applicable: unpitched material."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -25.216,
+        "crest_db": 24.216,
+        "noise_floor_dbfs": -55.531,
+        "noise_floor_below_peak_db": 54.531,
+        "dc_offset_pct": 0.18658,
+        "clipping": false,
+        "onset_s": 0.000375,
+        "decay_to_minus40_s": 0.023854,
+        "f0_hz": 117.499,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": -185.8,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 20,
+          "id": "shiro-src-20-tubular-bells-c3",
+          "candidate_id": "vcsl-D-044",
+          "root": 60,
+          "fine": 0,
+          "tuned": false,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-21-guiro",
+      "candidate_id": "vcsl-E-063",
+      "role": "E",
+      "instrument": "guiro",
+      "display_name": "Guiro",
+      "description": "Guiro, slow scrape, mid",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Idiophones/Struck Idiophones/Guiro/Guiro_Slow_rr2_Mid.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Guiro/Guiro_Slow_rr2_Mid.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:56:48Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "4097a3437503d6a98fa7f0c1070bcc6a0516b834eaa8a999a1f745428544680d",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 213,
+          "end_sample_original": 107563,
+          "start_s_before_onset": 0.004989,
+          "onset_sample_original": 433,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -35.741 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 54.58426318,
+          "factor_db": 34.741,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 16,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 16,
+        "channels": 2,
+        "frames": 107563
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-21-guiro.wav",
+        "sha256": "a26af65660648615657a9aa66a9942816369eccf5d71a071c81731ea8909f81e",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 116844
+      },
+      "root": 60,
+      "fine": 0,
+      "tuned": false,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 60; playback correction +0 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Unpitched/inharmonic: MIDI 60 is a playback-speed reference, not a measured fundamental.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": null,
+        "high_midi": null,
+        "low_name": null,
+        "high_name": null,
+        "provisional": true,
+        "note": "Not applicable: unpitched material."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -26.527,
+        "crest_db": 25.527,
+        "noise_floor_dbfs": -300.0,
+        "noise_floor_below_peak_db": 299.0,
+        "dc_offset_pct": 0.00085,
+        "clipping": false,
+        "onset_s": 0.000146,
+        "decay_to_minus40_s": 0.007792,
+        "f0_hz": 20.188,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": null,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 21,
+          "id": "shiro-src-21-guiro",
+          "candidate_id": "vcsl-E-063",
+          "root": 60,
+          "fine": 0,
+          "tuned": false,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-22-ocean-drum-a",
+      "candidate_id": "vcsl-E-057",
+      "role": "E",
+      "instrument": "ocean drum",
+      "display_name": "Ocean Drum A",
+      "description": "Ocean drum, sustained shake/roll, mid",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Membranophones/Other Membranophones/Ocean Drum/OceanDrum_Sus_2_Mid.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Other%20Membranophones/Ocean%20Drum/OceanDrum_Sus_2_Mid.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:56:39Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "6642dbaeef3f4feb94765ecdbd3d0411c623b3a6b3078110201bddd722948d9d",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 8998,
+          "end_sample_original": 538198,
+          "start_s_before_onset": 0.004989,
+          "onset_sample_original": 9218,
+          "truncated_at_12s_cap": true,
+          "reached_natural_end": false
+        },
+        {
+          "step": "fade_out",
+          "reason": "cut landed inside sound above -60 dBFS",
+          "length_s": 0.02,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -41.245 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 102.8649193,
+          "factor_db": 40.245,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 16,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 16,
+        "channels": 2,
+        "frames": 991482
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-22-ocean-drum-a.wav",
+        "sha256": "eeae11eb65c28401a3baeac3a9c9a9b7b52b2058111a45e92f1b6cd2de546359",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 576000
+      },
+      "root": 60,
+      "fine": 0,
+      "tuned": false,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 60; playback correction +0 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Unpitched/inharmonic: MIDI 60 is a playback-speed reference, not a measured fundamental.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": null,
+        "high_midi": null,
+        "low_name": null,
+        "high_name": null,
+        "provisional": true,
+        "note": "Not applicable: unpitched material."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -17.809,
+        "crest_db": 16.809,
+        "noise_floor_dbfs": -23.97,
+        "noise_floor_below_peak_db": 22.97,
+        "dc_offset_pct": 0.0017,
+        "clipping": false,
+        "onset_s": 0.0,
+        "decay_to_minus40_s": 0.025833,
+        "f0_hz": 30.417,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": null,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 22,
+          "id": "shiro-src-22-ocean-drum-a",
+          "candidate_id": "vcsl-E-057",
+          "root": 60,
+          "fine": 0,
+          "tuned": false,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-23-ocean-drum-b",
+      "candidate_id": "vcsl-E-058",
+      "role": "E",
+      "instrument": "ocean drum",
+      "display_name": "Ocean Drum B",
+      "description": "Ocean drum, sustained shake/roll, mid",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Membranophones/Other Membranophones/Ocean Drum/OceanDrum_Sus_3_Mid.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Other%20Membranophones/Ocean%20Drum/OceanDrum_Sus_3_Mid.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:56:40Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "a9a6aba622103ab937dd7f813e56bc40b6734cafa89264daf21e0b3a72db255d",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 13830,
+          "end_sample_original": 543030,
+          "start_s_before_onset": 0.004989,
+          "onset_sample_original": 14050,
+          "truncated_at_12s_cap": true,
+          "reached_natural_end": false
+        },
+        {
+          "step": "fade_out",
+          "reason": "cut landed inside sound above -60 dBFS",
+          "length_s": 0.02,
+          "shape": "raised-cosine (Hann half-window)"
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -39.044 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 79.83193918,
+          "factor_db": 38.044,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 16,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 16,
+        "channels": 2,
+        "frames": 1120237
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-23-ocean-drum-b.wav",
+        "sha256": "72f430aec2ab042131683a58558aa07ee24ab4ba713129950e3b810039f41bde",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 576000
+      },
+      "root": 60,
+      "fine": 0,
+      "tuned": false,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 60; playback correction +0 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Unpitched/inharmonic: MIDI 60 is a playback-speed reference, not a measured fundamental.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": null,
+        "high_midi": null,
+        "low_name": null,
+        "high_name": null,
+        "provisional": true,
+        "note": "Not applicable: unpitched material."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -18.408,
+        "crest_db": 17.408,
+        "noise_floor_dbfs": -22.931,
+        "noise_floor_below_peak_db": 21.931,
+        "dc_offset_pct": 0.00394,
+        "clipping": false,
+        "onset_s": 0.0,
+        "decay_to_minus40_s": 0.007021,
+        "f0_hz": 43.433,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": null,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 23,
+          "id": "shiro-src-23-ocean-drum-b",
+          "candidate_id": "vcsl-E-058",
+          "root": 60,
+          "fine": 0,
+          "tuned": false,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    },
+    {
+      "id": "shiro-src-24-ratchet",
+      "candidate_id": "vcsl-E-061",
+      "role": "E",
+      "instrument": "ratchet",
+      "display_name": "Ratchet",
+      "description": "Ratchet, slow crank, mid",
+      "upstream": {
+        "pool": "vcsl",
+        "pool_name": "Versilian Community Sample Library (VCSL)",
+        "repo_url": "https://github.com/sgossner/VCSL",
+        "repo_path": "Idiophones/Struck Idiophones/Ratchet/Ratchet1_Slow_rr1_Mid.wav",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Ratchet/Ratchet1_Slow_rr1_Mid.wav",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "retrieval_date": "2026-09-08T23:56:44Z"
+      },
+      "creator_or_uploader": "Versilian Studios LLC / Sam Gossner and contributors (VCSL)",
+      "license_id": "CC0-1.0",
+      "original_sha256": "f3236309dbd3a1e3a00a48db7ec5a0c90a59d171512f4ec0a21f197014b16080",
+      "license_evidence": {
+        "archived_copy": "Shiro/Licenses/CC0-1.0.txt",
+        "shipped_license_copy": "Licenses/CC0-1.0.txt",
+        "upstream_url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/LICENSE",
+        "commit_sha": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+        "quote": "\"Creative Commons Legal Code\\n\\nCC0 1.0 Universal\\n\\n    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE...\" (root LICENSE, sgossner/VCSL, verbatim CC0-1.0 legal code) and README.md: \"This collection is under a Creative Commons 0 license. Essentially it's Public Domain- you can do whatever you want with these sounds (even make commercial software), no royalties, no credit, no special terms.\""
+      },
+      "exceptions": [],
+      "recording_origin_evidence": "\"The Versilian Community Sample Library is an open CC0 general-purpose sample library created by Versilian Studios LLC for the purpose of introducing a set of quality, publicly available samples suitable for use in software and media of all kinds... new recordings will be produced ongoing throughout the next few years to continually add and update content in this sample set.\" (sgossner/VCSL README.md, commit c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e).",
+      "modifications": [
+        {
+          "step": "excerpt",
+          "start_sample_original": 150,
+          "end_sample_original": 394743,
+          "start_s_before_onset": 0.004989,
+          "onset_sample_original": 370,
+          "truncated_at_12s_cap": false,
+          "reached_natural_end": true
+        },
+        {
+          "step": "resample",
+          "from_hz": 44100,
+          "to_hz": 48000,
+          "method": "scipy.signal.resample_poly(x, 160, 147, window=('kaiser', 14.0)) per channel"
+        },
+        {
+          "step": "normalize",
+          "reason": "measured peak -20.001 dBFS brought to the pool level -1.0 dBFS so every factory source shares one peak level (preset trims stay within their range)",
+          "factor_linear": 8.91379227,
+          "factor_db": 19.001,
+          "resulting_peak_dbfs": -1.0
+        },
+        {
+          "step": "bit_depth",
+          "from_bits": 16,
+          "to_bits": 24,
+          "method": "round to nearest 24-bit signed PCM integer"
+        }
+      ],
+      "editor": "tools/prepare_sources.py v1.0.0",
+      "original": {
+        "sample_rate": 44100,
+        "bit_depth": 16,
+        "channels": 2,
+        "frames": 394743
+      },
+      "delivered": {
+        "file": "Shiro/Sources/shiro-src-24-ratchet.wav",
+        "sha256": "bb531717ff9631a7f8e0202ca6d3fbfc31acf6e14353beb083c470a693b89beb",
+        "sample_rate": 48000,
+        "bit_depth": 24,
+        "channels": 2,
+        "frames": 429489
+      },
+      "root": 60,
+      "fine": 0,
+      "tuned": false,
+      "pitch_determination": "Reviewed spectral/harmonic MIDI root 60; playback correction +0 cents. See docs/SOURCE_PITCH_REVIEW.md; filename octave and filename-biased YIN estimate are not the tuning authority. Unpitched/inharmonic: MIDI 60 is a playback-speed reference, not a measured fundamental.",
+      "pitch_disagreement_flag": false,
+      "intended_range": {
+        "low_midi": null,
+        "high_midi": null,
+        "low_name": null,
+        "high_name": null,
+        "provisional": true,
+        "note": "Not applicable: unpitched material."
+      },
+      "quality_review": {
+        "method": "measured",
+        "measured_on": "delivered file (post excerpt/resample/bit-depth/gain)",
+        "peak_dbfs": -1.0,
+        "rms_dbfs": -21.962,
+        "crest_db": 20.962,
+        "noise_floor_dbfs": -300.0,
+        "noise_floor_below_peak_db": 299.0,
+        "dc_offset_pct": 6e-05,
+        "clipping": false,
+        "onset_s": 0.000687,
+        "decay_to_minus40_s": 0.003979,
+        "f0_hz": 20.15,
+        "f0_method": "Legacy exploratory YIN estimate only; superseded for tuning by pitch_review.",
+        "cents_dev_vs_filename": null,
+        "original_measurement_reference": "pre-preparation measurement kept in the development record (source_selection.md), not shipped",
+        "listening": "not performed"
+      },
+      "rights_review": {
+        "status": "Documentary review complete: pinned upstream CC0-1.0; selected path checked against archived notices; no conflicting notice identified.",
+        "reviewer": "Astra source review",
+        "date": "2026-09-09"
+      },
+      "pitch_review": {
+        "record": {
+          "slot": 24,
+          "id": "shiro-src-24-ratchet",
+          "candidate_id": "vcsl-E-061",
+          "root": 60,
+          "fine": 0,
+          "tuned": false,
+          "review": "docs/SOURCE_PITCH_REVIEW.md"
+        },
+        "method": "Independent spectral and harmonic inspection; see source pitch review"
+      }
+    }
+  ]
+}

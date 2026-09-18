@@ -1,0 +1,320 @@
+desc:Shiro - granular instrument
+//tags: instrument synthesis granular sampler MIDI
+//author: Michele Ibba (DataBeat)
+// Shiro turns a short recording into an expressive MIDI instrument whose note gestures can unfold into
+// evolving granular soundscapes. One source, eight voices, twelve grain slots per voice, 96 grains.
+// Architecture revision 1.6. The manual is in Documentation/MANUAL.md.
+// Licence: MIT; copyright (c) 2026 Michele Ibba. See LICENSE. Factory samples retain separate CC0 terms.
+options:maxmem=12582912 gfx_idle gfx_hz=30 no_meter
+
+import shiro_tables.jsfx-inc
+import shiro_coefficients.jsfx-inc
+import shiro_rate_adapter.jsfx-inc
+import shiro_engine.jsfx-inc
+import shiro_source.jsfx-inc
+import shiro_state.jsfx-inc
+import shiro_factory.jsfx-inc
+import shiro_ui.jsfx-inc
+
+slider1:p_output=-12<-60,6,0.1>-Output (dB)
+slider2:p_poly=8<1,8,1>-Polyphony
+slider3:p_chan=0<0,16,1{Omni,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}>-MIDI Channel
+slider4:p_bend=2<1,24,1>-Bend Range (st)
+slider5:p_velsens=0.7<0,1,0.01>-Velocity Sensitivity
+slider6:p_root=60<0,127,1>-Source Root (MIDI note)
+slider7:p_fine=0<-100,100,1>-Source Fine (cents)
+slider8:p_transpose=0<-24,24,1>-Transpose (st)
+slider9:p_keytrack=1<0,1,1{Off,On}>-Keyboard Track
+slider10:p_rstart=0<0,1,0.0001>-Region Start
+slider11:p_rlen=1<0,1,0.0001>-Region Length
+slider12:p_pos=0<0,1,0.0001>-Position
+slider13:p_scan=1<-4,4,0.001>-Scan Speed (src s/s)
+slider14:p_scanloop=1<0,2,1{Wrap,Reflect,End Hold}>-Scan Loop
+slider15:p_scansync=0<0,1,1{Free,Sync}>-Scan Sync
+slider16:p_scandiv=6<0,10,1{1/4 beat (1/16 note),1/2 beat (1/8 note),1 beat (1/4 note),2 beats (1/2 note),4 beats (1 bar),8 beats (2 bars),16 beats (4 bars),32 beats (8 bars),64 beats (16 bars),128 beats (32 bars),256 beats (64 bars)}>-Scan Division
+slider17:p_freeze=0<0,1,1{Off,On}>-Freeze
+slider18:p_size=80<8,500,0.1:log>-Size (ms)
+slider19:p_fill=4<0.25,8,0.01:log>-Fill
+slider20:p_birthmode=0<0,1,1{Free,Pulse}>-Birth Mode
+slider21:p_pulsediv=3<0,9,1{1/16 beat (1/64 note),1/8 beat (1/32 note),1/6 beat (1/16 triplet),1/4 beat (1/16 note),1/3 beat (1/8 triplet),1/2 beat (1/8 note),3/4 beat (dotted 1/8),1 beat (1/4 note),2 beats (1/2 note),4 beats (whole note)}>-Pulse Division
+slider22:p_timevar=0.15<0,0.8,0.001>-Timing Variation
+slider23:p_scatter=0.08<0,1,0.001:sqr>-Position Scatter
+slider24:p_reverse=0<0,1,0.001>-Reverse Probability
+slider25:p_pspread=0<0,24,0.01:sqr>-Pitch Spread (st)
+slider26:p_pset=0<0,3,1{Continuous,Chromatic,Octaves,Open Fifths}>-Pitch Set
+slider27:p_shape=0<0,1,0.001>-Shape
+slider28:p_focus=0.8<0,1,0.001>-Attack Focus
+slider29:p_pan=0<-1,1,0.001>-Pan
+slider30:p_panspread=0.25<0,1,0.001>-Pan Spread
+slider31:p_width=1<0,1,0.001>-Source Width
+slider32:p_aatt=5<0,5000,0.1:sqr>-Amp Attack (ms)
+slider33:p_adec=350<5,5000,0.1:log>-Amp Decay (ms)
+slider34:p_asus=0.7<0,1,0.001>-Amp Sustain
+slider35:p_arel=800<5,12000,0.1:log>-Amp Release (ms)
+slider36:p_filton=1<0,1,1{Off,On}>-Filter Enable
+slider37:p_cutoff=10000<30,18000,1:log>-Cutoff (Hz)
+slider38:p_reso=0.15<0,1,0.001>-Resonance
+slider39:p_matt=250<0,10000,0.1:sqr>-Mod Attack (ms)
+slider40:p_mdec=2000<5,20000,0.1:log>-Mod Decay (ms)
+slider41:p_msus=0.4<0,1,0.001>-Mod Sustain
+slider42:p_mrel=1500<5,12000,0.1:log>-Mod Release (ms)
+slider43:p_l1wave=0<0,2,1{Sine,Triangle,Square}>-LFO 1 Wave
+slider44:p_l1rate=0.12<0.01,20,0.001:log>-LFO 1 Rate (Hz)
+slider45:p_l1sync=0<0,1,1{Free,Sync}>-LFO 1 Sync
+slider46:p_l1div=6<0,10,1{1/4 beat,1/2 beat,1 beat,2 beats,4 beats,8 beats,16 beats,32 beats,64 beats,128 beats,256 beats}>-LFO 1 Division
+slider47:p_l1reset=0<0,1,1{Free,Transport}>-LFO 1 Reset
+slider48:p_l2wave=1<0,2,1{Sine,Triangle,Square}>-LFO 2 Wave
+slider49:p_l2rate=0.037<0.01,20,0.001:log>-LFO 2 Rate (Hz)
+slider50:p_l2sync=0<0,1,1{Free,Sync}>-LFO 2 Sync
+slider51:p_l2div=8<0,10,1{1/4 beat,1/2 beat,1 beat,2 beats,4 beats,8 beats,16 beats,32 beats,64 beats,128 beats,256 beats}>-LFO 2 Division
+slider52:p_l2reset=0<0,1,1{Free,Transport}>-LFO 2 Reset
+slider53:p_rrate=0.15<0.02,10,0.001:log>-Random Rate (Hz)
+slider54:p_rglide=0.8<0,1,0.001>-Random Glide
+slider55:p_m1=0<0,1,0.001>-Body
+slider56:p_m2=0<0,1,0.001>-Motion
+slider57:p_m3=0<0,1,0.001>-Colour
+slider58:p_m4=0<0,1,0.001>-Space
+slider59:p_seed=1<1,16777215,1>-Variation Seed
+
+in_pin:none
+out_pin:Left
+out_pin:Right
+
+@init
+// Final reconstruction and protection are host-rate work. All source/grain processing uses core_rate.
+function host_output_block(frames) local(i,c,l,r,y) (
+ // At a 96 kHz host, quiescent blocks still push every
+ // host frame through the per-frame FIR loop just to discard its result; ra_output_silent()
+ // reproduces the adapter's state advance in closed form and skips the two dot products.
+ idle_bypass && ra_ratio==2 ? (
+  ra_output_silent(frames);
+  memset(HOSTOUT,0,2*frames);
+ ) : (
+ i=0;c=0;
+ while(i<frames)(
+  ra_needs_core() ? (l=OUT[2*c];r=OUT[2*c+1];c+=1;);
+  ra_output(l+0,r+0);
+  // Quiescent: OUT is provably zero this block, so the peak/protection telemetry and the
+  // per-frame HOSTOUT store are a no-op; replaced below by one bulk memset after the loop.
+  idle_bypass ? 0 : (
+  y=ra_outl;abs(y)>TELE[T_PREPEAK]?TELE[T_PREPEAK]=abs(y);
+  y > 0.891 ? (y=0.891+0.1085*sat((y-0.891)/0.109);tele_inc(T_PROTECT);) : y < -0.891 ? (y=-0.891-0.1085*sat((-y-0.891)/0.109);tele_inc(T_PROTECT););
+  HOSTOUT[2*i]=y;abs(y)>TELE[T_PEAKL]?TELE[T_PEAKL]=abs(y);
+  y=ra_outr;abs(y)>TELE[T_PREPEAK]?TELE[T_PREPEAK]=abs(y);
+  y > 0.891 ? (y=0.891+0.1085*sat((y-0.891)/0.109);tele_inc(T_PROTECT);) : y < -0.891 ? (y=-0.891-0.1085*sat((-y-0.891)/0.109);tele_inc(T_PROTECT););
+  HOSTOUT[2*i+1]=y;abs(y)>TELE[T_PEAKR]?TELE[T_PEAKR]=abs(y);
+  );
+  i+=1;
+ );
+ idle_bypass ? memset(HOSTOUT,0,2*frames);
+ );
+ ra_finish();
+);
+function host_rate_epoch() local(ch) (
+ core_rate=abs(srate-96000)<1?48000:srate;
+  rate_setup();retrig_clear();engine_reset_voices();guard_reset();
+  dc_x0=0;dc_y0=0;dc_x1=0;dc_y1=0;
+ ra_reset(abs(srate-96000)<1?2:1);
+ ch=0;loop(16,channel_reset_controllers(ch);ch+=1;);
+ smp=0;tick_phase=0;rate_epoch_reset=0;last_srate=srate;
+);
+
+ext_noinit = 1;
+ext_nodenorm = 1;
+pdc_delay = 0;
+init_done ? 0 : (
+  arena_ok = arena_setup();
+  coefficient_tables_build();
+  rate_output_coefficients();ra_setup(RABUF,MAXBLOCK,RACOEF,RACOEF+66);
+  windows_build();
+  dest_setup(); state_param_limits_init();
+  hb_fill(HB);
+  engine_init_state();
+  src_init();
+  routes_clear(); factory_fill(); memset(CMD, 0, 32); memset(ROUTES_UI, 0, NROUTES * 4); memset(PATCHSTG, 0, 128);
+  preset_trim = 0; factory_origin = 0; ui_scale_idx = 0; ui_drawer = 0; ui_details = 0; idle_bypass = 0;
+  strcpy(#preset_desc, ""); strcpy(#src_name0, ""); strcpy(#src_name1, ""); strcpy(#asset_id0, ""); strcpy(#asset_id1, "");
+  strcpy(#asset_hash0, ""); strcpy(#asset_hash1, ""); strcpy(#stg_path0, ""); strcpy(#stg_path1, "");
+  init_done = 1;
+);
+host_rate_epoch();
+// First creation is lifecycle work. No source decoder/file access is dispatched by @block.
+// When the host restores state after @init, its embedded source replaces this default; a
+// missing factory installation cannot prevent the subsequent embedded restore.
+!bootstrapped ? (
+  !state_restored && NFACTORY > 0 && meta_get(active_bank, M_STATUS) != 3 ? factory_load_preset_sync(0);
+  bootstrapped = 1;
+);
+init_marker = 4242;           // a value only a compiled @init produces (test build reads it back)
+// @@TEST_HOOK_INIT
+
+@slider
+slider_dirty = 1;
+
+@block
+diag_t0 = CMD[C_DIAG] ? time_precise() : 0;
+srate != last_srate || rate_epoch_reset ? host_rate_epoch();
+// Never wait for graphics/file preparation: keep playing the committed bank while UI owns staging.
+!atomic_get(ui_resume_claim) && atomic_setifequal(transfer_gate, 0, 2) == 0 ? (
+// UI commands
+CMD[C_RESET] ? ( atomic_set(CMD[C_RESET], 0); reset_sound_apply(); );
+CMD[C_ROUTES_SYNC] ? ( atomic_set(CMD[C_ROUTES_SYNC], 0); routes_adopt_ui(); );
+CMD[C_PANIC] ? ( atomic_set(CMD[C_PANIC], 0); retrig_clear(); global_fade(fade5ms_step); ch = 0; while (ch < 16) ( channel_reset_controllers(ch); ch += 1; ); );
+// mb_apply is stamped with the generation it was armed for. Without that stamp it is a latch that
+// only src_commit() clears, so an arm abandoned before it committed -- a cross-source preset
+// superseded by a source pick, which cancels the prepared bank -- would survive and auto-apply the
+// NEXT ready bank. That next bank is a plain source browse, which by the owner's decision must keep
+// waiting for organic silence.
+CMD[C_APPLY] ? ( atomic_set(CMD[C_APPLY], 0); mb_ready > 0 ? ( mb_apply = 1; mb_apply_gen = mb_ready; ); );
+// Seed prev/next (owner ruling, 18 September 2026): the UI has already written the seed slider, so
+// there is no patch to commit here -- only the held keys to re-articulate on it, which is the same
+// fade / capture / replay the same-source programme change uses below.
+// Absorbed while a programme change is in flight: that change is about to fade and replay these
+// same keys, and it will replay them on the seed already in the slider, so doing it twice would
+// only cost a second interruption.
+// Nothing held means nothing to compare, so the request is dropped rather than fading: a seed step
+// must never cut a release tail for a retrigger that would have nothing to retrigger.
+CMD[C_RESEED] ? (
+  CMD[C_PATCH] || mb_ready > 0 ? atomic_set(CMD[C_RESEED], 0) : (
+    retrig_armed ? 0 : ( retrig_capture() > 0 ? retrig_armed = 1 : atomic_set(CMD[C_RESEED], 0); );
+    retrig_armed ? (
+      global_fade(fade5ms_step);
+      engine_idle() ? ( atomic_set(CMD[C_RESEED], 0); retrig_due = 1; );
+    );
+  );
+);
+// a same-source preset is ready to commit the moment it is staged: arm apply-now automatically
+// so a programme change lands from the next note rather than waiting for organic silence.
+CMD[C_PATCH] && CMD[C_PATCH_SAME] ? (
+  // Snapshot the keys still down, once, at the arm: the fade below is re-issued every block until
+  // the engine idles, so capturing inside that loop would lose each note as its lane retired.
+  retrig_armed ? 0 : ( retrig_capture(); retrig_armed = 1; );
+  global_fade(fade5ms_step);
+  engine_idle() ? ( patch_apply_staged(); retrig_due = 1; );
+) : (
+  // The arm was abandoned without committing -- factory_load_source(), user_load_path() and
+  // reset_sound_apply() all clear CMD[C_PATCH] on their own. Without this arm the stale snapshot
+  // would survive and the NEXT same-source change would skip its own capture and replay these
+  // keys instead of the ones actually under the hands.
+  // !retrig_due as well since the seed step above arms without a CMD[C_PATCH]: this line runs in
+  // the same block as that branch's completion, and the replay it has just scheduled still needs
+  // the snapshot. The programme-change paths never reach here in their completing block -- their
+  // own ternary takes the other arm -- so this only ever mattered once there was a second arming
+  // path. Without it, a seed step's replay finds retrig_n == 0 and the chord never comes back.
+  !CMD[C_PATCH] && !CMD[C_RESEED] && !retrig_due && retrig_armed ? retrig_clear();
+);
+// source replacement: commit a pending bank when idle, or after the apply-now fade; a staged patch rides with it.
+// A staged preset auto-arms apply-now only once the bank is ready here, never earlier: preparation must not
+// silence the instrument, so the old source keeps sounding for the whole background prep.
+mb_ready > 0 ? (
+  // Same snapshot-once rule as the same-source arm above, and the same reason: the fade below is
+  // re-issued every block until the engine idles. Taken here rather than when the preset was
+  // picked because the old source keeps playing for the whole background preparation -- the keys
+  // that matter are the ones still down when the fade starts, not when the button was pressed.
+  CMD[C_PATCH] ? ( retrig_armed ? 0 : ( retrig_capture(); retrig_armed = 1; ); mb_apply = 1; mb_apply_gen = mb_ready; );
+  mb_apply && mb_apply_gen == mb_ready ? global_fade(fade5ms_step);
+  engine_idle() ? (
+    src_commit();
+    src_committed_flag && CMD[C_PATCH] && !CMD[C_PATCH_SAME] && PATCHSTG[PS_VALID] ? ( patch_apply_staged(); retrig_due = 1; );
+    // The pending bank is gone either way once src_commit() has run: it either committed or lost
+    // its generation to a concurrent cancel. If it did not commit, this patch will never land and
+    // mb_ready is now 0, so this branch stops running -- leaving the arm set for good.
+    !src_committed_flag && retrig_armed ? retrig_clear();
+    src_committed_flag && src_root_follow && !CMD[C_PATCH] ? ( slider(6) = meta_get(active_bank, M_ROOT); slider(7) = meta_get(active_bank, M_FINE); sliderchange(slider(6)); sliderchange(slider(7)); );
+  );
+);
+// Finalise restored state; all decoding/bootstrap work belongs to lifecycle sections.
+restore_pending ? ( restore_pending = 0; region_update(); );
+
+  atomic_set(transfer_gate, 0);
+);
+// host sliders, acquired once per block
+pb_output = clampf(p_output, -60, 6); pb_poly = max(1, min(8, p_poly | 0)); pb_chan = max(0, min(16, p_chan | 0)); pb_bend = clampf(p_bend, 1, 24); pb_velsens = clampf(p_velsens, 0, 1);
+pb_root = max(0, min(127, p_root | 0)); pb_fine = clampf(p_fine, -100, 100); pb_transpose = max(-24, min(24, p_transpose | 0)); pb_keytrack = p_keytrack > 0.5;
+pb_rstart = clampf(p_rstart, 0, 1); pb_rlen = clampf(p_rlen, 0, 1); pb_pos = clampf(p_pos, 0, 1); pb_scan = clampf(p_scan, -4, 4); pb_scanloop = max(0, min(2, p_scanloop | 0)); pb_scansync = p_scansync; pb_scandiv = max(0, min(10, p_scandiv | 0)); pb_freeze = p_freeze;
+pb_size = clampf(p_size, 8, 500); pb_fill = clampf(p_fill, 0.25, 8); pb_birthmode = p_birthmode; pb_pulsediv = max(0, min(9, p_pulsediv | 0)); pb_timevar = clampf(p_timevar, 0, 0.8); pb_scatter = clampf(p_scatter, 0, 1); pb_reverse = clampf(p_reverse, 0, 1);
+pb_pspread = clampf(p_pspread, 0, 24); pb_pset = max(0, min(3, p_pset | 0)); pb_shape = clampf(p_shape, 0, 1); pb_focus = clampf(p_focus, 0, 1); pb_pan = clampf(p_pan, -1, 1); pb_panspread = clampf(p_panspread, 0, 1); pb_width = clampf(p_width, 0, 1);
+pb_aatt = clampf(p_aatt, 0, 5000); pb_adec = clampf(p_adec, 5, 5000); pb_asus = clampf(p_asus, 0, 1); pb_arel = clampf(p_arel, 5, 12000); pb_filton = p_filton > 0.5; pb_cutoff = clampf(p_cutoff, 30, 18000); pb_reso = clampf(p_reso, 0, 1);
+pb_matt = clampf(p_matt, 0, 10000); pb_mdec = clampf(p_mdec, 5, 20000); pb_msus = clampf(p_msus, 0, 1); pb_mrel = clampf(p_mrel, 5, 12000);
+pb_l1wave = max(0, min(2, p_l1wave | 0)); pb_l1rate = clampf(p_l1rate, 0.01, 20); pb_l1sync = p_l1sync; pb_l1div = max(0, min(10, p_l1div | 0)); pb_l1reset = p_l1reset;
+pb_l2wave = max(0, min(2, p_l2wave | 0)); pb_l2rate = clampf(p_l2rate, 0.01, 20); pb_l2sync = p_l2sync; pb_l2div = max(0, min(10, p_l2div | 0)); pb_l2reset = p_l2reset;
+pb_rrate = clampf(p_rrate, 0.02, 10); pb_rglide = clampf(p_rglide, 0, 1); pb_m1 = clampf(p_m1, 0, 1); pb_m2 = clampf(p_m2, 0, 1); pb_m3 = clampf(p_m3, 0, 1); pb_m4 = clampf(p_m4, 0, 1); pb_seed = max(1, min(16777215, p_seed | 0));
+// The immutable factory route anchor is independent of the knob's stored value:
+// pads, soundscapes and drones deliberately open at 80% while retaining their preceding calibration anchor.
+pb_colour_anchor = factory_origin >= 1 && factory_origin <= NFACTORY ? FT_PARAMS[(factory_origin - 1) * 64 + 63] : 0;
+out_gain_t = 10 ^ ((pb_output + preset_trim) / 20);
+region_update();
+// polyphony and channel changes
+pb_poly < last_poly ? ( v = pb_poly; while (v < NVOICES) ( voice_begin_fade(v, fade2ms_step); VOICES[v * VSTRIDE + V_PEND] = 0; v += 1; ); );
+last_poly = pb_poly;
+pb_chan != last_chan ? ( retrig_clear(); global_fade(fade5ms_step); last_chan = pb_chan; );
+// tempo and transport
+tempo > 0 ? cur_tempo = tempo : ( cur_tempo = 120; TELE[T_TEMPOFB] = 1; );
+playing = play_state & 1;
+was_playing && !playing ? ( retrig_clear(); global_fade(fade5ms_step); ch = 0; while (ch < 16) ( CHCTL[ch * 8 + 4] = 0; ch += 1; ); );
+transport_reason = clock.transport_event(play_state, beat_position, samplesblock, srate, cur_tempo, ts_denom);
+transport_reason == 1 ? (
+  // Realign the control grid at playback start for repeatable offline/live onset timing.
+  tick_phase = tick_samples; tele_inc(T_STARTS);
+  shared_random_reset(pb_seed);
+);
+transport_reason > 0 ? (
+  // Owner-approved policy: phase zero on start/resume or a discontinuous seek/loop,
+  // independent of rate/sync. Free-policy LFOs keep their audio-time phase.
+  pb_l1reset > 0.5 ? lfo1_ph = 0;
+  pb_l2reset > 0.5 ? lfo2_ph = 0;
+);
+was_playing = playing;
+// Re-articulate the keys that were down when the programme changed. Deferred to here rather than
+// done at the commit itself: voice_start() reads the pb_* cache, which is only refreshed after the
+// command section above, so replaying any earlier would start the notes on the envelopes, position
+// and seed of the preset being replaced. Placed after the panic, channel and transport paths so
+// any deliberate silencing this block has already emptied the snapshot.
+retrig_due ? ( retrig_due = 0; retrig_replay(); );
+// MIDI drain: original wire offsets/order are independent of synthesis clock conversion.
+block_too_big=samplesblock>MAXBLOCK || samplesblock<0;
+block_too_big ? (tele_inc(T_BLOCKTOOBIG);host_rate_epoch();memset(HOSTOUT,0,MAXBLOCK*2););
+host_n=block_too_big?0:samplesblock;
+ra_begin(host_n+0);bad_offsets_before=ra_bad_offset;
+while(midirecv(offs,m1,m2,m3))(
+  midisend(offs, m1, m2, m3);
+  st=m1&240;ch=m1&15;
+  !block_too_big && st>=128 && st<240 && st!=192 && (pb_chan==0 || ch==pb_chan-1) ? ra_enqueue(offs+0,m1+0,m2+0,m3+0);
+);
+TELE[T_MIDIBAD]+=ra_bad_offset-bad_offsets_before;
+overflow=ra_overflow;qn=ra_input_count;
+// retrig_clear() with the rest: an overflow means synthesis events were DROPPED, so a note-off for
+// a key in the snapshot may never arrive, and channel_reset_controllers() only takes the
+// pedal-held entries out. Replaying a gated entry whose note-off was lost is a hung note, and this
+// handler exists precisely to resynchronise after lost events.
+overflow ? (retrig_clear();global_fade(fade5ms_step);ch=0;loop(16,channel_reset_controllers(ch);ch+=1;);tele_inc(T_MIDIOVF););
+supported_rate ? 0 : TELE[T_UNSUPPORTED_RATE]=1;
+n=ra_core_count;
+// Idle quiescent fast path: condition 1 gates entry to the
+// normal render path at all; engine_quiescent() only runs when that already holds.
+idle_bypass = arena_ok && supported_rate && !err_state && !block_too_big && !ra_overflow ? engine_quiescent() : 0;
+arena_ok && supported_rate && !err_state && !block_too_big ? render_block(n+0,0)
+: (ra_fail_events();memset(ra_hist,0,132);memset(OUT,0,2*n);smp+=n;);
+host_output_block(host_n+0);
+ra_fault ? (err_state=1;TELE[T_ERR]=6;memset(HOSTOUT,0,2*host_n););
+TELE[T_STATE] = err_state ? 2 : (meta_get(active_bank, M_STATUS) == 3 ? 1 : 0);
+CMD[C_DIAG] ? ( diag_dt = time_precise() - diag_t0; TELE[T_BLOCKTIME] = diag_dt; diag_dt > TELE[T_BLOCKTIME_MAX] ? TELE[T_BLOCKTIME_MAX] = diag_dt; );
+// @@TEST_HOOK_BLOCK
+si = 0;
+
+@sample
+si < MAXBLOCK ? ( spl0 = HOSTOUT[2 * si]; spl1 = HOSTOUT[2 * si + 1]; ) : ( spl0 = 0; spl1 = 0; );
+si += 1;
+
+@serialize
+// Saving runs concurrently with audio in REAPER. Pin the committed source and patch
+// across the whole transfer. Lifecycle serialization may wait; audio keeps rendering
+// and skips command adoption while ownership is held here. Modal UI resumption also
+// reacquires ownership after releasing it around a native popup. Host restore suspends audio
+// in the qualified native context (see the lifecycle scheduling probe).
+while (atomic_setifequal(transfer_gate, 0, 3) != 0) ( 0; );
+st_serialize();
+atomic_set(transfer_gate, 0);
+
+@gfx 960 680
+ui_frame();

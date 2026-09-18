@@ -1,0 +1,279 @@
+// Shiro source manager: chunked decode, bounded FFT preparation and atomic publication.
+// File/FFT work runs only in @gfx or lifecycle sections; audio only adopts ready banks.
+@init
+SS_IDLE=0;SS_DECODE=1;SS_PYR1=2;SS_PYR2=3;SS_PYR3=4;SS_OVERVIEW=5;SS_PENDING=6;SS_ERROR=7;
+SE_NONE=0;SE_OPEN=1;SE_CHANNELS=2;SE_TOOLONG=3;SE_TOOSHORT=4;SE_NONFINITE=5;SE_NOBANK=6;SE_READ=7;SE_EMPTYFILE=8;SE_BUSY=9;
+PYR_TAG=2;
+PREP_CHUNK=4096; PREP_FFT=8192;
+
+function src_init()
+(
+ active_bank=0;active_gen=0;stg_bank=-1;stg_status=SS_IDLE;stg_err=0;mb_ready=0;mb_apply=0;mb_cancel=0;
+ bank_owner[0]=0;bank_owner[1]=0;meta_set(0,M_STATUS,0);meta_set(1,M_STATUS,0);
+ pc_handle=-1;pc_fft_ready=0;
+);
+
+function src_inspect(path) local(h nch sr avail frames err)
+(
+  err = SE_NONE;
+  h = file_open(path);
+  h < 0 ? err = SE_OPEN : (
+    nch = 0; sr = 0; file_riff(h, nch, sr);
+    avail = file_avail(h);
+    nch < 1 || sr <= 0 ? err = SE_OPEN
+    : nch > 2 ? err = SE_CHANNELS
+    : (
+      frames = floor(avail / nch);
+      frames <= 0 ? err = SE_EMPTYFILE
+      : frames / sr > 12.0000001 ? err = SE_TOOLONG
+      : frames / sr < 0.02 ? err = SE_TOOSHORT;
+    );
+    stg_nch = nch; stg_sr = sr; stg_frames_orig = frames;
+    file_close(h);
+  );
+  err;
+);
+
+
+// Spectra use identical native FFT ordering, with the one inverse normalization
+// folded into the immutable real taps. Each FFT/convolve region stays in one page.
+function prep_fft_init() local(i,p,src,n)
+(
+ !pc_fft_ready ? (
+  PC_WORK=SCRATCH;PC_HUP=SCRATCH+65536;PC_HHALF=SCRATCH+131072;PC_HQUARTER=SCRATCH+147456;
+  PC_DECODE=SCRATCH+196608;
+  p=PC_HUP;src=COEF_UP;n=1537;memset(p,0,16384);i=0;
+  while(i<n)(p[2*i]=2*src[i]/PREP_FFT;i+=1;);fft(p,PREP_FFT);
+  p=PC_HHALF;src=COEF_HALF;n=513;memset(p,0,16384);i=0;
+  while(i<n)(p[2*i]=src[i]/PREP_FFT;i+=1;);fft(p,PREP_FFT);
+  p=PC_HQUARTER;src=COEF_QUARTER;n=1025;memset(p,0,16384);i=0;
+  while(i<n)(p[2*i]=src[i]/PREP_FFT;i+=1;);fft(p,PREP_FFT);
+  pc_fft_ready=1;
+ );
+);
+
+function prep_close_decoder() (pc_handle>=0 ? file_close(pc_handle);pc_handle=-1;);
+function prep_fail(err) (prep_close_decoder();pc_error=err;pc_stage=9;);
+
+function prep_guard_array(p,n,stereo) local(g,a,z)
+(
+ g=1;while(g<=GUARD)(
+  a=min(g,n-1);z=max(0,n-1-g);
+  stereo ? (p[-2*g]=p[2*a];p[-2*g+1]=p[2*a+1];p[2*(n-1+g)]=p[2*z];p[2*(n-1+g)+1]=p[2*z+1];)
+  : (p[-g]=p[a];p[n-1+g]=p[z];);
+  g+=1;
+ );
+);
+function src_guards(b,l) local(n)
+(
+ n=level_frames(meta_get(b,M_FRAMES),l);
+ prep_guard_array(lvl_ptr(b,l),n,0);prep_guard_array(lvl_right_ptr(b,l),n,0);
+);
+function prep_overview_chunk(b,frames,c0,cnt) local(p,ov,c,endc,f0,f1,f,mn,mx,v)
+(
+ p=canonical_ptr(b);ov=ovw_ptr(b);c=c0;endc=min(8192,c0+cnt);
+ while(c<endc)(
+  f0=floor(c*frames/8192);f1=min(frames,max(f0+1,floor((c+1)*frames/8192)));f0=min(f0,frames-1);
+  mn=1;mx=-1;f=f0;while(f<f1)(v=.5*(p[2*f]+p[2*f+1]);mn=min(mn,v);mx=max(mx,v);f+=1;);
+  ov[2*c]=mn;ov[2*c+1]=mx;c+=1;
+ );
+ c;
+);
+function src_overview(b) (prep_overview_chunk(b,meta_get(b,M_FRAMES),0,8192););
+
+function prep_filter_select(l)
+(
+ pc_level=l;pc_q=0;pc_filter_phase=0;
+ pc_m=l==0?1537:l==1?513:1025;pc_delay=(pc_m-1)/2;pc_hop=PREP_FFT-pc_m+1;
+ pc_kernel=l==0?PC_HUP:l==1?PC_HHALF:PC_HQUARTER;
+ pc_input_frames=l==0?2*pc_frames:l==1?pc_frames:level_frames(pc_frames,l-1);
+ pc_left=lvl_ptr(pc_bank,l);pc_right=lvl_right_ptr(pc_bank,l);
+ pc_stage=5;
+);
+
+// One resumable phase. Interpreted copy/validation work is at most 4096 scalar
+// items; transforms and file reads are bounded native calls, never audio work.
+function prep_pipeline_unit() local(nch,sr,avail,want,got,p,i,endp,v,idx,src,sl,srptr,n,j,dst)
+(
+ pc_stage==0 ? (
+  pc_handle=file_open(pc_bank?#stg_path1:#stg_path0);
+  pc_handle<0 ? prep_fail(SE_OPEN) : (
+   nch=pc_original_rate!=48000?'rqsr':0;sr=pc_original_rate!=48000?48000:0;file_riff(pc_handle,nch,sr);
+   avail=file_avail(pc_handle);
+   (nch!=1 && nch!=2) ? prep_fail(SE_CHANNELS)
+   : sr!=48000 || avail<0 ? prep_fail(SE_READ)
+   : (
+    pc_nch=nch;pc_frames=min(NFR_MAX,floor(avail/nch));pc_decoded=0;pc_peak=0;pc_gain=1;
+    pc_frames<960 ? prep_fail(SE_TOOSHORT) : pc_stage=1;
+   );
+  );
+ ) : pc_stage==1 ? (
+  want=min(pc_frames-pc_decoded,pc_nch==1?16384:8192);
+  pc_nch==1 ? (
+   got=file_mem(pc_handle,PC_DECODE,want);got!=want ? prep_fail(SE_READ)
+   : (pc_spread_count=want;pc_spread=0;pc_stage=2;);
+  ) : (
+   got=file_mem(pc_handle,canonical_ptr(pc_bank)+2*pc_decoded,2*want);got!=2*want ? prep_fail(SE_READ)
+   : (pc_decoded+=want;pc_decoded>=pc_frames ? (prep_close_decoder();pc_pos=0;pc_stage=3;););
+  );
+ ) : pc_stage==2 ? (
+  p=canonical_ptr(pc_bank);i=pc_spread;endp=min(pc_spread_count,i+2048);
+  while(i<endp)(v=PC_DECODE[i];p[2*(pc_decoded+i)]=v;p[2*(pc_decoded+i)+1]=v;i+=1;);
+  pc_spread=i;
+  pc_spread>=pc_spread_count ? (
+   pc_decoded+=pc_spread_count;pc_stage=1;
+   pc_decoded>=pc_frames ? (prep_close_decoder();pc_pos=0;pc_stage=3;);
+  );
+ ) : pc_stage==3 ? (
+  p=canonical_ptr(pc_bank);i=pc_pos;endp=min(2*pc_frames,i+4096);
+  while(i<endp)(v=p[i];!(v>=-1000000 && v<=1000000)?pc_error=SE_NONFINITE;pc_peak=max(pc_peak,abs(v));i+=1;);
+  pc_pos=i;
+  pc_error ? prep_fail(pc_error) : pc_pos>=2*pc_frames ? (
+   pc_pos=0;pc_gain=pc_peak>1?1/pc_peak:1;
+   pc_gain<1 ? pc_stage=4 : prep_filter_select(0);
+  );
+ ) : pc_stage==4 ? (
+  p=canonical_ptr(pc_bank);i=pc_pos;endp=min(2*pc_frames,i+4096);
+  while(i<endp)(p[i]*=pc_gain;i+=1;);pc_pos=i;
+  pc_pos>=2*pc_frames ? prep_filter_select(0);
+ ) : pc_stage==5 ? (
+  pc_filter_phase==0 ? (memset(PC_WORK,0,16384);pc_fill=0;pc_filter_phase=1;)
+  : pc_filter_phase==1 ? (
+   i=pc_fill;endp=min(PREP_FFT,i+2048);
+   src=canonical_ptr(pc_bank);
+   pc_level>=2 ? (sl=lvl_ptr(pc_bank,pc_level-1);srptr=lvl_right_ptr(pc_bank,pc_level-1););
+   while(i<endp)(
+    idx=pc_q-pc_delay+i;
+    idx>=0 && idx<pc_input_frames ? (
+     pc_level==0 ? (idx%2==0 ? (j=idx/2;PC_WORK[2*i]=src[2*j];PC_WORK[2*i+1]=src[2*j+1];);)
+     : pc_level==1 ? (PC_WORK[2*i]=src[2*idx];PC_WORK[2*i+1]=src[2*idx+1];)
+     : (PC_WORK[2*i]=sl[idx];PC_WORK[2*i+1]=srptr[idx];);
+    );i+=1;
+   );
+   pc_fill=i;pc_fill>=PREP_FFT ? pc_filter_phase=2;
+  ) : pc_filter_phase==2 ? (fft(PC_WORK,PREP_FFT);pc_filter_phase=3;)
+  : pc_filter_phase==3 ? (convolve_c(PC_WORK,pc_kernel,PREP_FFT);pc_filter_phase=4;)
+  : pc_filter_phase==4 ? (ifft(PC_WORK,PREP_FFT);pc_store=0;pc_filter_phase=5;)
+  : (
+   n=min(pc_hop,pc_input_frames-pc_q);i=pc_store;endp=min(n,i+(pc_level>=2?4096:2048));
+   while(i<endp)(
+    j=pc_m-1+i;dst=pc_level>=2?(pc_q+i)/2:pc_q+i;
+    pc_left[dst]=PC_WORK[2*j];pc_right[dst]=PC_WORK[2*j+1];i+=pc_level>=2?2:1;
+   );
+   pc_store=i;
+   pc_store>=n ? (
+    pc_q+=pc_hop;pc_filter_phase=0;
+    pc_q>=pc_input_frames ? (
+     pc_level<3 ? prep_filter_select(pc_level+1) : (pc_stage=6;pc_guard_level=0;);
+    );
+   );
+  );
+ ) : pc_stage==6 ? (
+  (
+   n=level_frames(pc_frames,pc_guard_level);
+   prep_guard_array(lvl_ptr(pc_bank,pc_guard_level),n,0);prep_guard_array(lvl_right_ptr(pc_bank,pc_guard_level),n,0);
+  );
+  pc_guard_level+=1;pc_guard_level>=4 ? (pc_stage=7;pc_overview=0;);
+ ) : pc_stage==7 ? (
+  // At max length, 32 columns inspect at most 2250 canonical frames (<4096).
+  pc_overview=prep_overview_chunk(pc_bank,pc_frames,pc_overview,32);
+  pc_overview>=8192 ? pc_stage=8;
+ );
+ pc_stage;
+);
+
+function src_pick_bank() (bank_owner[0]==0?0:bank_owner[1]==0?1:-1;);
+function prep_cancel() local(won)
+(
+ prep_close_decoder();
+ stg_status!=SS_IDLE && stg_status!=SS_ERROR && stg_bank>=0 ? (
+  stg_status==SS_PENDING ? (
+   won=atomic_setifequal(mb_ready,stg_gen,0)==stg_gen;
+   won ? (meta_set(stg_bank,M_STATUS,0);bank_owner[stg_bank]=0;);
+  ) : (meta_set(stg_bank,M_STATUS,0);bank_owner[stg_bank]=0;);
+ );
+ stg_status=SS_IDLE;stg_err=0;pc_stage=9;
+);
+function prep_begin(path) local(b,err)
+(
+ prep_cancel();stg_t0=time_precise();err=src_inspect(path);
+ err ? (stg_status=SS_ERROR;stg_err=err;)
+ : (
+  b=src_pick_bank();b<0 ? (stg_status=SS_ERROR;stg_err=SE_NOBANK;)
+  : (
+   prep_fft_init();stg_bank=b;bank_owner[b]=1;meta_set(b,M_STATUS,1);
+   strcpy(b?#stg_path1:#stg_path0,path);strcpy(b?#src_name1:#src_name0,#stg_name);
+   pc_bank=b;pc_original_rate=stg_sr;pc_frames=0;pc_error=0;pc_stage=0;pc_handle=-1;
+   stg_status=SS_PYR1;stg_k=0;
+  );
+ );
+ stg_status;
+);
+function prep_publish() local(m,a,b)
+(
+ b=stg_bank;m=meta_ptr(b);stg_frames=pc_frames;stg_mono=pc_nch==1;stg_peak=pc_peak;stg_gain=pc_gain;
+ m[M_FRAMES]=stg_frames;m[M_CH]=pc_nch;m[M_MONO]=stg_mono;m[M_GAIN]=stg_gain;m[M_PEAK]=stg_peak;
+ m[M_ORIGRATE]=stg_sr;m[M_ORIGBITS]=0;m[M_PYRTAG]=PYR_TAG;m[M_DURSEC]=stg_frames/48000;
+ m[M_ROOT]=stg_root;m[M_FINE]=stg_fine;m[M_FACTORY]=stg_factory;m[M_PROVENANCE]=stg_factory>0;
+ a=stg_factory-1;
+ a>=0 && a<NASSETS ? (strcpy(b?#asset_id1:#asset_id0,FS_ASSET_ID+a);strcpy(b?#asset_hash1:#asset_hash0,FS_ASSET_HASH+a);)
+ : (strcpy(b?#asset_id1:#asset_id0,"");strcpy(b?#asset_hash1:#asset_hash0,""););
+ stg_gen+=1;m[M_GEN]=stg_gen;m[M_STATUS]=2;stg_prep_seconds=time_precise()-stg_t0;
+ stg_status=SS_PENDING;atomic_set(mb_ready,stg_gen);
+);
+function prep_step() local(deadline)
+(
+ deadline=time_precise()+.012;
+ while(stg_status>=SS_PYR1 && stg_status<=SS_OVERVIEW && time_precise()<deadline)(
+  prep_pipeline_unit();
+  pc_error ? (stg_err=pc_error;stg_status=SS_ERROR;meta_set(stg_bank,M_STATUS,0);bank_owner[stg_bank]=0;)
+  : pc_stage==8 ? prep_publish()
+  : (stg_status=pc_stage>=6?SS_OVERVIEW:pc_stage==5?(pc_level==0?SS_PYR1:pc_level==1?SS_PYR2:SS_PYR3):SS_PYR1;);
+ );
+ stg_status;
+);
+
+function src_commit() local(b old g taken)
+(
+  g = mb_ready;
+  taken = g > 0 && atomic_setifequal(mb_ready, g, 0) == g;
+  // The generation identifies the bank even if a newer UI request changes stg_bank after the CAS.
+  b = meta_get(0, M_STATUS) == 2 && meta_get(0, M_GEN) == g ? 0 : meta_get(1, M_STATUS) == 2 && meta_get(1, M_GEN) == g ? 1 : -1;
+  taken && b >= 0 && meta_get(b, M_STATUS) == 2 && meta_get(b, M_GEN) == g ? (
+    old = active_bank;
+    old != b && meta_get(old, M_STATUS) == 3 ? ( meta_set(old, M_STATUS, 0); bank_owner[old] = 0; );
+    meta_set(b, M_STATUS, 3); bank_owner[b] = 2;
+    active_bank = b; active_gen = g;
+    engine_reset_voices();
+    region_update();
+    src_committed_flag = 1;
+  );
+  mb_apply = 0;
+  TELE[T_ACTIVE_BANK] = active_bank; TELE[T_GEN] = active_gen;
+);
+
+
+// Lifecycle migration rebuilds derived arrays only; caller validates canonical PCM
+// and metadata and owns serialization. No publication or source metadata changes.
+function prep_from_canonical_sync(b,frames) local(oldsync,guard,ok)
+(
+ oldsync=stg_sync;stg_sync=1;prep_fft_init();pc_bank=b;pc_frames=frames;pc_error=0;
+ prep_filter_select(0);guard=0;
+ while(pc_stage<8 && guard<100000)(prep_pipeline_unit();guard+=1;);
+ ok=pc_stage==8 && !pc_error;!ok ? stg_err=pc_error?pc_error:SE_READ;
+ stg_sync=oldsync;ok;
+);
+function src_load_sync(path) local(st,guard,err)
+(
+ stg_status>=SS_PYR1 && stg_status<=SS_OVERVIEW && !stg_sync ? err=SE_BUSY
+ : (
+  stg_sync=1;st=prep_begin(path);guard=0;
+  while(st>=SS_PYR1 && st<=SS_OVERVIEW && guard<100000)(st=prep_step();guard+=1;);
+  // Mirrors the sole normal consumer (shiro_ui.jsfx-inc, ui_frame_impl()): this synchronous
+  // path short-circuits that consumer, so it must also retire the one-shot commit flag itself,
+  // or it is left stale and spuriously cancels the next async load's SS_PENDING visibility.
+  st==SS_PENDING ? (src_commit();stg_status=SS_IDLE;src_committed_flag=0;);
+  err=stg_err;stg_sync=0;
+ );
+ err;
+);
